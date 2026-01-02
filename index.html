@@ -38,6 +38,7 @@
                         'pulse-glow': 'pulseGlow 2s infinite',
                         'slide-in-right': 'slideInRight 0.3s ease-out forwards',
                         'slide-out-right': 'slideOutRight 0.3s ease-in forwards',
+                        'expand-width': 'expandWidth 1s ease-out forwards',
                     },
                     keyframes: {
                         'gradient-x': {
@@ -69,6 +70,10 @@
                         slideOutRight: {
                             '0%': { transform: 'translateX(0)', opacity: '1' },
                             '100%': { transform: 'translateX(100%)', opacity: '0' },
+                        },
+                        expandWidth: {
+                            '0%': { width: '0%' },
+                            '100%': { width: 'var(--target-width)' }
                         }
                     }
                 }
@@ -138,6 +143,16 @@
             border-radius: 50%;
             z-index: 9999;
             pointer-events: none;
+        }
+
+        /* Hide cursor on touch devices to prevent stuck hover states */
+        @media (hover: none) and (pointer: coarse) {
+            .cursor-dot, .cursor-outline {
+                display: none;
+            }
+            body {
+                cursor: auto;
+            }
         }
 
         .cursor-dot {
@@ -349,6 +364,33 @@
             opacity: 1;
             pointer-events: auto;
         }
+
+        /* Timeline Styles */
+        .timeline-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-50%);
+        }
+        .timeline-dot {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 16px;
+            height: 16px;
+            background: #4f46e5;
+            border-radius: 50%;
+            transform: translateX(-50%);
+            border: 3px solid rgba(15, 23, 42, 1);
+            z-index: 10;
+        }
+        @media (max-width: 768px) {
+            .timeline-line { left: 20px; }
+            .timeline-dot { left: 20px; }
+        }
     </style>
 </head>
 <body class="selection:bg-indigo-500 selection:text-white overflow-x-hidden">
@@ -408,7 +450,7 @@
 
     <!-- Add Project Modal -->
     <div id="addProjectModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
-        <div class="bg-[#1e1b4b] border border-white/10 rounded-2xl p-8 max-w-5xl w-full m-4 shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col lg:flex-row gap-8 overflow-y-auto max-h-[90vh]">
+        <div class="bg-[#1e1b4b] border border-white/10 rounded-2xl p-4 md:p-8 max-w-5xl w-full m-4 shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col lg:flex-row gap-8 overflow-y-auto max-h-[90vh]">
             
             <!-- Left Side: Form -->
             <div class="flex-1 space-y-4">
@@ -529,27 +571,13 @@
                 <span class="w-1 h-1 rounded-full bg-indigo-400"></span>
                 <span id="connection-status">Connecting...</span>
             </div>
-            <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400">
+            <h1 class="text-4xl md:text-5xl lg:text-7xl font-bold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400">
                 Arnav Dugad
             </h1>
-            <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed h-8">
+            <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed h-8 mb-6">
                 <span id="typing-text" class="typing-cursor"></span>
             </p>
         </header>
-
-        <!-- Tech Stack Display -->
-        <div class="max-w-4xl mx-auto w-full mb-8 animate-fade-in-up stagger-1">
-            <div class="flex justify-center flex-wrap gap-8 text-3xl text-slate-500/60 hover:text-slate-300 transition-colors duration-500">
-                <i class="fab fa-html5 hover:text-orange-500 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="HTML5"></i>
-                <i class="fab fa-css3-alt hover:text-blue-500 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="CSS3"></i>
-                <i class="fab fa-js hover:text-yellow-400 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="JavaScript"></i>
-                <i class="fab fa-react hover:text-cyan-400 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="React"></i>
-                <i class="fab fa-node hover:text-green-500 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="Node.js"></i>
-                <i class="fab fa-python hover:text-blue-400 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="Python"></i>
-                <i class="fas fa-database hover:text-yellow-500 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="Database"></i>
-                <i class="fab fa-git-alt hover:text-orange-600 hover:scale-110 transition-all duration-300 cursor-pointer" onmouseenter="playHoverSound()" title="Git"></i>
-            </div>
-        </div>
 
         <!-- Controls Section: Search & Filters -->
         <div class="max-w-4xl mx-auto w-full mb-12 space-y-6 animate-fade-in-up stagger-2">
@@ -593,7 +621,7 @@
         </div>
 
         <!-- Grid -->
-        <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto w-full transition-all">
+        <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto w-full transition-all mb-20">
             <!-- Projects are rendered via JavaScript -->
         </div>
 
@@ -626,7 +654,7 @@
                 </button>
                 <div class="w-1 h-1 rounded-full bg-slate-700"></div>
                 <button id="muteBtn" onclick="toggleMute()" class="hover:text-white transition-colors" title="Mute Sounds">
-                    <i class="fas fa-volume-up"></i>
+                    <i class="fas fa-volume-mute text-red-400"></i>
                 </button>
             </div>
 
@@ -843,7 +871,7 @@
     <script>
         // --- AUDIO UI EFFECTS ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let isMuted = false;
+        let isMuted = true; // Muted by default
 
         window.toggleMute = () => {
             isMuted = !isMuted;
@@ -854,7 +882,7 @@
 
         window.playHoverSound = () => {
             if (isMuted || audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                if (!isMuted) audioCtx.resume();
                 return;
             }
             const osc = audioCtx.createOscillator();
