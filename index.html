@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arnav's Portfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Expose Firebase to global scope for the main script
+        window.firebaseModules = { initializeApp, getAnalytics, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc, updateDoc, increment };
+    </script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        glass: "rgba(255, 255, 255, 0.05)",
+                        glassHover: "rgba(255, 255, 255, 0.1)",
+                        glassBorder: "rgba(255, 255, 255, 0.1)",
+                    },
+                    animation: {
+                        'gradient-x': 'gradient-x 15s ease infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                        'slide-in-right': 'slideInRight 0.3s ease-out forwards',
+                        'slide-out-right': 'slideOutRight 0.3s ease-in forwards',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
+                        'float': {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: 0.6, transform: 'scale(1)' },
+                            '50%': { opacity: 1, transform: 'scale(1.2)' },
+                        },
+                        slideInRight: {
+                            '0%': { transform: 'translateX(100%)', opacity: '0' },
+                            '100%': { transform: 'translateX(0)', opacity: '1' },
+                        },
+                        slideOutRight: {
+                            '0%': { transform: 'translateX(0)', opacity: '1' },
+                            '100%': { transform: 'translateX(100%)', opacity: '0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a);
+            background-size: 400% 400%;
+            animation: gradient-x 15s ease infinite;
+            color: white;
+            min-height: 100vh;
+            cursor: none; /* Hide default cursor */
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+        
+        /* Starfield Canvas */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -5; /* Behind content, in front of gradient */
+            pointer-events: none;
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99999;
+        }
+
+        /* Custom Cursor */
+        .cursor-dot,
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .cursor-dot {
+            width: 8px;
+            height: 8px;
+            background-color: white;
+        }
+
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: width 0.2s, height 0.2s, background-color 0.2s;
+        }
+
+        /* 3D Tilt Effect applied via JS */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.1s ease-out; /* Faster transition for tilt */
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        
+        .glass-card-content {
+            transform: translateZ(20px); /* Parallax effect */
+        }
+
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.2);
+        }
+
+        /* List View Styles */
+        .list-view .project-card {
+            flex-direction: row;
+            height: auto;
+            min-height: 140px;
+        }
+        .list-view .project-card .glass-card-content {
+            flex-direction: row;
+            align-items: center;
+            width: 100%;
+            gap: 20px;
+        }
+        .list-view .project-card .icon-wrapper {
+            margin-bottom: 0;
+            width: 60px;
+            height: 60px;
+            flex-shrink: 0;
+        }
+        .list-view .project-card .text-content {
+            flex: 1;
+            margin-bottom: 0;
+            margin-top: 0;
+        }
+        .list-view .project-card .tags-container {
+            margin-top: 0;
+            width: auto;
+            max-width: 30%;
+            justify-content: flex-end;
+        }
+        @media (max-width: 768px) {
+            .list-view .project-card {
+                flex-direction: column;
+            }
+            .list-view .project-card .glass-card-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .list-view .project-card .tags-container {
+                max-width: 100%;
+                justify-content: flex-start;
+            }
+        }
+
+        /* Coming Soon Card Style */
+        .glass-card.coming-soon {
+            border-style: dashed;
+            opacity: 0.7;
+        }
+        .glass-card.coming-soon:hover {
+            opacity: 1;
+            border-style: solid;
+        }
+
+        .icon-glow {
+            filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.3));
+            transition: all 0.3s ease;
+        }
+        
+        .glass-card:hover .icon-glow {
+            filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.6));
+            transform: scale(1.1) rotate(5deg);
+            color: #818cf8;
+        }
+
+        /* Filter Button Active State */
+        .filter-btn.active {
+            background-color: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.5);
+            color: white;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Tag Chip Styles */
+        .tag-chip {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tag-chip:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        /* Icon Option Styles */
+        .icon-option {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .icon-option:hover {
+            color: white;
+            transform: scale(1.2);
+        }
+
+        /* Scroll To Top Button */
+        #scrollTopBtn {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+        #scrollTopBtn.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Toast Notifications */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Animation Delays */
+        .stagger-1 { animation-delay: 100ms; }
+        .stagger-2 { animation-delay: 200ms; }
+        .stagger-3 { animation-delay: 300ms; }
+        .stagger-4 { animation-delay: 400ms; }
+        .stagger-5 { animation-delay: 500ms; }
+        .stagger-6 { animation-delay: 600ms; }
+        .stagger-7 { animation-delay: 700ms; }
+        .stagger-8 { animation-delay: 800ms; }
+        .stagger-9 { animation-delay: 900ms; }
+
+        /* Typing cursor */
+        .typing-cursor::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+        
+        .form-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .form-input:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+        
+        /* FIX: Dropdown Option Visibility */
+        select.form-input option {
+            background-color: #1e1b4b;
+            color: white;
+        }
+        
+        /* Delete Button */
+        .delete-btn {
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+        .admin-mode .delete-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body class="selection:bg-indigo-500 selection:text-white overflow-x-hidden">
+
+    <!-- Custom Cursor Elements -->
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <!-- Canvas for Stars -->
+    <canvas id="starfield"></canvas>
+    <!-- Confetti Canvas -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Scroll To Top Button -->
+    <button id="scrollTopBtn" onclick="window.scrollTo(0,0)" class="fixed bottom-8 right-8 z-40 p-3 rounded-full bg-indigo-600/80 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 backdrop-blur-sm transition-all hover:scale-110">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Ambient Background Elements -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-float"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-float" style="animation-delay: -2s;"></div>
+        <div class="absolute top-[40%] left-[50%] w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-10 animate-float" style="animation-delay: -4s;"></div>
+    </div>
+
+    <!-- Add Project Modal -->
+    <div id="addProjectModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
+        <div class="bg-[#1e1b4b] border border-white/10 rounded-2xl p-8 max-w-5xl w-full m-4 shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col lg:flex-row gap-8 overflow-y-auto max-h-[90vh]">
+            
+            <!-- Left Side: Form -->
+            <div class="flex-1 space-y-4">
+                <h2 class="text-2xl font-bold mb-2 text-white">Add New Project</h2>
+                <form id="addProjectForm" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Project Title</label>
+                            <input type="text" id="pTitle" required class="form-input" placeholder="e.g. Space Shooter">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Description</label>
+                            <textarea id="pDesc" required class="form-input h-20 resize-none" placeholder="Short description..."></textarea>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Project Link (URL)</label>
+                            <div class="flex gap-2">
+                                <input type="url" id="pLink" required class="form-input" placeholder="https://..." onblur="formatLink(this)">
+                                <button type="button" onclick="testLink()" class="px-3 py-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-sm" title="Test Link"><i class="fas fa-external-link-alt"></i></button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Category</label>
+                            <select id="pCategory" class="form-input cursor-pointer">
+                                <option value="game">Game</option>
+                                <option value="tool">Tool</option>
+                                <option value="app">App</option>
+                                <option value="ai">AI</option>
+                                <option value="mobile">Mobile</option>
+                                <option value="web">Website</option>
+                                <option value="data">Data/System</option>
+                                <option value="blockchain">Blockchain</option>
+                                <option value="iot">IoT</option>
+                                <option value="design">Design</option>
+                                <option value="api">API</option>
+                                <option value="library">Library</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Color Theme</label>
+                            <select id="pColor" class="form-input cursor-pointer">
+                                <option value="indigo">Indigo</option>
+                                <option value="blue">Blue</option>
+                                <option value="red">Red</option>
+                                <option value="emerald">Green</option>
+                                <option value="purple">Purple</option>
+                                <option value="orange">Orange</option>
+                                <option value="sky">Sky</option>
+                                <option value="yellow">Yellow</option>
+                                <option value="pink">Pink</option>
+                                <option value="teal">Teal</option>
+                                <option value="slate">Gray</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Icon Class (FontAwesome)</label>
+                            <input type="text" id="pIcon" required class="form-input" placeholder="fa-rocket">
+                            <!-- Quick Icons -->
+                            <div class="flex flex-wrap gap-4 mt-2 text-slate-500 text-lg">
+                                <i class="fas fa-rocket icon-option" onclick="setIcon('fa-rocket')" title="Rocket"></i>
+                                <i class="fas fa-gamepad icon-option" onclick="setIcon('fa-gamepad')" title="Gamepad"></i>
+                                <i class="fas fa-mobile-alt icon-option" onclick="setIcon('fa-mobile-alt')" title="Mobile"></i>
+                                <i class="fas fa-robot icon-option" onclick="setIcon('fa-robot')" title="Robot/AI"></i>
+                                <i class="fas fa-code icon-option" onclick="setIcon('fa-code')" title="Code"></i>
+                                <i class="fas fa-globe icon-option" onclick="setIcon('fa-globe')" title="Web"></i>
+                                <i class="fas fa-chart-bar icon-option" onclick="setIcon('fa-chart-bar')" title="Chart"></i>
+                                <i class="fas fa-database icon-option" onclick="setIcon('fa-database')" title="Database"></i>
+                                <i class="fas fa-brain icon-option" onclick="setIcon('fa-brain')" title="Brain"></i>
+                                <i class="fas fa-palette icon-option" onclick="setIcon('fa-palette')" title="Palette"></i>
+                                <i class="fas fa-link icon-option" onclick="setIcon('fa-link')" title="Link"></i>
+                                <i class="fas fa-cubes icon-option" onclick="setIcon('fa-cubes')" title="Cubes"></i>
+                            </div>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Tech Tags</label>
+                            <input type="text" id="pTags" class="form-input" placeholder="JS, React, 3D">
+                            <!-- Quick Tags -->
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('React')">React</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Firebase')">Firebase</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Python')">Python</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('AI')">AI</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Tailwind')">Tailwind</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Node.js')">Node.js</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('TypeScript')">TypeScript</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Three.js')">Three.js</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('HTML')">HTML</span>
+                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('CSS')">CSS</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" onclick="toggleModal(false)" class="px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
+                        <button type="submit" id="submitProjectBtn" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/30 transition-all transform hover:scale-105">Add Project</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Right Side: Preview -->
+            <div class="flex-1 flex flex-col items-center justify-center bg-black/20 rounded-xl p-6 border border-white/5 min-h-[300px]">
+                <h3 class="text-slate-400 text-xs font-mono mb-6 uppercase tracking-widest">Live Preview</h3>
+                <div id="previewCardContainer" class="w-full max-w-[300px] pointer-events-none transform scale-100 transition-all">
+                    <!-- Preview Card Injected Here -->
+                </div>
+                <p class="text-slate-500 text-xs mt-6 italic text-center">This is how your project card will appear on the site.</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-16 min-h-screen flex flex-col justify-center relative z-10">
+        
+        <!-- Header -->
+        <header class="text-center mb-12 animate-fade-in-up">
+            <div class="inline-flex items-center gap-2 p-1 px-3 rounded-full bg-indigo-500/10 border border-indigo-500/20 mb-4 text-indigo-300 text-sm font-medium tracking-wide">
+                <span>PORTFOLIO</span>
+                <span class="w-1 h-1 rounded-full bg-indigo-400"></span>
+                <span id="connection-status">Connecting...</span>
+            </div>
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400">
+                Arnav Dugad
+            </h1>
+            <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed h-8">
+                <span id="typing-text" class="typing-cursor"></span>
+            </p>
+        </header>
+
+        <!-- Tech Stack Display -->
+        <div class="max-w-4xl mx-auto w-full mb-8 animate-fade-in-up stagger-1">
+            <div class="flex justify-center flex-wrap gap-8 text-3xl text-slate-500/60 hover:text-slate-300 transition-colors duration-500">
+                <i class="fab fa-html5 hover:text-orange-500 hover:scale-110 transition-all duration-300 cursor-pointer" title="HTML5"></i>
+                <i class="fab fa-css3-alt hover:text-blue-500 hover:scale-110 transition-all duration-300 cursor-pointer" title="CSS3"></i>
+                <i class="fab fa-js hover:text-yellow-400 hover:scale-110 transition-all duration-300 cursor-pointer" title="JavaScript"></i>
+                <i class="fab fa-react hover:text-cyan-400 hover:scale-110 transition-all duration-300 cursor-pointer" title="React"></i>
+                <i class="fab fa-node hover:text-green-500 hover:scale-110 transition-all duration-300 cursor-pointer" title="Node.js"></i>
+                <i class="fab fa-python hover:text-blue-400 hover:scale-110 transition-all duration-300 cursor-pointer" title="Python"></i>
+                <i class="fas fa-database hover:text-yellow-500 hover:scale-110 transition-all duration-300 cursor-pointer" title="Database"></i>
+                <i class="fab fa-git-alt hover:text-orange-600 hover:scale-110 transition-all duration-300 cursor-pointer" title="Git"></i>
+            </div>
+        </div>
+
+        <!-- Controls Section: Search & Filters -->
+        <div class="max-w-4xl mx-auto w-full mb-12 space-y-6 animate-fade-in-up stagger-2">
+            
+            <!-- Admin Controls (Hidden by default) -->
+            <div id="adminControls" class="hidden flex justify-center mb-4 animate-fade-in-up">
+                <button onclick="toggleModal(true)" class="flex items-center gap-2 px-6 py-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 rounded-xl text-emerald-300 font-semibold transition-all">
+                    <i class="fas fa-plus"></i> Add New Project
+                </button>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="relative max-w-md mx-auto flex gap-2">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-search text-slate-400"></i>
+                </div>
+                <input type="text" id="searchInput" placeholder="Search projects..." 
+                    class="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-400 transition-all backdrop-blur-sm hover:bg-white/10">
+                <button onclick="pickRandomProject()" title="Feeling Lucky" class="px-4 py-2 bg-white/10 hover:bg-indigo-500 rounded-xl text-white transition-colors border border-white/10">
+                    <i class="fas fa-dice"></i>
+                </button>
+            </div>
+
+            <!-- Category Filters & View Toggle -->
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex flex-wrap justify-center gap-2" id="filterContainer">
+                    <button class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" data-filter="all">All</button>
+                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" data-filter="game">Games</button>
+                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" data-filter="app">Apps</button>
+                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" data-filter="ai">AI</button>
+                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" data-filter="tool">Tools</button>
+                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" data-filter="data">Data</button>
+                </div>
+                
+                <!-- View Toggle -->
+                <div class="flex bg-white/5 p-1 rounded-lg border border-white/10">
+                    <button onclick="setView('grid')" id="btn-grid" class="px-3 py-1 rounded-md text-white bg-white/10 shadow-sm transition-all"><i class="fas fa-th-large"></i></button>
+                    <button onclick="setView('list')" id="btn-list" class="px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all"><i class="fas fa-list"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto w-full transition-all">
+            <!-- Projects are rendered via JavaScript -->
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center mt-20 text-slate-500 text-sm animate-fade-in-up" style="animation-delay: 900ms;">
+            <p class="flex items-center justify-center gap-2 mb-2">
+                &copy; <script>document.write(new Date().getFullYear())</script> Arnav Dugad. All rights reserved.
+                <button id="adminToggleBtn" class="opacity-50 hover:opacity-100 hover:text-indigo-400 transition-opacity" title="Admin Login">
+                    <i class="fas fa-lock text-xs"></i>
+                </button>
+            </p>
+            
+            <div class="flex items-center justify-center gap-4 text-xs text-slate-600 font-mono mb-4">
+                <div id="live-clock">00:00:00</div>
+                <div class="w-1 h-1 rounded-full bg-slate-700"></div>
+                <div id="weather-widget" class="cursor-pointer hover:text-slate-400 transition-colors" title="Click to refresh weather">
+                    <i class="fas fa-cloud"></i> <span>Weather...</span>
+                </div>
+                <div class="w-1 h-1 rounded-full bg-slate-700"></div>
+                <div id="visitor-count-container" title="Total Visitors">
+                    <i class="fas fa-eye"></i> <span id="visitor-count">...</span>
+                </div>
+            </div>
+
+            <div class="mt-4 flex justify-center space-x-6">
+                <a href="https://github.com/Arnav-Dugad" target="_blank" class="group relative">
+                    <div class="absolute -inset-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full opacity-0 group-hover:opacity-75 blur transition duration-200"></div>
+                    <i class="fab fa-github text-xl relative text-slate-400 group-hover:text-white transition-colors"></i>
+                </a>
+                <a href="https://www.linkedin.com/in/arnav-dugad/" target="_blank" class="group relative">
+                    <div class="absolute -inset-2 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-full opacity-0 group-hover:opacity-75 blur transition duration-200"></div>
+                    <i class="fab fa-linkedin text-xl relative text-slate-400 group-hover:text-white transition-colors"></i>
+                </a>
+                <a href="mailto:arnavdugad@gmail.com" class="group relative">
+                    <div class="absolute -inset-2 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full opacity-0 group-hover:opacity-75 blur transition duration-200"></div>
+                    <i class="fas fa-envelope text-xl relative text-slate-400 group-hover:text-white transition-colors"></i>
+                </a>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Interactive Scripts -->
+    <script type="module">
+        // --- FIREBASE INIT ---
+        const { initializeApp, getAnalytics, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc, updateDoc, increment } = window.firebaseModules;
+
+        // Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBVg4_5WjOjlA-xfoGAhjqNk75EyMG6sS8",
+            authDomain: "landing-page-cc574.firebaseapp.com",
+            projectId: "landing-page-cc574",
+            storageBucket: "landing-page-cc574.firebasestorage.app",
+            messagingSenderId: "144382319030",
+            appId: "1:144382319030:web:9dad615eadf2047b338917",
+            measurementId: "G-ZP45FJKS7Q"
+        }; 
+        const app = initializeApp(firebaseConfig);
+        try {
+            const analytics = getAnalytics(app);
+        } catch (e) {
+            console.log("Analytics not enabled or configured");
+        }
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = 'arnav-portfolio-v1';
+
+        let user = null;
+        let dynamicProjects = [];
+        const statusSpan = document.getElementById('connection-status');
+
+        // Auth Flow with Fallback
+        const initAuth = async () => {
+             statusSpan.innerText = "Authenticating...";
+             try {
+                 await signInAnonymously(auth);
+             } catch (err) {
+                 console.error("Auth failed:", err);
+                 if (err.code === 'auth/configuration-not-found') {
+                     statusSpan.innerText = "⚠️ Setup Needed";
+                     statusSpan.classList.add("text-yellow-400", "cursor-pointer");
+                     statusSpan.onclick = () => showToast("Error: Auth Config Not Found. Enable Anonymous Auth in Firebase Console.", "error");
+                 } else if (err.code === 'auth/admin-restricted-operation' || err.code === 'auth/operation-not-allowed') {
+                     statusSpan.innerText = "⚠️ Enable Anonymous";
+                     statusSpan.classList.add("text-yellow-400", "cursor-pointer");
+                     statusSpan.onclick = () => showToast("Error: Anonymous Auth Disabled. Enable it in Firebase Console.", "error");
+                 } else {
+                     statusSpan.innerText = "Auth Error";
+                     statusSpan.classList.add("text-red-400");
+                 }
+             }
+        };
+        initAuth();
+
+        onAuthStateChanged(auth, (u) => {
+            user = u;
+            if (user) {
+                console.log("Authenticated as", user.uid);
+                subscribeToProjects();
+                updateVisitorCount();
+                statusSpan.innerText = "🟢 Connected";
+                statusSpan.classList.remove("text-yellow-400", "text-red-400");
+                statusSpan.classList.add("text-green-400");
+                statusSpan.onclick = null;
+                statusSpan.style.cursor = "default";
+            }
+        });
+
+        // --- FIREBASE VISITOR COUNTER ---
+        async function updateVisitorCount() {
+            if (!user) return;
+            const statsRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'general');
+            const visitorSpan = document.getElementById('visitor-count');
+            
+            const hasVisited = localStorage.getItem('hasVisitedPortfolio');
+            
+            try {
+                if (!hasVisited) {
+                    try {
+                         await updateDoc(statsRef, { visitCount: increment(1) });
+                    } catch (e) {
+                        await setDoc(statsRef, { visitCount: 1 });
+                    }
+                    localStorage.setItem('hasVisitedPortfolio', 'true');
+                }
+                
+                onSnapshot(statsRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        visitorSpan.innerText = docSnap.data().visitCount || 0;
+                    } else {
+                        visitorSpan.innerText = 1;
+                    }
+                });
+            } catch (e) {
+                console.error("Visitor count error", e);
+                visitorSpan.innerText = "-";
+            }
+        }
+
+        // Firestore Subscription
+        function subscribeToProjects() {
+            if (!user) return;
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), orderBy("createdAt", "desc"));
+            
+            onSnapshot(q, (snapshot) => {
+                dynamicProjects = [];
+                snapshot.forEach((doc) => {
+                    dynamicProjects.push({ id: doc.id, ...doc.data() });
+                });
+                window.renderAllProjects();
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                statusSpan.innerText = "Data Error";
+                statusSpan.classList.add("text-red-400");
+            });
+        }
+
+        // Global functions for Button clicks (Add/Delete)
+        window.saveProjectToDb = async (projectData) => {
+            const btn = document.getElementById('submitProjectBtn');
+            const originalText = btn.innerText;
+            
+            if (!user) {
+                showToast("Database not connected yet.", "error");
+                return;
+            }
+
+            try {
+                btn.innerText = "Saving...";
+                btn.disabled = true;
+                btn.classList.add("opacity-50", "cursor-not-allowed");
+
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
+                    ...projectData,
+                    createdAt: Date.now()
+                });
+                
+                toggleModal(false);
+                document.getElementById('addProjectForm').reset();
+                fireConfetti();
+                showToast("Project added successfully!", "success");
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showToast(`Failed to save: ${e.message}`, "error");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                btn.classList.remove("opacity-50", "cursor-not-allowed");
+            }
+        };
+
+        window.deleteProjectFromDb = async (projectId) => {
+            if (!user) return;
+            if (!confirm("Are you sure you want to delete this project?")) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId));
+                showToast("Project deleted.", "success");
+            } catch (e) {
+                console.error("Error deleting document: ", e);
+                showToast("Failed to delete project.", "error");
+            }
+        };
+
+        // Export dynamic projects list for the main render function
+        window.getDynamicProjects = () => dynamicProjects;
+    </script>
+
+    <script>
+        // --- UTILS: VIEW TOGGLE ---
+        let currentView = 'grid';
+        
+        window.setView = (view) => {
+            currentView = view;
+            const grid = document.getElementById('projectsGrid');
+            const btnGrid = document.getElementById('btn-grid');
+            const btnList = document.getElementById('btn-list');
+            
+            if (view === 'list') {
+                grid.classList.remove('grid-cols-1', 'md:grid-cols-2', 'lg:grid-cols-3', 'xl:grid-cols-4');
+                grid.classList.add('grid-cols-1', 'list-view');
+                btnList.classList.add('bg-white/10', 'text-white');
+                btnList.classList.remove('text-slate-400');
+                btnGrid.classList.remove('bg-white/10', 'text-white');
+                btnGrid.classList.add('text-slate-400');
+            } else {
+                grid.classList.add('grid-cols-1', 'md:grid-cols-2', 'lg:grid-cols-3', 'xl:grid-cols-4');
+                grid.classList.remove('list-view');
+                btnGrid.classList.add('bg-white/10', 'text-white');
+                btnGrid.classList.remove('text-slate-400');
+                btnList.classList.remove('bg-white/10', 'text-white');
+                btnList.classList.add('text-slate-400');
+            }
+            renderAllProjects(); // Re-render to apply structure
+        };
+
+        // --- UTILS: LIVE PREVIEW LOGIC ---
+        function updatePreview() {
+            const title = document.getElementById('pTitle').value || "Project Title";
+            const desc = document.getElementById('pDesc').value || "Project description will appear here...";
+            const category = document.getElementById('pCategory').value || "Category";
+            const color = document.getElementById('pColor').value || "indigo";
+            const icon = document.getElementById('pIcon').value || "fa-cube";
+            const tagsVal = document.getElementById('pTags').value;
+            const tags = tagsVal ? tagsVal.split(',').filter(t => t.trim()) : ["Tag 1", "Tag 2"];
+            
+            // Helper for gradients
+            const colorMap = {
+                orange: "from-orange-500 to-red-600",
+                blue: "from-blue-500 to-cyan-500",
+                emerald: "from-emerald-500 to-green-600",
+                purple: "from-purple-500 to-pink-500",
+                indigo: "from-indigo-500 to-violet-600",
+                sky: "from-sky-400 to-blue-600",
+                yellow: "from-yellow-500 to-amber-600",
+                red: "from-red-500 to-rose-700",
+                pink: "from-pink-500 to-rose-500",
+                teal: "from-teal-400 to-emerald-600",
+                slate: "from-slate-500 to-gray-700"
+            };
+            const gradient = colorMap[color] || colorMap['indigo'];
+
+            const tagsHtml = tags.map(tag => 
+                `<span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 mr-1">${tag}</span>`
+            ).join('');
+
+            const cardHTML = `
+                <div class="glass-card group rounded-2xl p-6 flex flex-col h-64 relative overflow-hidden">
+                    <div class="glass-card-content h-full flex flex-col">
+                        <div class="mt-2 mb-auto">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-lg">
+                                <i class="fas ${icon} text-xl text-white"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2 text-white">${title}</h3>
+                            <p class="text-sm text-slate-400 line-clamp-2">${desc}</p>
+                        </div>
+                        <div class="mt-4 flex flex-wrap gap-y-1">
+                             ${tagsHtml}
+                        </div>
+                        <div class="mt-2 flex items-center text-xs text-slate-500 font-mono">
+                            <span class="w-2 h-2 rounded-full bg-${color}-500 mr-2"></span> ${category.toUpperCase()}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('previewCardContainer').innerHTML = cardHTML;
+        }
+
+        // Attach listeners to inputs for live preview
+        ['pTitle', 'pDesc', 'pCategory', 'pColor', 'pIcon', 'pTags'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
+            document.getElementById(id).addEventListener('change', updatePreview);
+        });
+
+        // Helpers for Quick Actions in Modal
+        window.setIcon = (iconClass) => {
+            document.getElementById('pIcon').value = iconClass;
+            updatePreview();
+        };
+
+        window.addTag = (tag) => {
+            const tagInput = document.getElementById('pTags');
+            const current = tagInput.value;
+            if (current) {
+                tagInput.value = current + ", " + tag;
+            } else {
+                tagInput.value = tag;
+            }
+            updatePreview();
+        };
+        
+        window.formatLink = (input) => {
+            if (input.value && !input.value.startsWith('http')) {
+                input.value = 'https://' + input.value;
+            }
+        };
+        
+        window.testLink = () => {
+            const link = document.getElementById('pLink').value;
+            if (link) {
+                window.open(link, '_blank');
+            } else {
+                showToast("Please enter a link first.", "error");
+            }
+        };
+
+
+        // --- UTILS: TOAST NOTIFICATIONS ---
+        window.showToast = (message, type = "info") => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-slate-800";
+            let borderClass = "border-slate-600";
+            let icon = "fa-info-circle";
+
+            if (type === "success") {
+                bgClass = "bg-emerald-900/90";
+                borderClass = "border-emerald-500/50";
+                icon = "fa-check-circle";
+            } else if (type === "error") {
+                bgClass = "bg-red-900/90";
+                borderClass = "border-red-500/50";
+                icon = "fa-exclamation-circle";
+            }
+
+            toast.className = `p-4 rounded-xl border ${borderClass} ${bgClass} text-white shadow-lg backdrop-blur-md flex items-center gap-3 min-w-[300px] animate-slide-in-right`;
+            toast.innerHTML = `
+                <i class="fas ${icon} text-lg"></i>
+                <span class="text-sm font-medium">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.replace('animate-slide-in-right', 'animate-slide-out-right');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        // --- UTILS: CONFETTI ---
+        function fireConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const particles = [];
+            const particleCount = 150;
+            const colors = ['#f43f5e', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'];
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    w: Math.random() * 10 + 5,
+                    h: Math.random() * 10 + 5,
+                    dx: Math.random() * 10 - 5,
+                    dy: Math.random() * 10 - 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    angle: Math.random() * 360,
+                    spin: Math.random() * 10 - 5,
+                    life: 100
+                });
+            }
+
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let active = false;
+                
+                particles.forEach(p => {
+                    if (p.life > 0) {
+                        active = true;
+                        p.x += p.dx;
+                        p.y += p.dy;
+                        p.dy += 0.1; // gravity
+                        p.life -= 1;
+                        p.angle += p.spin;
+
+                        ctx.save();
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate(p.angle * Math.PI / 180);
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = p.life / 100;
+                        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+                        ctx.restore();
+                    }
+                });
+
+                if (active) requestAnimationFrame(animateConfetti);
+                else ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            animateConfetti();
+        }
+
+
+        // --- UTILS: LIVE CLOCK ---
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- UTILS: WEATHER WIDGET ---
+        const weatherEl = document.getElementById('weather-widget');
+        
+        async function fetchWeather() {
+            weatherEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading...`;
+            
+            if (!navigator.geolocation) {
+                weatherEl.innerHTML = `<i class="fas fa-ban"></i> No Geo`;
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const { latitude, longitude } = pos.coords;
+                try {
+                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+                    const data = await res.json();
+                    const temp = data.current_weather.temperature;
+                    const code = data.current_weather.weathercode;
+                    let icon = "fa-cloud";
+                    if (code <= 1) icon = "fa-sun";
+                    else if (code <= 3) icon = "fa-cloud-sun";
+                    else if (code <= 67) icon = "fa-cloud-rain";
+                    else if (code <= 77) icon = "fa-snowflake";
+                    else icon = "fa-bolt";
+
+                    weatherEl.innerHTML = `<i class="fas ${icon}"></i> ${temp}°C`;
+                } catch (e) {
+                    weatherEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error`;
+                }
+            }, (err) => {
+                weatherEl.innerHTML = `<i class="fas fa-map-marker-alt"></i> Set Loc`;
+            });
+        }
+        weatherEl.addEventListener('click', fetchWeather);
+        fetchWeather();
+
+
+        // --- UTILS: SCROLL TO TOP ---
+        const scrollBtn = document.getElementById('scrollTopBtn');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                scrollBtn.classList.add('visible');
+            } else {
+                scrollBtn.classList.remove('visible');
+            }
+        });
+        
+        // --- UTILS: RANDOM PROJECT ---
+        window.pickRandomProject = () => {
+            const projects = document.querySelectorAll('.project-card:not(.coming-soon)');
+            if (projects.length === 0) return;
+            
+            // Remove previous highlights
+            projects.forEach(p => {
+                p.classList.remove('ring-4', 'ring-emerald-400', 'scale-105');
+                p.style.zIndex = '1';
+            });
+            
+            const randomIdx = Math.floor(Math.random() * projects.length);
+            const target = projects[randomIdx];
+            
+            // Scroll to it
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight animation
+            setTimeout(() => {
+                target.classList.add('ring-4', 'ring-emerald-400', 'scale-105');
+                target.style.transition = 'all 0.5s ease';
+                target.style.zIndex = '10';
+                
+                // Fire confetti because why not
+                fireConfetti();
+                
+                // Remove highlight after a few seconds
+                setTimeout(() => {
+                    target.classList.remove('ring-4', 'ring-emerald-400', 'scale-105');
+                    target.style.zIndex = '1';
+                }, 3000);
+            }, 500);
+        };
+
+        // --- CORE DATA (Hardcoded) ---
+        const staticProjects = [
+            {
+                id: 'static-1',
+                title: "History Heatmap",
+                desc: "Visualizing historical data points across time and geography using interactive heatmaps.",
+                icon: "fa-fire-alt",
+                color: "orange",
+                category: "data",
+                link: "https://arnav-dugad.github.io/History-Heatmap/",
+                tags: ["D3.js", "Data"]
+            },
+            {
+                id: 'static-2',
+                title: "ArnavOS",
+                desc: "A web-based operating system simulation showcasing UI/UX design skills.",
+                icon: "fa-desktop",
+                color: "blue",
+                category: "data",
+                link: "https://arnav-dugad.github.io/ArnavOS/",
+                tags: ["System", "UI/UX"]
+            },
+            {
+                id: 'static-3',
+                title: "Password Manager",
+                desc: "Securely generate and store credentials locally with this utility tool.",
+                icon: "fa-lock",
+                color: "emerald",
+                category: "tool",
+                link: "https://arnav-dugad.github.io/Password-Manager/",
+                tags: ["Security", "Local"]
+            },
+            {
+                id: 'static-4',
+                title: "Movie Picker",
+                desc: "Can't decide what to watch? Let this tool help you discover your next favorite film.",
+                icon: "fa-film",
+                color: "purple",
+                category: "tool",
+                link: "https://arnav-dugad.github.io/Moviepicker/",
+                tags: ["API", "Fun"]
+            },
+            {
+                id: 'static-5',
+                title: "Gaming History",
+                desc: "A retrospective archive of gaming milestones and personal favorites.",
+                icon: "fa-gamepad",
+                color: "indigo",
+                category: "data",
+                link: "https://arnav-dugad.github.io/gaming-history-site/",
+                tags: ["Archive", "Blog"]
+            },
+            {
+                id: 'static-6',
+                title: "Flight Log",
+                desc: "Tracking journeys across the globe. A digital logbook for aviation enthusiasts.",
+                icon: "fa-plane-departure",
+                color: "sky",
+                category: "data",
+                link: "https://arnav-dugad.github.io/Flight-log/",
+                tags: ["Maps", "Tracking"]
+            },
+            {
+                id: 'static-7',
+                title: "Driving Game",
+                desc: "Test your reflexes in this browser-based driving simulation.",
+                icon: "fa-car",
+                color: "yellow",
+                category: "game",
+                link: "https://arnav-dugad.github.io/Driving-game/",
+                tags: ["Canvas", "Arcade"]
+            },
+            {
+                id: 'static-8',
+                title: "FPS Game",
+                desc: "A first-person shooter experience built directly for the web.",
+                icon: "fa-crosshairs",
+                color: "red",
+                category: "game",
+                link: "https://arnav-dugad.github.io/fps-game/",
+                tags: ["3D", "Action"]
+            }
+        ];
+
+        // --- RENDER LOGIC ---
+        const projectsGrid = document.getElementById('projectsGrid');
+        const colorMap = {
+            orange: "from-orange-500 to-red-600",
+            blue: "from-blue-500 to-cyan-500",
+            emerald: "from-emerald-500 to-green-600",
+            purple: "from-purple-500 to-pink-500",
+            indigo: "from-indigo-500 to-violet-600",
+            sky: "from-sky-400 to-blue-600",
+            yellow: "from-yellow-500 to-amber-600",
+            red: "from-red-500 to-rose-700",
+            pink: "from-pink-500 to-rose-500",
+            teal: "from-teal-400 to-emerald-600",
+            slate: "from-slate-500 to-gray-700",
+            gray: "from-slate-500 to-gray-700"
+        };
+        colorMap['green'] = colorMap.emerald;
+
+        let isAdmin = false;
+
+        window.renderAllProjects = () => {
+            const dynamic = window.getDynamicProjects ? window.getDynamicProjects() : [];
+            const allProjects = [...staticProjects, ...dynamic];
+            
+            projectsGrid.innerHTML = '';
+
+            allProjects.forEach((project, index) => {
+                const delayClass = `stagger-${(index % 8) + 1}`;
+                const gradient = colorMap[project.color] || colorMap.gray;
+                const isDynamic = !project.id.startsWith('static');
+                
+                const tagsList = project.tags || [];
+                const tagsHtml = tagsList.map(tag => 
+                    `<span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 mr-1">${tag}</span>`
+                ).join('');
+
+                const deleteBtnHtml = (isAdmin && isDynamic) 
+                    ? `<button onclick="event.preventDefault(); window.deleteProjectFromDb('${project.id}')" class="delete-btn absolute top-3 left-3 w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white flex items-center justify-center transition-all z-20"><i class="fas fa-trash-alt text-xs"></i></button>` 
+                    : '';
+
+                const cardHTML = `
+                <a href="${project.link}" target="_blank" data-category="${project.category}" class="project-card glass-card group rounded-2xl p-6 flex flex-col h-64 relative overflow-hidden opacity-0 animate-fade-in-up ${delayClass}">
+                    ${deleteBtnHtml}
+                    <div class="glass-card-content h-full flex flex-col">
+                        <div class="mt-2 mb-auto icon-wrapper flex justify-center items-center">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas ${project.icon} text-xl text-white icon-glow"></i>
+                            </div>
+                        </div>
+                        <div class="text-content">
+                            <h3 class="text-xl font-bold mb-2 group-hover:text-indigo-300 transition-colors">${project.title}</h3>
+                            <p class="text-sm text-slate-400 line-clamp-2">${project.desc}</p>
+                        </div>
+                        
+                        <div class="mt-4 flex flex-wrap gap-y-1 tags-container">
+                             ${tagsHtml}
+                        </div>
+                        
+                        <div class="mt-2 flex items-center text-xs text-slate-500 font-mono">
+                            <span class="w-2 h-2 rounded-full bg-${project.color}-500 mr-2 animate-pulse"></span> ${project.category.charAt(0).toUpperCase() + project.category.slice(1)}
+                        </div>
+                    </div>
+                </a>
+                `;
+                projectsGrid.innerHTML += cardHTML;
+            });
+            
+             const comingSoonHTML = `
+            <div class="project-card glass-card coming-soon group rounded-2xl p-6 flex flex-col h-64 relative overflow-hidden opacity-0 animate-fade-in-up stagger-9 cursor-not-allowed">
+                <div class="glass-card-content h-full flex flex-col items-center justify-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-white/5 border border-dashed border-white/20 flex items-center justify-center mb-4">
+                        <i class="fas fa-plus text-xl text-slate-500"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2 text-slate-500">More Coming Soon</h3>
+                    <p class="text-sm text-slate-600">Working on new ideas...</p>
+                </div>
+            </div>
+            `;
+            projectsGrid.innerHTML += comingSoonHTML;
+
+            const activeBtn = document.querySelector('.filter-btn.active');
+            if(activeBtn) {
+                 const filterValue = activeBtn.getAttribute('data-filter');
+                 const searchValue = document.getElementById('searchInput').value;
+                 filterProjects(filterValue, searchValue);
+            }
+
+            initTilt();
+        }
+
+        // --- ADMIN UI LOGIC ---
+        const adminBtn = document.getElementById('adminToggleBtn');
+        const adminControls = document.getElementById('adminControls');
+        const projectsContainer = document.getElementById('projectsGrid');
+        
+        adminBtn.addEventListener('click', () => {
+            if (isAdmin) {
+                // Logout
+                isAdmin = false;
+                adminControls.classList.add('hidden');
+                projectsContainer.classList.remove('admin-mode');
+                adminBtn.innerHTML = '<i class="fas fa-lock text-xs"></i>';
+                renderAllProjects();
+                showToast("Admin mode disabled", "info");
+            } else {
+                // Simple PIN check for demo
+                const pin = prompt("Enter Admin PIN:");
+                if (pin === "8574") {
+                    isAdmin = true;
+                    adminControls.classList.remove('hidden');
+                    projectsContainer.classList.add('admin-mode');
+                    adminBtn.innerHTML = '<i class="fas fa-unlock text-xs text-emerald-400"></i>';
+                    renderAllProjects();
+                    showToast("Admin mode unlocked!", "success");
+                    // Initialize preview immediately if needed
+                    updatePreview();
+                } else if (pin !== null) {
+                    showToast("Incorrect PIN", "error");
+                }
+            }
+        });
+
+        // Modal Logic
+        const modal = document.getElementById('addProjectModal');
+        const modalContent = modal.querySelector('div');
+        
+        window.toggleModal = (show) => {
+            if (show) {
+                modal.classList.remove('hidden');
+                // Small delay for transition
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    modalContent.classList.remove('scale-95');
+                }, 10);
+                // Initialize preview on show
+                updatePreview();
+            } else {
+                modal.classList.add('opacity-0');
+                modalContent.classList.add('scale-95');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        };
+
+        // Form Submit
+        document.getElementById('addProjectForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const tagsInput = document.getElementById('pTags').value;
+            const tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
+
+            const newProject = {
+                title: document.getElementById('pTitle').value,
+                desc: document.getElementById('pDesc').value,
+                link: document.getElementById('pLink').value,
+                category: document.getElementById('pCategory').value,
+                color: document.getElementById('pColor').value,
+                icon: document.getElementById('pIcon').value,
+                tags: tags
+            };
+            
+            if (typeof window.saveProjectToDb === 'function') {
+                window.saveProjectToDb(newProject);
+            } else {
+                showToast("System not ready. Please refresh.", "error");
+            }
+        });
+
+
+        // --- EXISTING UTILITIES (Stars, Tilt, etc) ---
+        // (Copied from previous logic but streamlined)
+        
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        let width, height, stars = [];
+        let mouseX = 0, mouseY = 0;
+
+        function initStars() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            stars = [];
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: Math.random() * 2,
+                    speed: Math.random() * 0.5 + 0.1
+                });
+            }
+        }
+
+        function animateStars() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+            
+            // Mouse connection logic
+            const connectDistance = 150;
+
+            stars.forEach(star => {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Move stars
+                star.y -= star.speed;
+                if (star.y < 0) star.y = height;
+
+                // Connection to mouse
+                const dx = mouseX - star.x;
+                const dy = mouseY - star.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < connectDistance) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${1 - distance / connectDistance})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.moveTo(star.x, star.y);
+                    ctx.lineTo(mouseX, mouseY);
+                    ctx.stroke();
+                }
+            });
+            requestAnimationFrame(animateStars);
+        }
+        window.addEventListener('resize', initStars);
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        
+        initStars();
+        animateStars();
+
+        // Cursor
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        window.addEventListener('mousemove', (e) => {
+            cursorDot.style.left = `${e.clientX}px`;
+            cursorDot.style.top = `${e.clientY}px`;
+            cursorOutline.animate({ left: `${e.clientX}px`, top: `${e.clientY}px` }, { duration: 500, fill: "forwards" });
+        });
+
+         // Typing
+        const textElement = document.getElementById('typing-text');
+        const textToType = "A collection of interactive web experiences, games, and tools.";
+        let charIndex = 0;
+        function typeText() {
+            if (charIndex < textToType.length) {
+                textElement.textContent += textToType.charAt(charIndex);
+                charIndex++;
+                setTimeout(typeText, 50); 
+            } else {
+                setTimeout(() => textElement.classList.remove('typing-cursor'), 2000);
+            }
+        }
+        setTimeout(typeText, 1000);
+
+        // Filter Logic
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const searchInput = document.getElementById('searchInput');
+
+        window.filterProjects = (category, searchText = '') => {
+            const domProjects = document.querySelectorAll('.project-card:not(.coming-soon)');
+            domProjects.forEach(project => {
+                const projectCategory = project.getAttribute('data-category');
+                const title = project.querySelector('h3').innerText.toLowerCase();
+                const matchesCategory = category === 'all' || projectCategory === category;
+                const matchesSearch = title.includes(searchText.toLowerCase());
+                project.style.display = (matchesCategory && matchesSearch) ? 'flex' : 'none';
+            });
+        };
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                filterProjects(btn.getAttribute('data-filter'), searchInput.value);
+            });
+        });
+        searchInput.addEventListener('input', (e) => {
+            const activeFilter = document.querySelector('.filter-btn.active')?.getAttribute('data-filter') || 'all';
+            filterProjects(activeFilter, e.target.value);
+        });
+
+        // Tilt
+        function initTilt() {
+            const cards = document.querySelectorAll('.glass-card');
+            cards.forEach(card => {
+                card.onmousemove = (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    card.style.transform = `perspective(1000px) rotateX(${((y - rect.height/2)/rect.height/2)*-10}deg) rotateY(${((x - rect.width/2)/rect.width/2)*10}deg) scale3d(1.02, 1.02, 1.02)`;
+                };
+                card.onmouseleave = () => card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+            });
+        }
+
+        // Initial Render
+        renderAllProjects();
+    </script>
+</body>
+</html>
