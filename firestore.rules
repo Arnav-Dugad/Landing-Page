@@ -1,0 +1,72 @@
+rules_version = '2';
+
+// ===========================================================================
+// Firestore security rules for the portfolio.
+//
+// Data lives under:  artifacts/{appId}/public/data/{projects|messages|stats}
+//
+// The site signs visitors in with ANONYMOUS auth, so "request.auth != null"
+// means "came through the real app" — it blocks unauthenticated REST abuse and
+// lets us validate payload shape/size, but it does NOT by itself make writes
+// admin-only (every visitor is anonymously authed). The admin PIN gate is a
+// client-side convenience only. For true admin-only writes, switch to Email/
+// Password auth and replace the `signedIn()` checks below with
+// `request.auth.uid == "<your-admin-uid>"`.
+//
+// DEPLOY: Firebase console → Firestore Database → Rules → paste → Publish
+//         (or `firebase deploy --only firestore:rules`). Editing this file
+//         alone does NOT change the live rules.
+// ===========================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /artifacts/{appId}/public/data {
+
+      // ---- Projects: world-readable, writes validated -------------------
+      match /projects/{projectId} {
+        allow read: if true;
+
+        allow create: if signedIn()
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.desc is string
+          && request.resource.data.desc.size() <= 1000
+          && request.resource.data.link is string
+          && request.resource.data.link.size() <= 2000;
+
+        allow update: if signedIn()
+          && request.resource.data.title is string
+          && request.resource.data.title.size() <= 120;
+
+        allow delete: if signedIn();
+      }
+
+      // ---- Contact messages: write-only from the app, never public ------
+      match /messages/{messageId} {
+        allow read: if false;             // keep inbox private
+        allow create: if signedIn()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.email is string
+          && request.resource.data.email.size() <= 200
+          && request.resource.data.message is string
+          && request.resource.data.message.size() <= 5000;
+        allow update, delete: if false;
+      }
+
+      // ---- Stats: public read, only the visit counter may change --------
+      match /stats/{docId} {
+        allow read: if true;
+        allow write: if signedIn()
+          && request.resource.data.keys().hasOnly(['visitCount'])
+          && request.resource.data.visitCount is int;
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# Node (in case tooling is added later)
+node_modules/
+npm-debug.log*
+
+# Firebase local emulator / cache
+.firebase/
+firebase-debug.log
+
+# Editor
+.vscode/
+.idea/
