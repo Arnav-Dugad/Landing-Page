@@ -42,13 +42,18 @@ service cloud.firestore {
           && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
           && (!('status' in request.resource.data) || request.resource.data.status is string)
           && (!('featured' in request.resource.data) || request.resource.data.featured is bool)
-          && (!('repo' in request.resource.data) || (request.resource.data.repo is string && request.resource.data.repo.size() <= 2000));
+          && (!('repo' in request.resource.data) || (request.resource.data.repo is string && request.resource.data.repo.size() <= 2000))
+          && (!('year' in request.resource.data) || (request.resource.data.year is string && request.resource.data.year.size() <= 24))
+          && (!('role' in request.resource.data) || (request.resource.data.role is string && request.resource.data.role.size() <= 120))
+          && (!('demoVideo' in request.resource.data) || (request.resource.data.demoVideo is string && request.resource.data.demoVideo.size() <= 2000))
+          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20));
 
         allow update: if signedIn()
           && request.resource.data.title is string
           && request.resource.data.title.size() <= 120
           && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
-          && (!('featured' in request.resource.data) || request.resource.data.featured is bool);
+          && (!('featured' in request.resource.data) || request.resource.data.featured is bool)
+          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20));
 
         allow delete: if signedIn();
       }

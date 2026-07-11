@@ -31,12 +31,12 @@
         if (!link) return null;
         let host = '';
         try { host = new URL(link).hostname.toLowerCase(); } catch { return null; }
-        if (host.endsWith('github.io')) return { name: 'GitHub Pages', icon: 'fab fa-github', color: '#8b949e' };
-        if (host.endsWith('vercel.app')) return { name: 'Vercel', icon: 'fas fa-caret-up', color: '#ffffff' };
-        if (host.endsWith('netlify.app')) return { name: 'Netlify', icon: 'fas fa-bolt', color: '#32e6e2' };
-        if (host.endsWith('web.app') || host.endsWith('firebaseapp.com')) return { name: 'Firebase', icon: 'fas fa-fire', color: '#ffca28' };
-        if (host.endsWith('pages.dev')) return { name: 'Cloudflare', icon: 'fas fa-cloud', color: '#f38020' };
-        return { name: 'Web', icon: 'fas fa-globe', color: '#60a5fa' };
+        if (host.endsWith('github.io')) return { name: 'GitHub Pages', icon: 'fa-brands fa-github', color: '#c9d1d9' };
+        if (host.endsWith('vercel.app')) return { name: 'Vercel', icon: 'fa-brands fa-vercel', color: '#ffffff' };
+        if (host.endsWith('netlify.app')) return { name: 'Netlify', icon: 'fa-solid fa-bolt', color: '#32e6e2' };
+        if (host.endsWith('web.app') || host.endsWith('firebaseapp.com')) return { name: 'Firebase', icon: 'fa-solid fa-fire', color: '#ffca28' };
+        if (host.endsWith('pages.dev')) return { name: 'Cloudflare Pages', icon: 'fa-brands fa-cloudflare', color: '#f38020' };
+        return { name: 'Web', icon: 'fa-solid fa-globe', color: '#60a5fa' };
     };
 
     /* ---- Parse "owner/repo" from a GitHub URL -------------------------- */

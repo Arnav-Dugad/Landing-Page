@@ -49,6 +49,27 @@ let currentDetailId = null;
 const getProjects = () => (window.getDynamicProjects ? window.getDynamicProjects() : []);
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* -------- Slug / deep-link helpers -------------------------------------- */
+const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+window.projectSlug = (p) => slugify(p && p.title) || String(p && p.id || '');
+
+/* Normalize a YouTube/Vimeo URL to an embeddable form; other URLs pass through. */
+function toEmbedUrl(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        const host = u.hostname.replace(/^www\./, '');
+        if (host === 'youtu.be') return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+        if (host.endsWith('youtube.com')) {
+            if (u.pathname.startsWith('/embed/')) return url;
+            const v = u.searchParams.get('v');
+            if (v) return `https://www.youtube.com/embed/${v}`;
+        }
+        if (host === 'vimeo.com') return `https://player.vimeo.com/video/${u.pathname.split('/').filter(Boolean)[0]}`;
+        return url;
+    } catch { return null; }
+}
+
 /* -------- Status badge -------------------------------------------------- */
 const STATUS = {
     live:     { label: 'Live',        cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
@@ -101,9 +122,12 @@ function cardHtml(project, index) {
     const icon = window.escapeHtml(project.icon || 'fa-cube');
 
     const tags = project.tags || [];
-    const tagsHtml = tags
-        .map((t) => `<span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 mr-1">${window.escapeHtml(t)}</span>`)
-        .join('');
+    const MAX_CARD_TAGS = 4;
+    const tagPill = (t) => `<span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 mr-1 whitespace-nowrap">${window.escapeHtml(t)}</span>`;
+    const extraTags = tags.length - MAX_CARD_TAGS;
+    const tagsHtml = tags.slice(0, MAX_CARD_TAGS).map(tagPill).join('')
+        + (extraTags > 0 ? `<span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-400 mr-1">+${extraTags}</span>` : '');
+    const year = window.escapeHtml(project.year || '');
 
     const haystack = window.escapeHtml([project.title, project.desc, ...tags].filter(Boolean).join(' '));
 
@@ -119,7 +143,7 @@ function cardHtml(project, index) {
     const repoAttr = repoUrl ? ` data-repo="${window.escapeHtml(repoUrl)}"` : '';
 
     return `
-    <div role="button" tabindex="0" onclick="window.openDetailModal('${window.escapeHtml(project.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.openDetailModal('${window.escapeHtml(project.id)}')}" onmouseenter="playHoverSound && playHoverSound()" data-category="${category}" data-search="${haystack}" data-id="${window.escapeHtml(project.id)}"${repoAttr} class="project-card glass-card group rounded-2xl p-6 flex flex-col h-64 relative overflow-hidden opacity-0 animate-fade-in-up ${delayClass}">
+    <div role="button" tabindex="0" onclick="window.openDetailModal('${window.escapeHtml(project.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.openDetailModal('${window.escapeHtml(project.id)}')}" onmouseenter="playHoverSound && playHoverSound()" data-category="${category}" data-search="${haystack}" data-id="${window.escapeHtml(project.id)}"${repoAttr} class="project-card glass-card group rounded-2xl p-6 flex flex-col min-h-[16rem] relative overflow-hidden opacity-0 animate-fade-in-up ${delayClass}">
         ${deleteBtn}
         ${featured}
         <div class="glass-card-content h-full flex flex-col">
@@ -136,12 +160,15 @@ function cardHtml(project, index) {
                 <p class="text-sm text-slate-400 line-clamp-2">${desc}</p>
             </div>
             <div class="mt-4 flex flex-wrap gap-y-1 tags-container">${tagsHtml}</div>
-            <div class="mt-2 flex items-center justify-between text-xs text-slate-500 font-mono">
-                <span class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full animate-pulse" style="background:${dot}"></span> ${catLabel}
+            <div class="mt-2 flex items-center justify-between text-xs text-slate-500 font-mono gap-2">
+                <span class="flex items-center gap-2 min-w-0">
+                    <span class="w-2 h-2 rounded-full animate-pulse shrink-0" style="background:${dot}"></span> <span class="truncate">${catLabel}</span>
                     ${deployPill(project.link, false)}
                 </span>
-                <span class="gh-star inline-flex items-center gap-1 text-slate-400"></span>
+                <span class="flex items-center gap-2 shrink-0">
+                    ${year ? `<span class="text-slate-500">${year}</span>` : ''}
+                    <span class="gh-star inline-flex items-center gap-1 text-slate-400"></span>
+                </span>
             </div>
         </div>
     </div>`;
@@ -158,15 +185,20 @@ const comingSoonHtml = `
         </div>
     </div>`;
 
-/* -------- Sorting (featured always floats to the top) ------------------- */
+/* -------- Sorting ------------------------------------------------------- */
+/* Featured pins to the top ONLY in 'featured' sort; every other mode sorts
+   purely by its key so the reordering is actually visible. */
 function sortProjects(projects) {
     const arr = [...projects];
     arr.sort((a, b) => {
-        const fa = a.featured ? 1 : 0, fb = b.featured ? 1 : 0;
-        if (fa !== fb) return fb - fa;
+        if (currentSort === 'featured') {
+            const fa = a.featured ? 1 : 0, fb = b.featured ? 1 : 0;
+            if (fa !== fb) return fb - fa;
+            return (b.createdAt || 0) - (a.createdAt || 0);
+        }
         if (currentSort === 'az') return String(a.title || '').localeCompare(String(b.title || ''));
         if (currentSort === 'stars') return (starById[b.id] ?? -1) - (starById[a.id] ?? -1);
-        return (b.createdAt || 0) - (a.createdAt || 0);   // newest (default) / featured
+        return (b.createdAt || 0) - (a.createdAt || 0);   // newest (default)
     });
     return arr;
 }
@@ -187,6 +219,7 @@ window.renderAllProjects = () => {
     const projects = getProjects();
     if (!projects.length) { renderEmptyState(); updateStatsBar(); return; }
 
+    renderFilters();
     const ordered = sortProjects(projects);
     projectsGrid.innerHTML = ordered.map((p, i) => cardHtml(p, i)).join('') + comingSoonHtml;
 
@@ -198,7 +231,54 @@ window.renderAllProjects = () => {
     initTilt();
     updateStatsBar();
     hydrateCardStats();
+
+    // Open a deep-linked project once, after the first real render.
+    if (!deepLinkChecked) {
+        deepLinkChecked = true;
+        if (location.hash) setTimeout(openFromHash, 60);
+    }
 };
+
+/* -------- Dynamic category filters -------------------------------------- */
+const filterContainer = document.getElementById('filterContainer');
+function renderFilters() {
+    if (!filterContainer) return;
+    const projects = getProjects();
+    const counts = {};
+    projects.forEach((p) => { const c = (p.category || 'other'); counts[c] = (counts[c] || 0) + 1; });
+    const cats = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
+    const active = filterContainer.querySelector('.filter-btn.active')?.getAttribute('data-filter') || 'all';
+    const label = (c) => c.charAt(0).toUpperCase() + c.slice(1);
+    const chip = (filter, text, count) =>
+        `<button class="filter-btn ${active === filter ? 'active' : ''} px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all whitespace-nowrap shrink-0" onmouseenter="playHoverSound && playHoverSound()" data-filter="${filter}">${text}<span class="ml-1.5 opacity-50">${count}</span></button>`;
+    filterContainer.innerHTML = chip('all', 'All', projects.length)
+        + cats.map((c) => chip(c, label(window.escapeHtml(c)), counts[c])).join('');
+}
+// Delegated click handling so dynamically-rebuilt chips keep working.
+if (filterContainer) {
+    filterContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.filter-btn');
+        if (!btn) return;
+        filterContainer.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        window.playClickSound && playClickSound();
+        const search = document.getElementById('searchInput');
+        window.filterProjects && window.filterProjects(btn.getAttribute('data-filter'), search ? search.value : '');
+    });
+}
+
+/* -------- Deep-link open by #slug --------------------------------------- */
+let deepLinkChecked = false;
+function openFromHash() {
+    const slug = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+    if (!slug) return;
+    const p = getProjects().find((x) => window.projectSlug(x) === slug);
+    if (p) window.openDetailModal(p.id);
+}
+window.addEventListener('hashchange', () => {
+    // Only react to external hash changes (our own open/close use replaceState).
+    if (detailModal && detailModal.classList.contains('hidden')) openFromHash();
+});
 
 /* -------- GitHub stats hydration ---------------------------------------- */
 async function hydrateCardStats() {
@@ -310,6 +390,8 @@ window.closeDetailModal = () => {
         if (detailBody) detailBody.innerHTML = '';   // stop any iframe from loading
         currentDetailId = null;
     }, 300);
+    // Drop the #slug from the URL.
+    try { history.replaceState(null, '', location.pathname + location.search); } catch {}
 };
 
 window.openDetailModal = (id) => {
@@ -327,7 +409,23 @@ window.openDetailModal = (id) => {
     const link = window.escapeHtml(p.link || '');
     const repoUrl = window.resolveRepoUrl ? window.resolveRepoUrl(p) : null;
     const repoEsc = repoUrl ? window.escapeHtml(repoUrl) : '';
+    const year = window.escapeHtml(p.year || '');
+    const role = window.escapeHtml(p.role || '');
     const tags = (p.tags || []).map((t) => `<span class="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-xs text-slate-300">${window.escapeHtml(t)}</span>`).join('');
+
+    const highlights = Array.isArray(p.highlights) ? p.highlights.filter((h) => String(h).trim()) : [];
+    const highlightsHtml = highlights.length
+        ? `<div class="mb-5">
+               <h4 class="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2"><i class="fas fa-bolt text-indigo-400"></i> Highlights</h4>
+               <ul class="space-y-1.5">${highlights.map((h) => `<li class="flex gap-2 text-sm text-slate-400"><i class="fas fa-check text-emerald-400 mt-1 text-xs shrink-0"></i><span>${window.escapeHtml(h)}</span></li>`).join('')}</ul>
+           </div>`
+        : '';
+
+    // Demo video takes the media slot when present; otherwise the live iframe.
+    const embed = p.demoVideo ? toEmbedUrl(p.demoVideo) : null;
+    const mediaInner = embed
+        ? `<iframe src="${window.escapeHtml(embed)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="${title} demo video"></iframe>`
+        : (link ? `<iframe src="${link}" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups" title="${title} live preview"></iframe>` : '');
 
     detailBody.innerHTML = `
         <div class="detail-frame-wrap mb-6">
@@ -335,9 +433,9 @@ window.openDetailModal = (id) => {
                 <div class="w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg">
                     <i class="fas ${icon} text-2xl text-white"></i>
                 </div>
-                <p class="text-sm">Live preview unavailable — open the project to view it.</p>
+                <p class="text-sm">Preview unavailable — open the project to view it.</p>
             </div>
-            ${link ? `<iframe src="${link}" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups" title="${title} live preview"></iframe>` : ''}
+            ${mediaInner}
         </div>
 
         <div class="flex items-start gap-4 mb-3">
@@ -350,12 +448,15 @@ window.openDetailModal = (id) => {
                     ${category ? `<span class="text-xs font-mono uppercase tracking-widest text-indigo-300">${category}</span>` : ''}
                     ${statusPill(p.status)}
                     ${deployPill(p.link, true)}
+                    ${year ? `<span class="text-xs text-slate-400"><i class="far fa-calendar mr-1"></i>${year}</span>` : ''}
+                    ${role ? `<span class="text-xs text-slate-400"><i class="fas fa-user mr-1"></i>${role}</span>` : ''}
                 </div>
             </div>
         </div>
 
         <p class="text-slate-300 leading-relaxed mb-3">${desc}</p>
         ${longDesc ? `<p class="text-slate-400 text-sm leading-relaxed mb-4 whitespace-pre-line">${longDesc}</p>` : ''}
+        ${highlightsHtml}
         ${tags ? `<div class="flex flex-wrap gap-2 mb-4">${tags}</div>` : ''}
 
         <div id="detailGhStats" class="hidden flex-wrap items-center gap-4 mb-3 text-sm text-slate-300"></div>
@@ -366,6 +467,9 @@ window.openDetailModal = (id) => {
             ${repoUrl ? `<a href="${repoEsc}" target="_blank" rel="noopener" class="btn-ghost"><i class="fab fa-github"></i> View Code</a>` : ''}
             <button onclick="window.shareProject('${window.escapeHtml(String(id))}')" class="btn-ghost"><i class="fas fa-share-nodes"></i> Share</button>
         </div>`;
+
+    // Deep link: reflect the open project in the URL without firing hashchange.
+    try { history.replaceState(null, '', '#' + window.projectSlug(p)); } catch {}
 
     detailModal.classList.remove('hidden');
     setTimeout(() => {
@@ -419,9 +523,10 @@ window.detailNav = (dir) => {
 window.shareProject = (id) => {
     const p = getProjects().find((x) => String(x.id) === String(id));
     if (!p) return;
-    const url = p.link || location.href;
+    // Share a deep link back to this exact project on the portfolio.
+    const url = location.origin + location.pathname + '#' + window.projectSlug(p);
     if (navigator.share) {
-        navigator.share({ title: p.title, text: p.desc, url }).catch(() => {});
+        navigator.share({ title: `${p.title} — Arnav Dugad`, text: p.desc, url }).catch(() => {});
     } else if (navigator.clipboard) {
         navigator.clipboard.writeText(url)
             .then(() => window.showToast && showToast('Link copied to clipboard!', 'success'))

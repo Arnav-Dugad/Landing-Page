@@ -3,10 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arnav's Portfolio</title>
+    <title>Arnav Dugad — Portfolio</title>
+    <meta name="description" content="Arnav Dugad's portfolio — interactive web experiences, games, and tools. Live projects with GitHub stats.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%9A%80</text></svg>">
+    <!-- Open Graph / Twitter (site-level) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Arnav Dugad — Portfolio">
+    <meta property="og:description" content="Interactive web experiences, games, and tools — with live GitHub stats.">
+    <meta property="og:url" content="https://arnav-dugad.github.io/Landing-Page/">
+    <meta property="og:image" content="https://opengraph.githubassets.com/1/Arnav-Dugad/Landing-Page">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Arnav Dugad — Portfolio">
+    <meta name="twitter:description" content="Interactive web experiences, games, and tools — with live GitHub stats.">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <!-- Firebase is initialized in js/firebase.js (loaded as a module before </body>). -->
@@ -166,6 +176,22 @@
                             <label class="block text-xs text-slate-400 mb-1">Detailed Write-up <span class="text-slate-600">— optional, shown in the project detail view</span></label>
                             <textarea id="pLongDesc" class="form-input h-24 resize-none" placeholder="The full story: what it does, how you built it, challenges, tech decisions..."></textarea>
                         </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Highlights <span class="text-slate-600">— optional, one per line (shown as a bulleted list)</span></label>
+                            <textarea id="pHighlights" class="form-input h-20 resize-none" placeholder="Real-time multiplayer with WebSockets&#10;Offline support via service worker&#10;Scored 100 on Lighthouse"></textarea>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Demo Video URL <span class="text-slate-600">— optional (YouTube/Vimeo, shown above the live preview)</span></label>
+                            <input type="url" id="pDemoVideo" class="form-input" placeholder="https://youtube.com/watch?v=..." onblur="formatLink(this)">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Year <span class="text-slate-600">— optional</span></label>
+                            <input type="text" id="pYear" class="form-input" placeholder="2026" maxlength="24">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Your Role <span class="text-slate-600">— optional</span></label>
+                            <input type="text" id="pRole" class="form-input" placeholder="Solo / Frontend / Team of 3">
+                        </div>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Status</label>
                             <select id="pStatus" class="form-input cursor-pointer">
@@ -182,18 +208,30 @@
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Category</label>
                             <select id="pCategory" class="form-input cursor-pointer">
+                                <option value="web">Website</option>
+                                <option value="app">App</option>
                                 <option value="game">Game</option>
                                 <option value="tool">Tool</option>
-                                <option value="app">App</option>
                                 <option value="ai">AI</option>
-                                <option value="mobile">Mobile</option>
-                                <option value="web">Website</option>
+                                <option value="ml">Machine Learning</option>
                                 <option value="data">Data/System</option>
+                                <option value="mobile">Mobile</option>
+                                <option value="dashboard">Dashboard</option>
+                                <option value="productivity">Productivity</option>
+                                <option value="ecommerce">E-commerce</option>
+                                <option value="social">Social</option>
+                                <option value="education">Education</option>
+                                <option value="finance">Finance</option>
+                                <option value="cli">CLI</option>
+                                <option value="extension">Extension</option>
+                                <option value="bot">Bot</option>
+                                <option value="api">API</option>
+                                <option value="design">Design</option>
+                                <option value="web3">Web3</option>
                                 <option value="blockchain">Blockchain</option>
                                 <option value="iot">IoT</option>
-                                <option value="design">Design</option>
-                                <option value="api">API</option>
                                 <option value="library">Library</option>
+                                <option value="other">Other</option>
                             </select>
                         </div>
                         <div>
@@ -213,23 +251,71 @@
                             </select>
                         </div>
                         <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Icon Class (FontAwesome)</label>
+                            <label class="block text-xs text-slate-400 mb-1">Icon (FontAwesome)</label>
                             <input type="text" id="pIcon" required class="form-input" placeholder="fa-rocket">
-                            <!-- Quick Icons -->
-                            <div class="flex flex-wrap gap-4 mt-2 text-slate-500 text-lg">
-                                <i class="fas fa-rocket icon-option" onclick="setIcon('fa-rocket')" title="Rocket"></i>
-                                <i class="fas fa-gamepad icon-option" onclick="setIcon('fa-gamepad')" title="Gamepad"></i>
-                                <i class="fas fa-mobile-alt icon-option" onclick="setIcon('fa-mobile-alt')" title="Mobile"></i>
-                                <i class="fas fa-robot icon-option" onclick="setIcon('fa-robot')" title="Robot/AI"></i>
-                                <i class="fas fa-code icon-option" onclick="setIcon('fa-code')" title="Code"></i>
-                                <i class="fas fa-globe icon-option" onclick="setIcon('fa-globe')" title="Web"></i>
-                                <i class="fas fa-chart-bar icon-option" onclick="setIcon('fa-chart-bar')" title="Chart"></i>
-                                <i class="fas fa-database icon-option" onclick="setIcon('fa-database')" title="Database"></i>
-                                <i class="fas fa-brain icon-option" onclick="setIcon('fa-brain')" title="Brain"></i>
-                                <i class="fas fa-palette icon-option" onclick="setIcon('fa-palette')" title="Palette"></i>
-                                <i class="fas fa-link icon-option" onclick="setIcon('fa-link')" title="Link"></i>
-                                <i class="fas fa-cubes icon-option" onclick="setIcon('fa-cubes')" title="Cubes"></i>
+                            <input type="text" id="iconSearch" oninput="filterIcons(this.value)" class="form-input mt-2 text-sm" placeholder="Search icons — e.g. game, chart, cloud, lock...">
+                            <!-- Quick Icons (searchable, scrollable) -->
+                            <div id="iconGrid" class="icon-grid mt-2 text-slate-400">
+                                <i class="fas fa-rocket icon-option" onclick="setIcon('fa-rocket')" title="rocket launch startup"></i>
+                                <i class="fas fa-gamepad icon-option" onclick="setIcon('fa-gamepad')" title="gamepad game controller"></i>
+                                <i class="fas fa-dice icon-option" onclick="setIcon('fa-dice')" title="dice game random board"></i>
+                                <i class="fas fa-puzzle-piece icon-option" onclick="setIcon('fa-puzzle-piece')" title="puzzle game logic"></i>
+                                <i class="fas fa-futbol icon-option" onclick="setIcon('fa-futbol')" title="football soccer sport"></i>
+                                <i class="fas fa-crosshairs icon-option" onclick="setIcon('fa-crosshairs')" title="crosshairs shooter fps aim"></i>
+                                <i class="fas fa-mobile-screen icon-option" onclick="setIcon('fa-mobile-screen')" title="mobile phone app"></i>
+                                <i class="fas fa-desktop icon-option" onclick="setIcon('fa-desktop')" title="desktop computer os"></i>
+                                <i class="fas fa-robot icon-option" onclick="setIcon('fa-robot')" title="robot ai bot"></i>
+                                <i class="fas fa-brain icon-option" onclick="setIcon('fa-brain')" title="brain ai ml machine learning"></i>
+                                <i class="fas fa-microchip icon-option" onclick="setIcon('fa-microchip')" title="microchip hardware iot cpu"></i>
+                                <i class="fas fa-atom icon-option" onclick="setIcon('fa-atom')" title="atom science physics"></i>
+                                <i class="fas fa-code icon-option" onclick="setIcon('fa-code')" title="code developer programming"></i>
+                                <i class="fas fa-terminal icon-option" onclick="setIcon('fa-terminal')" title="terminal cli console shell"></i>
+                                <i class="fas fa-diagram-project icon-option" onclick="setIcon('fa-diagram-project')" title="diagram project flow architecture"></i>
+                                <i class="fas fa-network-wired icon-option" onclick="setIcon('fa-network-wired')" title="network wired server api"></i>
+                                <i class="fas fa-server icon-option" onclick="setIcon('fa-server')" title="server backend hosting"></i>
+                                <i class="fas fa-database icon-option" onclick="setIcon('fa-database')" title="database data sql"></i>
+                                <i class="fas fa-globe icon-option" onclick="setIcon('fa-globe')" title="globe web website world"></i>
+                                <i class="fas fa-cloud icon-option" onclick="setIcon('fa-cloud')" title="cloud weather hosting"></i>
+                                <i class="fas fa-bolt icon-option" onclick="setIcon('fa-bolt')" title="bolt fast energy power"></i>
+                                <i class="fas fa-fire icon-option" onclick="setIcon('fa-fire')" title="fire firebase hot trending"></i>
+                                <i class="fas fa-chart-line icon-option" onclick="setIcon('fa-chart-line')" title="chart line graph analytics"></i>
+                                <i class="fas fa-chart-pie icon-option" onclick="setIcon('fa-chart-pie')" title="chart pie stats"></i>
+                                <i class="fas fa-chart-column icon-option" onclick="setIcon('fa-chart-column')" title="chart column bar data dashboard"></i>
+                                <i class="fas fa-table icon-option" onclick="setIcon('fa-table')" title="table grid data spreadsheet"></i>
+                                <i class="fas fa-list-check icon-option" onclick="setIcon('fa-list-check')" title="list check todo tasks productivity"></i>
+                                <i class="fas fa-calendar icon-option" onclick="setIcon('fa-calendar')" title="calendar date schedule"></i>
+                                <i class="fas fa-clock icon-option" onclick="setIcon('fa-clock')" title="clock time"></i>
+                                <i class="fas fa-wallet icon-option" onclick="setIcon('fa-wallet')" title="wallet money finance"></i>
+                                <i class="fas fa-cart-shopping icon-option" onclick="setIcon('fa-cart-shopping')" title="cart shopping ecommerce store"></i>
+                                <i class="fas fa-map icon-option" onclick="setIcon('fa-map')" title="map location geo"></i>
+                                <i class="fas fa-plane-departure icon-option" onclick="setIcon('fa-plane-departure')" title="plane travel flight"></i>
+                                <i class="fas fa-car icon-option" onclick="setIcon('fa-car')" title="car driving vehicle"></i>
+                                <i class="fas fa-camera icon-option" onclick="setIcon('fa-camera')" title="camera photo image"></i>
+                                <i class="fas fa-image icon-option" onclick="setIcon('fa-image')" title="image picture gallery"></i>
+                                <i class="fas fa-video icon-option" onclick="setIcon('fa-video')" title="video film media"></i>
+                                <i class="fas fa-film icon-option" onclick="setIcon('fa-film')" title="film movie cinema"></i>
+                                <i class="fas fa-music icon-option" onclick="setIcon('fa-music')" title="music audio sound"></i>
+                                <i class="fas fa-comments icon-option" onclick="setIcon('fa-comments')" title="comments chat social messaging"></i>
+                                <i class="fas fa-envelope icon-option" onclick="setIcon('fa-envelope')" title="envelope email mail"></i>
+                                <i class="fas fa-book icon-option" onclick="setIcon('fa-book')" title="book education read"></i>
+                                <i class="fas fa-graduation-cap icon-option" onclick="setIcon('fa-graduation-cap')" title="graduation education school learning"></i>
+                                <i class="fas fa-shield-halved icon-option" onclick="setIcon('fa-shield-halved')" title="shield security protect"></i>
+                                <i class="fas fa-lock icon-option" onclick="setIcon('fa-lock')" title="lock password security"></i>
+                                <i class="fas fa-wand-magic-sparkles icon-option" onclick="setIcon('fa-wand-magic-sparkles')" title="wand magic ai generate"></i>
+                                <i class="fas fa-palette icon-option" onclick="setIcon('fa-palette')" title="palette design art color"></i>
+                                <i class="fas fa-pen-ruler icon-option" onclick="setIcon('fa-pen-ruler')" title="pen ruler design ui"></i>
+                                <i class="fas fa-compass icon-option" onclick="setIcon('fa-compass')" title="compass explore navigate"></i>
+                                <i class="fas fa-heart icon-option" onclick="setIcon('fa-heart')" title="heart health love"></i>
+                                <i class="fas fa-dumbbell icon-option" onclick="setIcon('fa-dumbbell')" title="dumbbell fitness gym health"></i>
+                                <i class="fas fa-utensils icon-option" onclick="setIcon('fa-utensils')" title="utensils food recipe"></i>
+                                <i class="fas fa-flask icon-option" onclick="setIcon('fa-flask')" title="flask science lab experiment"></i>
+                                <i class="fas fa-layer-group icon-option" onclick="setIcon('fa-layer-group')" title="layers stack group"></i>
+                                <i class="fas fa-cubes icon-option" onclick="setIcon('fa-cubes')" title="cubes blocks 3d"></i>
+                                <i class="fas fa-gear icon-option" onclick="setIcon('fa-gear')" title="gear settings tool config"></i>
+                                <i class="fas fa-link icon-option" onclick="setIcon('fa-link')" title="link url chain"></i>
+                                <i class="fas fa-keyboard icon-option" onclick="setIcon('fa-keyboard')" title="keyboard typing input"></i>
                             </div>
+                            <p id="iconNoResult" class="hidden text-xs text-slate-500 mt-2">No icons match — type a FontAwesome class above (e.g. fa-star).</p>
                         </div>
                         <div class="col-span-2">
                             <label class="block text-xs text-slate-400 mb-1">Tech / Languages</label>
@@ -313,7 +399,7 @@
     <div id="detailModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
         <button onclick="window.detailNav(-1)" onmouseenter="playHoverSound()" class="detail-nav detail-nav-prev" title="Previous (←)"><i class="fas fa-chevron-left"></i></button>
         <button onclick="window.detailNav(1)" onmouseenter="playHoverSound()" class="detail-nav detail-nav-next" title="Next (→)"><i class="fas fa-chevron-right"></i></button>
-        <div class="detail-panel rounded-2xl p-6 md:p-8 max-w-2xl w-full m-4 shadow-2xl transform scale-95 transition-transform duration-300 overflow-y-auto max-h-[90vh] relative">
+        <div class="detail-panel rounded-2xl p-5 sm:p-6 md:p-8 max-w-2xl w-full mx-3 my-4 shadow-2xl transform scale-95 transition-transform duration-300 overflow-y-auto max-h-[92vh] relative">
             <button onclick="closeDetailModal()" onmouseenter="playHoverSound()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center transition-colors z-10" title="Close (Esc)">
                 <i class="fas fa-times"></i>
             </button>
@@ -322,25 +408,25 @@
     </div>
 
     <!-- Main Content -->
-    <div class="container mx-auto px-4 py-16 min-h-screen flex flex-col justify-center relative z-10">
+    <div class="container mx-auto px-4 py-10 sm:py-16 min-h-screen flex flex-col justify-center relative z-10">
 
         <!-- Header -->
-        <header class="text-center mb-12 animate-fade-in-up">
+        <header class="text-center mb-8 sm:mb-12 animate-fade-in-up">
             <div class="inline-flex items-center gap-2 p-1 px-3 rounded-full bg-indigo-500/10 border border-indigo-500/20 mb-4 text-indigo-300 text-sm font-medium tracking-wide">
                 <span>PORTFOLIO</span>
                 <span class="w-1 h-1 rounded-full bg-indigo-400"></span>
                 <span id="connection-status">Connecting...</span>
             </div>
-            <h1 class="text-4xl md:text-5xl lg:text-7xl font-bold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400 animate-gradient-x">
+            <h1 class="text-4xl sm:text-5xl lg:text-7xl font-bold mb-4 sm:mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400 animate-gradient-x">
                 Arnav Dugad
             </h1>
-            <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed h-8 mb-6">
+            <p class="text-slate-400 text-base sm:text-lg md:text-xl max-w-2xl mx-auto leading-relaxed min-h-[2rem] px-4">
                 <span id="typing-text" class="typing-cursor"></span>
             </p>
         </header>
 
         <!-- Controls Section: Search & Filters -->
-        <div class="max-w-4xl mx-auto w-full mb-12 space-y-6 animate-fade-in-up stagger-2">
+        <div class="max-w-4xl mx-auto w-full mb-8 sm:mb-12 space-y-5 sm:space-y-6 animate-fade-in-up stagger-2">
 
             <!-- Admin Controls (Hidden by default) -->
             <div id="adminControls" class="hidden flex flex-wrap justify-center gap-3 mb-4 animate-fade-in-up">
@@ -362,17 +448,13 @@
             </div>
 
             <!-- Category Filters & View Toggle -->
-            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex flex-wrap justify-center gap-2" id="filterContainer">
-                    <button class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" onclick="playClickSound()" onmouseenter="playHoverSound()" data-filter="all">All</button>
-                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" onclick="playClickSound()" onmouseenter="playHoverSound()" data-filter="game">Games</button>
-                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" onclick="playClickSound()" onmouseenter="playHoverSound()" data-filter="app">Apps</button>
-                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" onclick="playClickSound()" onmouseenter="playHoverSound()" data-filter="ai">AI</button>
-                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" onclick="playClickSound()" onmouseenter="playHoverSound()" data-filter="tool">Tools</button>
-                    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" onclick="playClickSound()" onmouseenter="playHoverSound()" data-filter="data">Data</button>
+            <div class="flex flex-col md:flex-row justify-between md:items-center gap-3 md:gap-4">
+                <!-- Filled dynamically by render.js; scrolls horizontally on mobile -->
+                <div class="filter-row flex gap-2 overflow-x-auto no-scrollbar snap-x pb-1 w-full md:w-auto md:flex-wrap md:justify-center md:overflow-visible" id="filterContainer">
+                    <button class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all whitespace-nowrap shrink-0" data-filter="all">All</button>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 shrink-0">
                     <!-- Sort -->
                     <div class="flex items-center gap-2">
                         <i class="fas fa-arrow-down-wide-short text-slate-500 text-sm"></i>

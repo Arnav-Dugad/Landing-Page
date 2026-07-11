@@ -69,8 +69,13 @@ document.getElementById('contactForm').addEventListener('submit', (e) => {
 const modal = document.getElementById('addProjectModal');
 const modalContent = modal.querySelector('div');
 window.toggleModal = (show) => {
-    if (show) { openModal(modal, modalContent); updatePreview(); }
-    else closeModal(modal, modalContent);
+    if (show) {
+        openModal(modal, modalContent);
+        const search = document.getElementById('iconSearch');
+        if (search) { search.value = ''; }
+        if (window.filterIcons) window.filterIcons('');
+        updatePreview();
+    } else closeModal(modal, modalContent);
 };
 bindBackdropClose(modal, () => toggleModal(false));
 
@@ -79,6 +84,7 @@ document.getElementById('addProjectForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const tags = val('pTags').split(',').map(t => t.trim()).filter(Boolean);
     const featuredEl = document.getElementById('pFeatured');
+    const highlights = val('pHighlights').split('\n').map(s => s.trim()).filter(Boolean);
     const newProject = {
         title: val('pTitle'),
         desc: val('pDesc'),
@@ -90,6 +96,10 @@ document.getElementById('addProjectForm').addEventListener('submit', (e) => {
         repo: val('pRepo'),
         status: val('pStatus') || 'live',
         featured: featuredEl ? featuredEl.checked : false,
+        year: val('pYear'),
+        role: val('pRole'),
+        demoVideo: val('pDemoVideo'),
+        highlights,
         tags
     };
     if (typeof window.saveProjectToDb === 'function') window.saveProjectToDb(newProject);
@@ -110,6 +120,7 @@ function updatePreview() {
     const status = document.getElementById('pStatus') ? document.getElementById('pStatus').value : '';
     const featured = document.getElementById('pFeatured') ? document.getElementById('pFeatured').checked : false;
     const link = document.getElementById('pLink') ? document.getElementById('pLink').value : '';
+    const year = document.getElementById('pYear') ? document.getElementById('pYear').value.trim() : '';
     const statusHtml = (window.statusPill && status) ? window.statusPill(status) : '';
     const deployHtml = (window.deployPill && link) ? window.deployPill(link, false) : '';
     const featHtml = featured ? `<div class="feat-badge" title="Featured"><i class="fas fa-star"></i></div>` : '';
@@ -129,18 +140,35 @@ function updatePreview() {
                     <p class="text-sm text-slate-400 line-clamp-2">${desc}</p>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-y-1">${tagsHtml}</div>
-                <div class="mt-2 flex items-center gap-2 text-xs text-slate-500 font-mono">
-                    <span class="w-2 h-2 rounded-full" style="background:${dot}"></span> ${category.toUpperCase()} ${deployHtml}
+                <div class="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500 font-mono">
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:${dot}"></span> ${category.toUpperCase()} ${deployHtml}</span>
+                    ${year ? `<span>${year}</span>` : ''}
                 </div>
             </div>
         </div>`;
 }
-['pTitle', 'pDesc', 'pLink', 'pCategory', 'pColor', 'pIcon', 'pTags', 'pStatus', 'pFeatured'].forEach(id => {
+['pTitle', 'pDesc', 'pLink', 'pCategory', 'pColor', 'pIcon', 'pTags', 'pStatus', 'pFeatured', 'pYear'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', updatePreview);
     el.addEventListener('change', updatePreview);
 });
+
+/* -------- Searchable icon picker ---------------------------------------- */
+window.filterIcons = (q) => {
+    const grid = document.getElementById('iconGrid');
+    if (!grid) return;
+    const query = (q || '').toLowerCase().trim();
+    let visible = 0;
+    grid.querySelectorAll('.icon-option').forEach((el) => {
+        const hay = `${el.getAttribute('title') || ''} ${el.className || ''}`.toLowerCase();
+        const show = !query || hay.includes(query);
+        el.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    const none = document.getElementById('iconNoResult');
+    if (none) none.classList.toggle('hidden', visible > 0);
+};
 window.updatePreview = updatePreview;
 
 window.setIcon = (iconClass) => { document.getElementById('pIcon').value = iconClass; updatePreview(); };
@@ -188,13 +216,9 @@ window.filterProjects = (category, searchText = '') => {
         card.style.display = (matchesCategory && matchesSearch) ? 'flex' : 'none';
     });
 };
-const filterBtns = document.querySelectorAll('.filter-btn');
+// Category filter chips are generated + click-handled by render.js (delegation),
+// so ui.js only owns the search box here.
 const searchInput = document.getElementById('searchInput');
-filterBtns.forEach(btn => btn.addEventListener('click', () => {
-    filterBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    filterProjects(btn.getAttribute('data-filter'), searchInput.value);
-}));
 searchInput.addEventListener('input', (e) => {
     const activeFilter = document.querySelector('.filter-btn.active')?.getAttribute('data-filter') || 'all';
     filterProjects(activeFilter, e.target.value);
