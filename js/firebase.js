@@ -4,8 +4,8 @@
    file is the ONLY place that reads/writes them. It exposes a small set of
    window.* functions that the classic scripts (ui.js / render.js) call.
 
-   Loaded last (after the classic scripts) so window.renderAllProjects,
-   window.showToast and window.SEED_PROJECTS already exist when this runs.
+   Loaded last (after the classic scripts) so window.renderAllProjects and
+   window.showToast already exist when this runs.
    =========================================================================== */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -165,30 +165,6 @@ window.saveMessageToDb = async (msgData) => {
         showToast("Failed to send message.", "error");
     } finally {
         if (btn) { btn.innerText = originalText; btn.disabled = false; }
-    }
-};
-
-/* -------- One-time seed import (admin only) ----------------------------- */
-window.importSeedProjects = async () => {
-    if (!user) { showToast("Database not connected yet.", "error"); return; }
-    const seed = window.SEED_PROJECTS || [];
-    if (!seed.length) { showToast("No seed projects found (data/seed-projects.js).", "error"); return; }
-    if (dynamicProjects.length > 0 &&
-        !confirm(`Firestore already has ${dynamicProjects.length} project(s). Import ${seed.length} more anyway?`)) {
-        return;
-    }
-    try {
-        showToast(`Importing ${seed.length} projects...`, "info");
-        // Space out createdAt so the desc order matches the seed order.
-        let stamp = Date.now();
-        for (const p of seed) {
-            await addDoc(projectsCol(), { ...p, createdAt: stamp++ });
-        }
-        fireConfetti();
-        showToast("Starter projects imported!", "success");
-    } catch (e) {
-        console.error("Seed import failed:", e);
-        showToast(`Import failed: ${e.message}`, "error");
     }
 };
 

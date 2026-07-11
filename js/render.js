@@ -1,14 +1,14 @@
 /* ===========================================================================
    render.js  (classic script)
-   The presentation layer the modular refactor was missing. It owns:
-     - COLOR_MAP (gradient classes) + DOT_COLOR (hex) — the single source of
-       truth for project colors, shared with ui.js's live preview.
-     - window.renderAllProjects() — builds cards purely from Firestore data
-       (window.getDynamicProjects()); shows skeletons until the first snapshot
-       and an empty-state when there are genuinely no projects.
-     - The premium project detail modal (open/close, live preview, GitHub stats).
-     - initTilt(), pickRandomProject().
-   No project data and no Firestore access live here.
+   Presentation layer. Owns:
+     - COLOR_MAP / DOT_COLOR (shared with ui.js live preview)
+     - window.renderAllProjects() — cards from Firestore, with skeletons/empty
+     - Card badges (status, deploy platform, featured) + async GitHub ⭐ stars
+     - Portfolio stats bar, sorting + featured-first
+     - Project detail modal: live preview, GitHub stats + language bar,
+       prev/next navigation, share
+     - initTilt(), pickRandomProject()
+   No project data / Firestore access lives here.
    =========================================================================== */
 
 /* -------- Colors (shared with ui.js live preview) ----------------------- */
@@ -27,8 +27,6 @@ window.COLOR_MAP = {
     slate:   "from-slate-500 to-gray-700",
     gray:    "from-slate-500 to-gray-700"
 };
-/* Inline hex for the status dot — avoids Tailwind purging a dynamic
-   `bg-${color}-500` class that never appears literally in the markup. */
 window.DOT_COLOR = {
     orange: "#f97316", blue: "#3b82f6", emerald: "#10b981", green: "#10b981",
     purple: "#a855f7", indigo: "#6366f1", sky: "#38bdf8", yellow: "#eab308",
@@ -42,6 +40,34 @@ window.escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
 
 const projectsGrid = document.getElementById('projectsGrid');
 
+/* -------- Module state -------------------------------------------------- */
+const starById = {};        // projectId -> stargazers
+const langById = {};        // projectId -> primary language
+let currentSort = 'newest';
+let currentDetailId = null;
+
+const getProjects = () => (window.getDynamicProjects ? window.getDynamicProjects() : []);
+const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* -------- Status badge -------------------------------------------------- */
+const STATUS = {
+    live:     { label: 'Live',        cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+    wip:      { label: 'In Progress', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+    archived: { label: 'Archived',    cls: 'bg-slate-500/15 text-slate-300 border-slate-500/30' }
+};
+function statusPill(status) {
+    const s = STATUS[status];
+    return s ? `<span class="px-2 py-0.5 rounded-md border text-[10px] font-medium ${s.cls}">${s.label}</span>` : '';
+}
+function deployPill(link, withLabel) {
+    const d = window.deployInfo ? window.deployInfo(link) : null;
+    if (!d) return '';
+    const label = withLabel ? ` ${window.escapeHtml(d.name)}` : '';
+    return `<span class="deploy-pill inline-flex items-center gap-1 text-[10px]" style="color:${d.color}" title="Deployed on ${window.escapeHtml(d.name)}"><i class="${d.icon}"></i>${label}</span>`;
+}
+window.statusPill = statusPill;      // reused by ui.js live preview
+window.deployPill = deployPill;
+
 /* -------- Skeleton + empty states --------------------------------------- */
 function renderSkeletons(count = 8) {
     projectsGrid.innerHTML = Array.from({ length: count })
@@ -49,8 +75,8 @@ function renderSkeletons(count = 8) {
 }
 
 function renderEmptyState() {
-    const adminHint = window.isAdmin
-        ? `<button onclick="window.importSeedProjects && window.importSeedProjects()" class="mt-4 px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors">Import starter projects</button>`
+    const cta = window.isAdmin
+        ? `<button onclick="toggleModal(true)" class="mt-4 px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"><i class="fas fa-plus mr-1"></i> Add your first project</button>`
         : `<p class="text-slate-600 text-sm mt-2">Check back soon — new work is on the way.</p>`;
     projectsGrid.innerHTML = `
         <div class="col-span-full flex flex-col items-center justify-center text-center py-20">
@@ -58,11 +84,11 @@ function renderEmptyState() {
                 <i class="fas fa-folder-open text-2xl text-slate-500"></i>
             </div>
             <h3 class="text-xl font-bold text-slate-300">No projects yet</h3>
-            ${adminHint}
+            ${cta}
         </div>`;
 }
 
-/* -------- The card + full render ---------------------------------------- */
+/* -------- Card ---------------------------------------------------------- */
 function cardHtml(project, index) {
     const delayClass = `stagger-${(index % 8) + 1}`;
     const gradient = window.COLOR_MAP[project.color] || window.COLOR_MAP.gray;
@@ -79,18 +105,23 @@ function cardHtml(project, index) {
         .map((t) => `<span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 mr-1">${window.escapeHtml(t)}</span>`)
         .join('');
 
-    // data-search powers ui.js's title+desc+tags search.
     const haystack = window.escapeHtml([project.title, project.desc, ...tags].filter(Boolean).join(' '));
 
     const deleteBtn = (window.isAdmin && isDynamic)
         ? `<button onclick="event.stopPropagation(); window.deleteProjectFromDb('${window.escapeHtml(project.id)}')" class="delete-btn absolute top-3 left-3 w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white flex items-center justify-center transition-all z-20" title="Delete project"><i class="fas fa-trash-alt text-xs"></i></button>`
         : '';
 
+    const featured = project.featured
+        ? `<div class="feat-badge" title="Featured"><i class="fas fa-star"></i></div>` : '';
+
     const catLabel = category ? category.charAt(0).toUpperCase() + category.slice(1) : '';
+    const repoUrl = window.resolveRepoUrl ? window.resolveRepoUrl(project) : null;
+    const repoAttr = repoUrl ? ` data-repo="${window.escapeHtml(repoUrl)}"` : '';
 
     return `
-    <div role="button" tabindex="0" onclick="window.openDetailModal('${window.escapeHtml(project.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.openDetailModal('${window.escapeHtml(project.id)}')}" onmouseenter="playHoverSound && playHoverSound()" data-category="${category}" data-search="${haystack}" data-id="${window.escapeHtml(project.id)}" class="project-card glass-card group rounded-2xl p-6 flex flex-col h-64 relative overflow-hidden opacity-0 animate-fade-in-up ${delayClass}">
+    <div role="button" tabindex="0" onclick="window.openDetailModal('${window.escapeHtml(project.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.openDetailModal('${window.escapeHtml(project.id)}')}" onmouseenter="playHoverSound && playHoverSound()" data-category="${category}" data-search="${haystack}" data-id="${window.escapeHtml(project.id)}"${repoAttr} class="project-card glass-card group rounded-2xl p-6 flex flex-col h-64 relative overflow-hidden opacity-0 animate-fade-in-up ${delayClass}">
         ${deleteBtn}
+        ${featured}
         <div class="glass-card-content h-full flex flex-col">
             <div class="mt-2 mb-auto icon-wrapper flex justify-center items-center">
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
@@ -98,12 +129,19 @@ function cardHtml(project, index) {
                 </div>
             </div>
             <div class="text-content">
-                <h3 class="text-xl font-bold mb-2 group-hover:text-indigo-300 transition-colors">${title}</h3>
+                <div class="flex items-center gap-2 mb-2">
+                    <h3 class="text-xl font-bold group-hover:text-indigo-300 transition-colors truncate">${title}</h3>
+                    ${statusPill(project.status)}
+                </div>
                 <p class="text-sm text-slate-400 line-clamp-2">${desc}</p>
             </div>
             <div class="mt-4 flex flex-wrap gap-y-1 tags-container">${tagsHtml}</div>
-            <div class="mt-2 flex items-center text-xs text-slate-500 font-mono">
-                <span class="w-2 h-2 rounded-full mr-2 animate-pulse" style="background:${dot}"></span> ${catLabel}
+            <div class="mt-2 flex items-center justify-between text-xs text-slate-500 font-mono">
+                <span class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full animate-pulse" style="background:${dot}"></span> ${catLabel}
+                    ${deployPill(project.link, false)}
+                </span>
+                <span class="gh-star inline-flex items-center gap-1 text-slate-400"></span>
             </div>
         </div>
     </div>`;
@@ -120,29 +158,122 @@ const comingSoonHtml = `
         </div>
     </div>`;
 
+/* -------- Sorting (featured always floats to the top) ------------------- */
+function sortProjects(projects) {
+    const arr = [...projects];
+    arr.sort((a, b) => {
+        const fa = a.featured ? 1 : 0, fb = b.featured ? 1 : 0;
+        if (fa !== fb) return fb - fa;
+        if (currentSort === 'az') return String(a.title || '').localeCompare(String(b.title || ''));
+        if (currentSort === 'stars') return (starById[b.id] ?? -1) - (starById[a.id] ?? -1);
+        return (b.createdAt || 0) - (a.createdAt || 0);   // newest (default) / featured
+    });
+    return arr;
+}
+
+window.setSort = async (mode) => {
+    currentSort = mode;
+    window.currentSort = mode;
+    window.playClickSound && playClickSound();
+    if (mode === 'stars') await hydrateAllStats();   // sort on real numbers
+    renderAllProjects();
+};
+
+/* -------- Full render --------------------------------------------------- */
 window.renderAllProjects = () => {
-    // Until firebase.js has loaded and reported its first snapshot, show
-    // skeletons rather than a misleading "no projects" state.
     const loaded = window.hasLoadedProjects ? window.hasLoadedProjects() : false;
     if (!loaded) { renderSkeletons(); return; }
 
-    const projects = window.getDynamicProjects ? window.getDynamicProjects() : [];
-    if (!projects.length) { renderEmptyState(); return; }
+    const projects = getProjects();
+    if (!projects.length) { renderEmptyState(); updateStatsBar(); return; }
 
-    projectsGrid.innerHTML = projects.map((p, i) => cardHtml(p, i)).join('') + comingSoonHtml;
+    const ordered = sortProjects(projects);
+    projectsGrid.innerHTML = ordered.map((p, i) => cardHtml(p, i)).join('') + comingSoonHtml;
 
-    // Re-apply any active filter/search after a re-render.
     const activeBtn = document.querySelector('.filter-btn.active');
     if (activeBtn && window.filterProjects) {
         const search = document.getElementById('searchInput');
         window.filterProjects(activeBtn.getAttribute('data-filter'), search ? search.value : '');
     }
     initTilt();
+    updateStatsBar();
+    hydrateCardStats();
 };
 
-/* -------- 3D tilt on cards ---------------------------------------------- */
+/* -------- GitHub stats hydration ---------------------------------------- */
+async function hydrateCardStats() {
+    const cards = Array.from(document.querySelectorAll('#projectsGrid .project-card[data-repo]'));
+    await Promise.allSettled(cards.map(async (card) => {
+        const repo = card.getAttribute('data-repo');
+        const id = card.getAttribute('data-id');
+        const stats = await window.fetchGitHubStats(repo);
+        if (!stats) return;
+        starById[id] = stats.stars;
+        if (stats.language) langById[id] = stats.language;
+        const el = card.querySelector('.gh-star');
+        if (!el) return;
+        if (stats.stars > 0) {
+            el.innerHTML = `<i class="fas fa-star text-yellow-400"></i> ${stats.stars}`;
+        } else if (stats.language) {
+            el.innerHTML = `<span class="w-2 h-2 rounded-full inline-block" style="background:${window.langColor(stats.language)}"></span> ${window.escapeHtml(stats.language)}`;
+        }
+    }));
+    updateStatsBar();
+}
+
+async function hydrateAllStats() {
+    const projects = getProjects();
+    await Promise.allSettled(projects.map(async (p) => {
+        const repo = window.resolveRepoUrl ? window.resolveRepoUrl(p) : null;
+        if (!repo) return;
+        const s = await window.fetchGitHubStats(repo);
+        if (s) { starById[p.id] = s.stars; if (s.language) langById[p.id] = s.language; }
+    }));
+}
+
+/* -------- Portfolio stats bar ------------------------------------------- */
+function countUp(el, from, to) {
+    if (reduceMotion() || from === to) { el.textContent = to.toLocaleString(); return; }
+    const start = performance.now();
+    const dur = 600;
+    const step = (now) => {
+        const t = Math.min(1, (now - start) / dur);
+        const val = Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3)));
+        el.textContent = val.toLocaleString();
+        if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+}
+function setStat(id, target) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = parseInt(el.dataset.val || '0', 10);
+    if (cur === target) return;
+    el.dataset.val = String(target);
+    countUp(el, cur, target);
+}
+function updateStatsBar() {
+    const bar = document.getElementById('statsBar');
+    if (!bar) return;
+    const projects = getProjects();
+    if (!projects.length) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+    const totalStars = Object.values(starById).reduce((a, b) => a + b, 0);
+    const techs = new Set();
+    projects.forEach((p) => (p.tags || []).forEach((t) => {
+        const s = String(t).trim().toLowerCase();
+        if (s) techs.add(s);
+    }));
+    const cats = new Set(projects.map((p) => p.category).filter(Boolean)).size;
+    setStat('stat-projects', projects.length);
+    setStat('stat-stars', totalStars);
+    setStat('stat-langs', techs.size);
+    setStat('stat-cats', cats);
+}
+
+/* -------- 3D tilt ------------------------------------------------------- */
 function initTilt() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (reduceMotion()) return;
     document.querySelectorAll('#projectsGrid .glass-card').forEach((card) => {
         card.onmousemove = (e) => {
             const rect = card.getBoundingClientRect();
@@ -161,14 +292,11 @@ window.pickRandomProject = () => {
         .filter((c) => c.style.display !== 'none');
     if (!cards.length) { window.showToast && showToast("No projects to pick from.", "info"); return; }
     const pick = cards[Math.floor(Math.random() * cards.length)];
-    pick.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    pick.classList.add('ring-2', 'ring-indigo-400');
-    setTimeout(() => pick.classList.remove('ring-2', 'ring-indigo-400'), 1200);
     const id = pick.getAttribute('data-id');
-    if (id) setTimeout(() => window.openDetailModal(id), 400);
+    if (id) window.openDetailModal(id);
 };
 
-/* -------- Project detail modal ------------------------------------------ */
+/* -------- Detail modal -------------------------------------------------- */
 const detailModal = document.getElementById('detailModal');
 const detailBody = document.getElementById('detailBody');
 
@@ -180,27 +308,26 @@ window.closeDetailModal = () => {
     setTimeout(() => {
         detailModal.classList.add('hidden');
         if (detailBody) detailBody.innerHTML = '';   // stop any iframe from loading
+        currentDetailId = null;
     }, 300);
 };
 
 window.openDetailModal = (id) => {
     if (!detailModal || !detailBody) return;
-    const projects = window.getDynamicProjects ? window.getDynamicProjects() : [];
-    const p = projects.find((x) => String(x.id) === String(id));
+    const p = getProjects().find((x) => String(x.id) === String(id));
     if (!p) return;
+    currentDetailId = String(id);
 
     const gradient = window.COLOR_MAP[p.color] || window.COLOR_MAP.gray;
     const icon = window.escapeHtml(p.icon || 'fa-cube');
     const title = window.escapeHtml(p.title);
     const desc = window.escapeHtml(p.desc);
+    const longDesc = p.longDesc ? window.escapeHtml(p.longDesc) : '';
     const category = window.escapeHtml(p.category || '');
     const link = window.escapeHtml(p.link || '');
-    const repo = window.escapeHtml(p.repo || '');
+    const repoUrl = window.resolveRepoUrl ? window.resolveRepoUrl(p) : null;
+    const repoEsc = repoUrl ? window.escapeHtml(repoUrl) : '';
     const tags = (p.tags || []).map((t) => `<span class="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-xs text-slate-300">${window.escapeHtml(t)}</span>`).join('');
-
-    const codeBtn = repo
-        ? `<a href="${repo}" target="_blank" rel="noopener" class="btn-ghost"><i class="fab fa-github"></i> View Code</a>`
-        : '';
 
     detailBody.innerHTML = `
         <div class="detail-frame-wrap mb-6">
@@ -213,27 +340,33 @@ window.openDetailModal = (id) => {
             ${link ? `<iframe src="${link}" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups" title="${title} live preview"></iframe>` : ''}
         </div>
 
-        <div class="flex items-start gap-4 mb-4">
+        <div class="flex items-start gap-4 mb-3">
             <div class="w-12 h-12 shrink-0 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg">
                 <i class="fas ${icon} text-xl text-white"></i>
             </div>
             <div class="min-w-0">
                 <h2 class="text-2xl font-bold text-white leading-tight">${title}</h2>
-                ${category ? `<span class="text-xs font-mono uppercase tracking-widest text-indigo-300">${category}</span>` : ''}
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                    ${category ? `<span class="text-xs font-mono uppercase tracking-widest text-indigo-300">${category}</span>` : ''}
+                    ${statusPill(p.status)}
+                    ${deployPill(p.link, true)}
+                </div>
             </div>
         </div>
 
-        <p class="text-slate-300 leading-relaxed mb-4">${desc}</p>
-        ${tags ? `<div class="flex flex-wrap gap-2 mb-5">${tags}</div>` : ''}
+        <p class="text-slate-300 leading-relaxed mb-3">${desc}</p>
+        ${longDesc ? `<p class="text-slate-400 text-sm leading-relaxed mb-4 whitespace-pre-line">${longDesc}</p>` : ''}
+        ${tags ? `<div class="flex flex-wrap gap-2 mb-4">${tags}</div>` : ''}
 
-        <div id="detailGhStats" class="hidden flex-wrap items-center gap-4 mb-6 text-sm text-slate-300"></div>
+        <div id="detailGhStats" class="hidden flex-wrap items-center gap-4 mb-3 text-sm text-slate-300"></div>
+        <div id="detailLangs" class="mb-6"></div>
 
         <div class="flex flex-wrap gap-3">
             ${link ? `<a href="${link}" target="_blank" rel="noopener" class="btn-primary"><i class="fas fa-external-link-alt"></i> Visit Live</a>` : ''}
-            ${codeBtn}
+            ${repoUrl ? `<a href="${repoEsc}" target="_blank" rel="noopener" class="btn-ghost"><i class="fab fa-github"></i> View Code</a>` : ''}
+            <button onclick="window.shareProject('${window.escapeHtml(String(id))}')" class="btn-ghost"><i class="fas fa-share-nodes"></i> Share</button>
         </div>`;
 
-    // Reveal
     detailModal.classList.remove('hidden');
     setTimeout(() => {
         detailModal.classList.remove('opacity-0');
@@ -242,11 +375,14 @@ window.openDetailModal = (id) => {
     }, 10);
     window.playClickSound && playClickSound();
 
-    // GitHub stats (async, non-blocking)
-    if (p.repo && window.fetchGitHubStats) {
-        window.fetchGitHubStats(p.repo).then((stats) => {
+    // GitHub stats + language bar (async, non-blocking).
+    if (repoUrl && window.fetchGitHubStats) {
+        window.fetchGitHubStats(repoUrl).then((stats) => {
+            if (String(currentDetailId) !== String(id)) return;   // user moved on
             const row = document.getElementById('detailGhStats');
             if (!row || !stats) return;
+            starById[id] = stats.stars;
+            if (stats.language) langById[id] = stats.language;
             row.innerHTML = `
                 <span title="Stars"><i class="fas fa-star text-yellow-400"></i> ${stats.stars.toLocaleString()}</span>
                 <span title="Forks"><i class="fas fa-code-branch text-slate-400"></i> ${stats.forks.toLocaleString()}</span>
@@ -255,11 +391,55 @@ window.openDetailModal = (id) => {
             row.classList.add('flex');
         });
     }
+    if (repoUrl && window.fetchGitHubLanguages) {
+        window.fetchGitHubLanguages(repoUrl).then((langs) => {
+            if (String(currentDetailId) !== String(id)) return;
+            const box = document.getElementById('detailLangs');
+            if (!box || !langs.length) return;
+            const top = langs.slice(0, 6);
+            const segs = top.map((l) => `<span style="width:${l.pct}%;background:${window.langColor(l.name)}" title="${window.escapeHtml(l.name)} ${l.pct.toFixed(1)}%"></span>`).join('');
+            const legend = top.map((l) => `<span class="inline-flex items-center gap-1.5 text-xs text-slate-400"><span class="w-2.5 h-2.5 rounded-full" style="background:${window.langColor(l.name)}"></span>${window.escapeHtml(l.name)} ${l.pct.toFixed(1)}%</span>`).join('');
+            box.innerHTML = `<div class="lang-bar">${segs}</div><div class="lang-legend flex flex-wrap gap-x-4 gap-y-1 mt-2">${legend}</div>`;
+        });
+    }
+};
+
+/* Prev/next through the currently-visible cards (respects filter + sort). */
+window.detailNav = (dir) => {
+    const ids = Array.from(document.querySelectorAll('#projectsGrid .project-card:not(.coming-soon)'))
+        .filter((c) => c.style.display !== 'none')
+        .map((c) => c.getAttribute('data-id'));
+    if (!ids.length) return;
+    let idx = ids.indexOf(currentDetailId);
+    if (idx === -1) idx = 0;
+    const ni = (idx + dir + ids.length) % ids.length;
+    window.openDetailModal(ids[ni]);
+};
+
+window.shareProject = (id) => {
+    const p = getProjects().find((x) => String(x.id) === String(id));
+    if (!p) return;
+    const url = p.link || location.href;
+    if (navigator.share) {
+        navigator.share({ title: p.title, text: p.desc, url }).catch(() => {});
+    } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(url)
+            .then(() => window.showToast && showToast('Link copied to clipboard!', 'success'))
+            .catch(() => window.showToast && showToast('Could not copy link', 'error'));
+    } else {
+        window.showToast && showToast(url, 'info');
+    }
 };
 
 if (detailModal) {
     detailModal.addEventListener('mousedown', (e) => { if (e.target === detailModal) window.closeDetailModal(); });
 }
+// Arrow-key navigation while the detail modal is open.
+document.addEventListener('keydown', (e) => {
+    if (!detailModal || detailModal.classList.contains('hidden')) return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); window.detailNav(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); window.detailNav(1); }
+});
 
-/* First paint: show skeletons until Firestore's first snapshot arrives. */
+/* First paint: skeletons until Firestore's first snapshot arrives. */
 renderAllProjects();

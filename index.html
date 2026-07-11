@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arnav's Portfolio</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%9A%80</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -158,8 +159,25 @@
                             </div>
                         </div>
                         <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">GitHub Repo (URL) <span class="text-slate-600">— optional</span></label>
+                            <label class="block text-xs text-slate-400 mb-1">GitHub Repo (URL) <span class="text-slate-600">— optional, auto-detected from github.io links</span></label>
                             <input type="url" id="pRepo" class="form-input" placeholder="https://github.com/user/repo" onblur="formatLink(this)">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1">Detailed Write-up <span class="text-slate-600">— optional, shown in the project detail view</span></label>
+                            <textarea id="pLongDesc" class="form-input h-24 resize-none" placeholder="The full story: what it does, how you built it, challenges, tech decisions..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Status</label>
+                            <select id="pStatus" class="form-input cursor-pointer">
+                                <option value="live">Live</option>
+                                <option value="wip">In Progress</option>
+                                <option value="archived">Archived</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end pb-1">
+                            <label class="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-300">
+                                <input type="checkbox" id="pFeatured" class="w-4 h-4 accent-indigo-500"> <i class="fas fa-star text-yellow-400"></i> Featured project
+                            </label>
                         </div>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Category</label>
@@ -214,20 +232,61 @@
                             </div>
                         </div>
                         <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Tech Tags</label>
-                            <input type="text" id="pTags" class="form-input" placeholder="JS, React, 3D">
-                            <!-- Quick Tags -->
-                            <div class="flex flex-wrap gap-2 mt-2">
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('React')">React</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Firebase')">Firebase</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Python')">Python</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('AI')">AI</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Tailwind')">Tailwind</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Node.js')">Node.js</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('TypeScript')">TypeScript</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Three.js')">Three.js</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('HTML')">HTML</span>
-                                <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('CSS')">CSS</span>
+                            <label class="block text-xs text-slate-400 mb-1">Tech / Languages</label>
+                            <input type="text" id="pTags" class="form-input" placeholder="JavaScript, React, WebGL">
+                            <!-- Quick Tags (grouped) -->
+                            <div class="mt-3 space-y-2">
+                                <div>
+                                    <span class="block text-[10px] uppercase tracking-widest text-slate-600 mb-1">Languages</span>
+                                    <div class="flex flex-wrap gap-1.5" data-tag-group>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('JavaScript')">JavaScript</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('TypeScript')">TypeScript</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('HTML')">HTML</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('CSS')">CSS</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Python')">Python</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('C++')">C++</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('C')">C</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('C#')">C#</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Java')">Java</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Go')">Go</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Rust')">Rust</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Swift')">Swift</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Kotlin')">Kotlin</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('PHP')">PHP</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('SQL')">SQL</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Dart')">Dart</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="block text-[10px] uppercase tracking-widest text-slate-600 mb-1">Frameworks</span>
+                                    <div class="flex flex-wrap gap-1.5" data-tag-group>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('React')">React</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Next.js')">Next.js</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Vue')">Vue</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Svelte')">Svelte</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Node.js')">Node.js</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Express')">Express</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Flask')">Flask</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Django')">Django</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Tailwind')">Tailwind</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Three.js')">Three.js</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="block text-[10px] uppercase tracking-widest text-slate-600 mb-1">Tools & Platforms</span>
+                                    <div class="flex flex-wrap gap-1.5" data-tag-group>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Firebase')">Firebase</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Vercel')">Vercel</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('MongoDB')">MongoDB</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('PostgreSQL')">PostgreSQL</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Vite')">Vite</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('WebGL')">WebGL</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Canvas')">Canvas</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('PWA')">PWA</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('AI')">AI</span>
+                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('WebSockets')">WebSockets</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -252,6 +311,8 @@
 
     <!-- Project Detail Modal -->
     <div id="detailModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
+        <button onclick="window.detailNav(-1)" onmouseenter="playHoverSound()" class="detail-nav detail-nav-prev" title="Previous (←)"><i class="fas fa-chevron-left"></i></button>
+        <button onclick="window.detailNav(1)" onmouseenter="playHoverSound()" class="detail-nav detail-nav-next" title="Next (→)"><i class="fas fa-chevron-right"></i></button>
         <div class="detail-panel rounded-2xl p-6 md:p-8 max-w-2xl w-full m-4 shadow-2xl transform scale-95 transition-transform duration-300 overflow-y-auto max-h-[90vh] relative">
             <button onclick="closeDetailModal()" onmouseenter="playHoverSound()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center transition-colors z-10" title="Close (Esc)">
                 <i class="fas fa-times"></i>
@@ -286,9 +347,6 @@
                 <button onclick="toggleModal(true)" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="magnetic flex items-center gap-2 px-6 py-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 rounded-xl text-emerald-300 font-semibold transition-all">
                     <i class="fas fa-plus"></i> Add New Project
                 </button>
-                <button onclick="window.importSeedProjects && window.importSeedProjects()" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="flex items-center gap-2 px-6 py-3 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/50 rounded-xl text-indigo-300 font-semibold transition-all" title="One-time: push the starter projects into Firestore">
-                    <i class="fas fa-cloud-arrow-up"></i> Import Starter Projects
-                </button>
             </div>
 
             <!-- Search Bar -->
@@ -314,11 +372,44 @@
                     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all" onclick="playClickSound()" onmouseenter="playHoverSound()" data-filter="data">Data</button>
                 </div>
 
-                <!-- View Toggle -->
-                <div class="flex bg-white/5 p-1 rounded-lg border border-white/10">
-                    <button onclick="setView('grid'); playClickSound()" onmouseenter="playHoverSound()" id="btn-grid" class="px-3 py-1 rounded-md text-white bg-white/10 shadow-sm transition-all"><i class="fas fa-th-large"></i></button>
-                    <button onclick="setView('list'); playClickSound()" onmouseenter="playHoverSound()" id="btn-list" class="px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all"><i class="fas fa-list"></i></button>
+                <div class="flex items-center gap-3">
+                    <!-- Sort -->
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-arrow-down-wide-short text-slate-500 text-sm"></i>
+                        <select id="sortSelect" onchange="window.setSort(this.value)" class="bg-white/5 border border-white/10 rounded-lg text-sm text-slate-200 px-3 py-1.5 cursor-pointer focus:outline-none focus:border-indigo-500">
+                            <option value="newest">Newest</option>
+                            <option value="stars">Most Starred</option>
+                            <option value="az">A–Z</option>
+                            <option value="featured">Featured</option>
+                        </select>
+                    </div>
+
+                    <!-- View Toggle -->
+                    <div class="flex bg-white/5 p-1 rounded-lg border border-white/10">
+                        <button onclick="setView('grid'); playClickSound()" onmouseenter="playHoverSound()" id="btn-grid" class="px-3 py-1 rounded-md text-white bg-white/10 shadow-sm transition-all"><i class="fas fa-th-large"></i></button>
+                        <button onclick="setView('list'); playClickSound()" onmouseenter="playHoverSound()" id="btn-list" class="px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all"><i class="fas fa-list"></i></button>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Portfolio Stats Bar -->
+        <div id="statsBar" class="hidden max-w-4xl mx-auto w-full mb-12 grid grid-cols-2 sm:grid-cols-4 gap-4 animate-fade-in-up stagger-3">
+            <div class="stat-tile">
+                <div class="stat-value" id="stat-projects" data-val="0">0</div>
+                <div class="stat-label"><i class="fas fa-folder-open"></i> Projects</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" id="stat-stars" data-val="0">0</div>
+                <div class="stat-label"><i class="fas fa-star text-yellow-400"></i> GitHub Stars</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" id="stat-langs" data-val="0">0</div>
+                <div class="stat-label"><i class="fas fa-code"></i> Technologies</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" id="stat-cats" data-val="0">0</div>
+                <div class="stat-label"><i class="fas fa-layer-group"></i> Categories</div>
             </div>
         </div>
 
@@ -378,10 +469,9 @@
 
     </div>
 
-    <!-- Scripts: data → presentation/chrome (classic) → firebase data layer (module, last).
+    <!-- Scripts: presentation/chrome (classic) → firebase data layer (module, last).
          The classic scripts define window.renderAllProjects / showToast / COLOR_MAP /
-         SEED_PROJECTS before firebase.js runs and pushes live data into them. -->
-    <script src="data/seed-projects.js"></script>
+         fetchGitHubStats before firebase.js runs and pushes live data into them. -->
     <script src="js/github.js"></script>
     <script src="js/render.js"></script>
     <script src="js/ui.js"></script>

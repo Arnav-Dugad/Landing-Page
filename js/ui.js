@@ -74,17 +74,22 @@ window.toggleModal = (show) => {
 };
 bindBackdropClose(modal, () => toggleModal(false));
 
+const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
 document.getElementById('addProjectForm').addEventListener('submit', (e) => {
     e.preventDefault();
-    const tags = document.getElementById('pTags').value.split(',').map(t => t.trim()).filter(Boolean);
+    const tags = val('pTags').split(',').map(t => t.trim()).filter(Boolean);
+    const featuredEl = document.getElementById('pFeatured');
     const newProject = {
-        title: document.getElementById('pTitle').value,
-        desc: document.getElementById('pDesc').value,
-        link: document.getElementById('pLink').value,
-        category: document.getElementById('pCategory').value,
-        color: document.getElementById('pColor').value,
-        icon: document.getElementById('pIcon').value,
-        repo: document.getElementById('pRepo') ? document.getElementById('pRepo').value : '',
+        title: val('pTitle'),
+        desc: val('pDesc'),
+        longDesc: val('pLongDesc'),
+        link: val('pLink'),
+        category: val('pCategory'),
+        color: val('pColor'),
+        icon: val('pIcon'),
+        repo: val('pRepo'),
+        status: val('pStatus') || 'live',
+        featured: featuredEl ? featuredEl.checked : false,
         tags
     };
     if (typeof window.saveProjectToDb === 'function') window.saveProjectToDb(newProject);
@@ -102,26 +107,37 @@ function updatePreview() {
     const tags = tagsVal ? tagsVal.split(',').filter(t => t.trim()) : ["Tag 1", "Tag 2"];
     const gradient = (window.COLOR_MAP && window.COLOR_MAP[color]) || "from-indigo-500 to-violet-600";
     const dot = (window.DOT_COLOR && window.DOT_COLOR[color]) || "#6366f1";
+    const status = document.getElementById('pStatus') ? document.getElementById('pStatus').value : '';
+    const featured = document.getElementById('pFeatured') ? document.getElementById('pFeatured').checked : false;
+    const link = document.getElementById('pLink') ? document.getElementById('pLink').value : '';
+    const statusHtml = (window.statusPill && status) ? window.statusPill(status) : '';
+    const deployHtml = (window.deployPill && link) ? window.deployPill(link, false) : '';
+    const featHtml = featured ? `<div class="feat-badge" title="Featured"><i class="fas fa-star"></i></div>` : '';
     const tagsHtml = tags.map(t => `<span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-slate-300 mr-1">${t}</span>`).join('');
     document.getElementById('previewCardContainer').innerHTML = `
         <div class="glass-card group rounded-2xl p-6 flex flex-col h-64 relative overflow-hidden">
+            ${featHtml}
             <div class="glass-card-content h-full flex flex-col">
                 <div class="mt-2 mb-auto">
                     <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-lg">
                         <i class="fas ${icon} text-xl text-white"></i>
                     </div>
-                    <h3 class="text-xl font-bold mb-2 text-white">${title}</h3>
+                    <div class="flex items-center gap-2 mb-2">
+                        <h3 class="text-xl font-bold text-white truncate">${title}</h3>
+                        ${statusHtml}
+                    </div>
                     <p class="text-sm text-slate-400 line-clamp-2">${desc}</p>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-y-1">${tagsHtml}</div>
-                <div class="mt-2 flex items-center text-xs text-slate-500 font-mono">
-                    <span class="w-2 h-2 rounded-full mr-2" style="background:${dot}"></span> ${category.toUpperCase()}
+                <div class="mt-2 flex items-center gap-2 text-xs text-slate-500 font-mono">
+                    <span class="w-2 h-2 rounded-full" style="background:${dot}"></span> ${category.toUpperCase()} ${deployHtml}
                 </div>
             </div>
         </div>`;
 }
-['pTitle', 'pDesc', 'pCategory', 'pColor', 'pIcon', 'pTags'].forEach(id => {
+['pTitle', 'pDesc', 'pLink', 'pCategory', 'pColor', 'pIcon', 'pTags', 'pStatus', 'pFeatured'].forEach(id => {
     const el = document.getElementById(id);
+    if (!el) return;
     el.addEventListener('input', updatePreview);
     el.addEventListener('change', updatePreview);
 });

@@ -9,12 +9,21 @@ the site updates itself the moment a project is added or removed.
 ## Features
 
 - **Everything from Firebase** — projects load live from Firestore via a realtime
-  `onSnapshot` subscription; skeletons show while loading and an empty-state
-  invites a one-time seed import.
+  `onSnapshot` subscription; skeletons show while loading.
 - **Project detail modal** — click any card for a live in-page preview, full
-  description, tags, and **Visit Live** / **View Code** buttons.
-- **GitHub live stats** — stars, forks and last-push are pulled from the GitHub
-  API for any project with a repo (cached in `localStorage` to respect limits).
+  write-up, tags, GitHub stats, a language bar, **Visit Live** / **View Code** /
+  **Share**, and ←/→ navigation between projects.
+- **Automatic GitHub stats** — stars, forks, last-push and a language breakdown,
+  pulled from the GitHub API. The repo is taken from an explicit `repo` field or
+  **auto-derived** from a `<user>.github.io/<name>` link, so link-only projects
+  still get stats. Cached in `localStorage` (6h) and deduped to respect limits.
+- **Portfolio stats bar** — live totals: projects, GitHub stars, technologies,
+  categories, with a count-up animation.
+- **Sorting & featured** — sort by Newest / Most-Starred / A–Z / Featured;
+  featured projects pin to the top.
+- **Rich project data** — status badge (Live / In Progress / Archived),
+  auto-detected deploy badge (GitHub Pages / Vercel / Netlify / Firebase),
+  detailed write-up, and a large set of language/framework/tool quick-tags.
 - **Admin mode** — PIN-gated add/delete of projects with a live card preview.
 - **Premium animations** — animated gradient background, starfield with
   cursor-linked constellations, custom cursor, magnetic buttons, 3D card tilt,
@@ -27,20 +36,18 @@ the site updates itself the moment a project is added or removed.
 ## Project structure
 
 ```
-index.html             Markup + Tailwind config (no inline app logic)
-css/styles.css         All styles, animations, and premium components
-data/seed-projects.js  Starter projects for the one-time Firestore import
-js/render.js           Card rendering, color maps, detail modal (presentation)
-js/github.js           GitHub stats fetch + cache
-js/ui.js               Toasts, modals, filters/search, admin, keyboard shortcuts
-js/effects.js          Starfield, cursor, confetti, audio, clock, weather
-js/firebase.js         Firebase init + the entire Firestore data layer (module)
-firestore.rules        Security rules (deploy via the Firebase console)
+index.html          Markup + Tailwind config (no inline app logic)
+css/styles.css      All styles, animations, and premium components
+js/render.js        Cards, badges, stats bar, sorting, detail modal (presentation)
+js/github.js        GitHub stats/languages, repo resolution, deploy detection
+js/ui.js            Toasts, modals, filters/search/sort, admin, add-project form
+js/effects.js       Starfield, cursor, confetti, audio, clock, weather, hero
+js/firebase.js      Firebase init + the entire Firestore data layer (module)
+firestore.rules     Security rules (deploy via the Firebase console)
 ```
 
-Scripts load as: data → `github`/`render`/`ui`/`effects` (classic) →
-`firebase.js` (module, last), so the data layer pushes live data into an
-already-initialized UI.
+Scripts load as `github`/`render`/`ui`/`effects` (classic) → `firebase.js`
+(module, last), so the data layer pushes live data into an already-initialized UI.
 
 ## Running locally
 

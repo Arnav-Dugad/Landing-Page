@@ -38,11 +38,17 @@ service cloud.firestore {
           && request.resource.data.desc is string
           && request.resource.data.desc.size() <= 1000
           && request.resource.data.link is string
-          && request.resource.data.link.size() <= 2000;
+          && request.resource.data.link.size() <= 2000
+          && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
+          && (!('status' in request.resource.data) || request.resource.data.status is string)
+          && (!('featured' in request.resource.data) || request.resource.data.featured is bool)
+          && (!('repo' in request.resource.data) || (request.resource.data.repo is string && request.resource.data.repo.size() <= 2000));
 
         allow update: if signedIn()
           && request.resource.data.title is string
-          && request.resource.data.title.size() <= 120;
+          && request.resource.data.title.size() <= 120
+          && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
+          && (!('featured' in request.resource.data) || request.resource.data.featured is bool);
 
         allow delete: if signedIn();
       }
