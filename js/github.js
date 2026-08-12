@@ -26,17 +26,19 @@
     };
     window.langColor = (name) => window.LANG_COLOR[name] || '#8b949e';
 
-    /* ---- Deploy platform detection from a live URL --------------------- */
+    /* ---- Deploy platform detection from a live URL ---------------------
+       `icon` values are keys from js/icons.js; `color` is tuned for paper,
+       not for a dark background. */
     window.deployInfo = (link) => {
         if (!link) return null;
         let host = '';
         try { host = new URL(link).hostname.toLowerCase(); } catch { return null; }
-        if (host.endsWith('github.io')) return { name: 'GitHub Pages', icon: 'fa-brands fa-github', color: '#c9d1d9' };
-        if (host.endsWith('vercel.app')) return { name: 'Vercel', icon: 'fa-brands fa-vercel', color: '#ffffff' };
-        if (host.endsWith('netlify.app')) return { name: 'Netlify', icon: 'fa-solid fa-bolt', color: '#32e6e2' };
-        if (host.endsWith('web.app') || host.endsWith('firebaseapp.com')) return { name: 'Firebase', icon: 'fa-solid fa-fire', color: '#ffca28' };
-        if (host.endsWith('pages.dev')) return { name: 'Cloudflare Pages', icon: 'fa-brands fa-cloudflare', color: '#f38020' };
-        return { name: 'Web', icon: 'fa-solid fa-globe', color: '#60a5fa' };
+        if (host.endsWith('github.io')) return { name: 'GitHub Pages', icon: 'github', color: '#24292F' };
+        if (host.endsWith('vercel.app')) return { name: 'Vercel', icon: 'vercel', color: '#141210' };
+        if (host.endsWith('netlify.app')) return { name: 'Netlify', icon: 'bolt', color: '#00808B' };
+        if (host.endsWith('web.app') || host.endsWith('firebaseapp.com')) return { name: 'Firebase', icon: 'flame', color: '#B4720A' };
+        if (host.endsWith('pages.dev')) return { name: 'Cloudflare Pages', icon: 'cloud', color: '#C2610C' };
+        return { name: 'Web', icon: 'globe', color: '#1D6FE0' };
     };
 
     /* ---- Parse "owner/repo" from a GitHub URL -------------------------- */

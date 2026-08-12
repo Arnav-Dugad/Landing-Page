@@ -1,0 +1,13 @@
+{
+  "name": "Arnav Dugad — Interactive web work",
+  "short_name": "Arnav Dugad",
+  "description": "Interactive web experiences, games and tools — every project live, with real GitHub data.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FBFAF7",
+  "theme_color": "#FBFAF7",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

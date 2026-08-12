@@ -1,0 +1,180 @@
+/* ===========================================================================
+   motion.css — the animation vocabulary.
+
+   Reveal classes are driven by an IntersectionObserver in js/motion.js, which
+   only ever toggles `.is-in`. Keeping the *what* here and the *when* in JS is
+   why the whole site can be made still by one media query.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Scroll reveals
+   --------------------------------------------------------------------------- */
+
+[data-reveal] {
+    opacity: 0;
+    transition: opacity var(--d-4) var(--e-out),
+                transform var(--d-5) var(--e-expo),
+                filter var(--d-4) var(--e-out);
+    transition-delay: var(--delay, 0ms);
+    will-change: transform, opacity;
+}
+[data-reveal].is-in { opacity: 1; transform: none; filter: none; }
+
+[data-reveal="up"]     { transform: translateY(30px); }
+[data-reveal="down"]   { transform: translateY(-24px); }
+[data-reveal="left"]   { transform: translateX(34px); }
+[data-reveal="right"]  { transform: translateX(-34px); }
+[data-reveal="scale"]  { transform: scale(.94); }
+[data-reveal="blur"]   { filter: blur(12px); transform: translateY(20px); }
+[data-reveal="fade"]   { transform: none; }
+
+/* A card entering the grid: rises, unblurs and un-skews at once. */
+[data-reveal="card"] {
+    transform: translateY(38px) scale(.97);
+    filter: blur(6px);
+}
+
+/* Rule that draws itself left-to-right. */
+[data-reveal="rule"] {
+    opacity: 1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--d-5) var(--e-expo);
+    transition-delay: var(--delay, 0ms);
+}
+[data-reveal="rule"].is-in { transform: scaleX(1); }
+
+/* ---------------------------------------------------------------------------
+   Split-text reveal — js/motion.js wraps each word in .sp > i
+   --------------------------------------------------------------------------- */
+
+.sp {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    padding-bottom: .06em;
+    margin-bottom: -.06em;
+}
+.sp > i {
+    display: inline-block;
+    font-style: inherit;
+    transform: translateY(115%) rotate(3deg);
+    opacity: 0;
+    filter: blur(5px);
+    transition: transform var(--d-5) var(--e-expo),
+                opacity var(--d-3) var(--e-out),
+                filter var(--d-4) var(--e-out);
+    transition-delay: var(--d, 0ms);
+}
+.is-split-in .sp > i { transform: none; opacity: 1; filter: none; }
+
+/* ---------------------------------------------------------------------------
+   Magnetic + tilt hooks (transforms written by JS, easing owned here)
+   --------------------------------------------------------------------------- */
+
+.magnetic {
+    will-change: transform;
+    transition: transform var(--d-4) var(--e-expo);
+}
+.magnetic.is-pulled { transition: transform .1s linear; }
+
+/* ---------------------------------------------------------------------------
+   Keyframes
+   --------------------------------------------------------------------------- */
+
+@keyframes drift-a {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    100% { transform: translate3d(14vw, 12vh, 0) scale(1.22); }
+}
+@keyframes drift-b {
+    0%   { transform: translate3d(0, 0, 0) scale(1.1); }
+    100% { transform: translate3d(-16vw, 16vh, 0) scale(.88); }
+}
+@keyframes drift-c {
+    0%   { transform: translate3d(0, 0, 0) scale(.92); }
+    100% { transform: translate3d(12vw, -14vh, 0) scale(1.18); }
+}
+
+/* Grain jitters so the texture never reads as a static PNG. */
+@keyframes grain {
+    0%,100% { transform: translate(0, 0); }
+    10% { transform: translate(-3%, -4%); }
+    20% { transform: translate(-8%, 2%); }
+    30% { transform: translate(4%, -7%); }
+    40% { transform: translate(-3%, 6%); }
+    50% { transform: translate(-8%, 3%); }
+    60% { transform: translate(6%, 0%); }
+    70% { transform: translate(0%, 6%); }
+    80% { transform: translate(3%, -3%); }
+    90% { transform: translate(-4%, 3%); }
+}
+
+@keyframes ping {
+    0%   { transform: scale(1); opacity: .7; }
+    70%  { transform: scale(2.6); opacity: 0; }
+    100% { transform: scale(2.6); opacity: 0; }
+}
+
+@keyframes rule-sweep {
+    0%   { transform: translateX(-100%); }
+    55%  { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+}
+
+@keyframes shimmer {
+    0%   { background-position: 140% 0; }
+    100% { background-position: -40% 0; }
+}
+
+@keyframes grow-x {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
+@keyframes letter-rise {
+    to { transform: translateY(0); }
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(20px) scale(.94); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes toast-out {
+    to { opacity: 0; transform: translateY(10px) scale(.96); }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.is-spinning { animation: spin .8s linear infinite; }
+
+@keyframes pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.28); }
+    100% { transform: scale(1); }
+}
+.is-popping { animation: pop var(--d-3) var(--e-spring); }
+
+/* ---------------------------------------------------------------------------
+   View Transitions — used for filter/sort re-layouts where supported.
+   Progressive enhancement: browsers without it just re-render instantly.
+   --------------------------------------------------------------------------- */
+
+@view-transition { navigation: none; }
+
+::view-transition-group(*) { animation-duration: var(--d-3); animation-timing-function: var(--e-expo); }
+::view-transition-old(root) { animation: vt-out var(--d-2) var(--e-out) forwards; }
+::view-transition-new(root) { animation: vt-in var(--d-3) var(--e-expo) forwards; }
+
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in  { from { opacity: 0; } }
+
+/* ---------------------------------------------------------------------------
+   Reduced motion — kill ambience, keep state changes legible.
+   --------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    [data-reveal], .sp > i { opacity: 1 !important; transform: none !important; filter: none !important; }
+    .bd-wash span, .bd-grain, .hero-scroll .rule::after, .hero-badge .dot::after { animation: none !important; }
+    .marquee-track { transform: none !important; }
+    .cur-dot, .cur-ring { display: none !important; }
+    .curtain { display: none !important; }
+}

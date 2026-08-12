@@ -46,14 +46,25 @@ service cloud.firestore {
           && (!('year' in request.resource.data) || (request.resource.data.year is string && request.resource.data.year.size() <= 24))
           && (!('role' in request.resource.data) || (request.resource.data.role is string && request.resource.data.role.size() <= 120))
           && (!('demoVideo' in request.resource.data) || (request.resource.data.demoVideo is string && request.resource.data.demoVideo.size() <= 2000))
-          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20));
+          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20))
+          && (!('order' in request.resource.data) || request.resource.data.order is number);
 
+        // The editor saves edits with setDoc (a full overwrite, not a merge),
+        // so an update carries the same shape as a create and is validated
+        // the same way. `link` may be an empty string: a project without a
+        // public URL is legitimate.
         allow update: if signedIn()
           && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
           && request.resource.data.title.size() <= 120
+          && request.resource.data.desc is string
+          && request.resource.data.desc.size() <= 1000
+          && request.resource.data.link is string
+          && request.resource.data.link.size() <= 2000
           && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
           && (!('featured' in request.resource.data) || request.resource.data.featured is bool)
-          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20));
+          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20))
+          && (!('order' in request.resource.data) || request.resource.data.order is number);
 
         allow delete: if signedIn();
       }

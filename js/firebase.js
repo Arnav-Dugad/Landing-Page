@@ -1,11 +1,18 @@
 /* ===========================================================================
-   firebase.js  (ES module)
-   Firebase init + the entire data layer. Projects live in Firestore — this
-   file is the ONLY place that reads/writes them. It exposes a small set of
-   window.* functions that the classic scripts (ui.js / render.js) call.
+   firebase.js  (ES module — loaded last)
+   Firebase init and the entire data layer. This is the only file that reads
+   or writes Firestore; everything else goes through the small window.* API
+   it publishes:
 
-   Loaded last (after the classic scripts) so window.renderAllProjects and
-   window.showToast already exist when this runs.
+       window.getProjects()           → live array
+       window.projectsLoaded()        → false until the first snapshot
+       window.saveProjectToDb(data)   → Promise<boolean>
+       window.updateProjectInDb(id,d) → Promise<boolean>
+       window.deleteProjectFromDb(id) → Promise<boolean>
+       window.saveMessageToDb(msg)    → Promise<boolean>
+
+   The classic scripts run before this module, so window.renderProjects and
+   window.toast already exist by the time the first snapshot lands.
    =========================================================================== */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -27,147 +34,182 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-try { getAnalytics(app); } catch (e) { console.log("Analytics not enabled or configured"); }
+try { getAnalytics(app); } catch { /* analytics is optional */ }
+
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'arnav-portfolio-v1';
+const APP_ID = 'arnav-portfolio-v1';
 
-const projectsCol = () => collection(db, 'artifacts', appId, 'public', 'data', 'projects');
+const projectsCol = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'projects');
+const projectDoc = (id) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'projects', id);
 
 let user = null;
-let dynamicProjects = [];
-let hasLoadedProjects = false;      // false until the first Firestore snapshot arrives
-const statusSpan = document.getElementById('connection-status');
+let projects = [];
+let loaded = false;
 
-/* -------- Auth flow with friendly fallbacks ----------------------------- */
-const initAuth = async () => {
-    statusSpan.innerText = "Authenticating...";
+const statusEl = document.getElementById('connStatus');
+const setStatus = (text, tone) => {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.dataset.tone = tone || '';
+};
+
+/* -------- Auth ---------------------------------------------------------- */
+
+(async function initAuth() {
+    setStatus('Connecting');
     try {
         await signInAnonymously(auth);
     } catch (err) {
-        console.error("Auth failed:", err);
-        if (err.code === 'auth/configuration-not-found') {
-            statusSpan.innerText = "⚠️ Setup Needed";
-            statusSpan.classList.add("text-yellow-400", "cursor-pointer");
-            statusSpan.onclick = () => showToast("Error: Auth Config Not Found. Enable Anonymous Auth in Firebase Console.", "error");
-        } else if (err.code === 'auth/admin-restricted-operation' || err.code === 'auth/operation-not-allowed') {
-            statusSpan.innerText = "⚠️ Enable Anonymous";
-            statusSpan.classList.add("text-yellow-400", "cursor-pointer");
-            statusSpan.onclick = () => showToast("Error: Anonymous Auth Disabled. Enable it in Firebase Console.", "error");
-        } else {
-            statusSpan.innerText = "Auth Error";
-            statusSpan.classList.add("text-red-400");
+        console.error('Auth failed:', err);
+        loaded = true;                       // stop the skeletons spinning forever
+        window.renderProjects && window.renderProjects();
+
+        const needsSetup = err.code === 'auth/configuration-not-found'
+            || err.code === 'auth/admin-restricted-operation'
+            || err.code === 'auth/operation-not-allowed';
+        setStatus(needsSetup ? 'Setup needed' : 'Offline', 'warn');
+        if (needsSetup && statusEl) {
+            statusEl.style.cursor = 'pointer';
+            statusEl.onclick = () => window.toast(
+                'Enable Anonymous Auth in the Firebase console to load projects.', 'error');
         }
     }
-};
-initAuth();
+})();
 
 onAuthStateChanged(auth, (u) => {
+    if (!u) return;
     user = u;
-    if (user) {
-        console.log("Authenticated as", user.uid);
-        subscribeToProjects();
-        updateVisitorCount();
-        statusSpan.innerText = "🟢 Connected";
-        statusSpan.classList.remove("text-yellow-400", "text-red-400");
-        statusSpan.classList.add("text-green-400");
-        statusSpan.onclick = null;
-        statusSpan.style.cursor = "default";
-    }
+    setStatus('Live', 'ok');
+    subscribe();
+    countVisit();
 });
 
-/* -------- Visitor counter ----------------------------------------------- */
-async function updateVisitorCount() {
-    if (!user) return;
-    const statsRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'general');
-    const visitorSpan = document.getElementById('visitor-count');
-    const hasVisited = localStorage.getItem('hasVisitedPortfolio');
+/* -------- Projects subscription ----------------------------------------- */
 
-    try {
-        if (!hasVisited) {
-            try {
-                await updateDoc(statsRef, { visitCount: increment(1) });
-            } catch (e) {
-                await setDoc(statsRef, { visitCount: 1 });
-            }
-            localStorage.setItem('hasVisitedPortfolio', 'true');
-        }
-        onSnapshot(statsRef, (docSnap) => {
-            if (visitorSpan) visitorSpan.innerText = docSnap.exists() ? (docSnap.data().visitCount || 0) : 1;
-        });
-    } catch (e) {
-        console.error("Visitor count error", e);
-        if (visitorSpan) visitorSpan.innerText = "-";
-    }
-}
-
-/* -------- Projects subscription (the live source of truth) -------------- */
-function subscribeToProjects() {
-    if (!user) return;
-    const q = query(projectsCol(), orderBy("createdAt", "desc"));
-    onSnapshot(q, (snapshot) => {
-        dynamicProjects = [];
-        snapshot.forEach((d) => dynamicProjects.push({ id: d.id, ...d.data() }));
-        hasLoadedProjects = true;
-        window.renderAllProjects();
-    }, (error) => {
-        console.error("Firestore Error:", error);
-        hasLoadedProjects = true;          // stop showing skeletons even on error
-        window.renderAllProjects();
-        statusSpan.innerText = "Data Error";
-        statusSpan.classList.add("text-red-400");
+function subscribe() {
+    const q = query(projectsCol(), orderBy('createdAt', 'desc'));
+    onSnapshot(q, (snap) => {
+        projects = [];
+        snap.forEach((d) => projects.push({ id: d.id, ...d.data() }));
+        loaded = true;
+        window.renderProjects && window.renderProjects();
+    }, (err) => {
+        console.error('Firestore error:', err);
+        loaded = true;
+        window.renderProjects && window.renderProjects();
+        setStatus('Data error', 'warn');
     });
 }
 
-/* -------- Writes -------------------------------------------------------- */
-window.saveProjectToDb = async (projectData) => {
-    const btn = document.getElementById('submitProjectBtn');
-    const originalText = btn ? btn.innerText : '';
-    if (!user) { showToast("Database not connected yet.", "error"); return; }
+/* -------- Visitor counter ------------------------------------------------ */
+
+async function countVisit() {
+    const ref = doc(db, 'artifacts', APP_ID, 'public', 'data', 'stats', 'general');
+    const out = document.getElementById('visitors');
     try {
-        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; btn.classList.add("opacity-50", "cursor-not-allowed"); }
-        await addDoc(projectsCol(), { ...projectData, createdAt: Date.now() });
-        toggleModal(false);
-        document.getElementById('addProjectForm').reset();
-        fireConfetti();
-        showToast("Project added successfully!", "success");
+        if (!localStorage.getItem('visited')) {
+            try { await updateDoc(ref, { visitCount: increment(1) }); }
+            catch { await setDoc(ref, { visitCount: 1 }); }
+            localStorage.setItem('visited', '1');
+        }
+        onSnapshot(ref, (snap) => {
+            if (out) out.textContent = (snap.exists() ? (snap.data().visitCount || 0) : 1).toLocaleString();
+        });
     } catch (e) {
-        console.error("Error adding document: ", e);
-        showToast(`Failed to save: ${e.message}`, "error");
+        console.error('Visitor count error', e);
+        if (out) out.textContent = '—';
+    }
+}
+
+/* -------- Writes --------------------------------------------------------- */
+
+/* firestore.rules requires these on create, so they are always written even
+   when empty — a project with no live URL is legitimate. */
+const REQUIRED = ['title', 'desc', 'link'];
+
+/* Strips undefined/null/'' so a cleared optional field is removed rather than
+   written as an empty string that later renders as a blank badge. */
+function clean(data) {
+    const out = {};
+    Object.entries(data).forEach(([k, v]) => {
+        if (v === undefined || v === null) return;
+        if (typeof v === 'string' && !v.trim()) return;
+        if (Array.isArray(v) && !v.length) return;
+        out[k] = v;
+    });
+    REQUIRED.forEach((k) => { out[k] = String(data[k] ?? '').trim(); });
+    // Booleans must survive even when false.
+    out.featured = !!data.featured;
+    return out;
+}
+
+window.saveProjectToDb = async (data) => {
+    if (!user) { window.toast('Not connected to the database yet', 'error'); return false; }
+    try {
+        await addDoc(projectsCol(), { ...clean(data), createdAt: Date.now(), updatedAt: Date.now() });
+        window.toast('Project added', 'success');
+        return true;
+    } catch (e) {
+        console.error('Add failed:', e);
+        window.toast(`Could not save: ${e.message}`, 'error');
+        return false;
+    }
+};
+
+window.updateProjectInDb = async (id, data) => {
+    if (!user) { window.toast('Not connected to the database yet', 'error'); return false; }
+    try {
+        // setDoc with merge:false so fields the editor cleared are actually
+        // removed; createdAt is preserved from the doc we already hold.
+        const existing = projects.find((p) => String(p.id) === String(id));
+        await setDoc(projectDoc(id), {
+            ...clean(data),
+            createdAt: existing?.createdAt || Date.now(),
+            updatedAt: Date.now()
+        });
+        window.toast('Changes saved', 'success');
+        return true;
+    } catch (e) {
+        console.error('Update failed:', e);
+        window.toast(`Could not save: ${e.message}`, 'error');
+        return false;
+    }
+};
+
+window.deleteProjectFromDb = async (id) => {
+    if (!user) return false;
+    try {
+        await deleteDoc(projectDoc(id));
+        window.toast('Project deleted', 'success');
+        return true;
+    } catch (e) {
+        console.error('Delete failed:', e);
+        window.toast('Could not delete the project', 'error');
+        return false;
+    }
+};
+
+window.saveMessageToDb = async (msg) => {
+    if (!user) { window.toast('Messaging is unavailable right now', 'error'); return false; }
+    const btn = document.getElementById('contactSend');
+    const label = btn ? btn.textContent : '';
+    try {
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'messages'),
+            { ...msg, createdAt: Date.now() });
+        window.toast("Message sent — I'll be in touch", 'success');
+        return true;
+    } catch (e) {
+        console.error('Message failed:', e);
+        window.toast('Could not send the message', 'error');
+        return false;
     } finally {
-        if (btn) { btn.innerText = originalText; btn.disabled = false; btn.classList.remove("opacity-50", "cursor-not-allowed"); }
+        if (btn) { btn.disabled = false; btn.textContent = label; }
     }
 };
 
-window.deleteProjectFromDb = async (projectId) => {
-    if (!user) return;
-    if (!confirm("Are you sure you want to delete this project?")) return;
-    try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId));
-        showToast("Project deleted.", "success");
-    } catch (e) {
-        console.error("Error deleting document: ", e);
-        showToast("Failed to delete project.", "error");
-    }
-};
+/* -------- Accessors ------------------------------------------------------ */
 
-window.saveMessageToDb = async (msgData) => {
-    if (!user) { showToast("Service unavailable.", "error"); return; }
-    const btn = document.getElementById('sendMsgBtn');
-    const originalText = btn ? btn.innerText : '';
-    try {
-        if (btn) { btn.innerText = "Sending..."; btn.disabled = true; }
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), { ...msgData, createdAt: Date.now() });
-        toggleContactModal(false);
-        document.getElementById('contactForm').reset();
-        showToast("Message sent! I'll be in touch.", "success");
-    } catch (e) {
-        showToast("Failed to send message.", "error");
-    } finally {
-        if (btn) { btn.innerText = originalText; btn.disabled = false; }
-    }
-};
-
-/* -------- Accessors for the renderer ------------------------------------ */
-window.getDynamicProjects = () => dynamicProjects;
-window.hasLoadedProjects  = () => hasLoadedProjects;
+window.getProjects = () => projects;
+window.projectsLoaded = () => loaded;

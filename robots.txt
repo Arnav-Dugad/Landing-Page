@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://arnav-dugad.github.io/Landing-Page/sitemap.xml

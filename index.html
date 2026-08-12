@@ -1,563 +1,675 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arnav Dugad — Portfolio</title>
-    <meta name="description" content="Arnav Dugad's portfolio — interactive web experiences, games, and tools. Live projects with GitHub stats.">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%9A%80</text></svg>">
-    <!-- Open Graph / Twitter (site-level) -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Arnav Dugad — Portfolio">
-    <meta property="og:description" content="Interactive web experiences, games, and tools — with live GitHub stats.">
-    <meta property="og:url" content="https://arnav-dugad.github.io/Landing-Page/">
-    <meta property="og:image" content="https://opengraph.githubassets.com/1/Arnav-Dugad/Landing-Page">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Arnav Dugad — Portfolio">
-    <meta name="twitter:description" content="Interactive web experiences, games, and tools — with live GitHub stats.">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css">
-    <!-- Firebase is initialized in js/firebase.js (loaded as a module before </body>). -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBFAF7">
+<meta name="color-scheme" content="light">
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Outfit', 'sans-serif'],
-                    },
-                    colors: {
-                        glass: "rgba(255, 255, 255, 0.05)",
-                        glassHover: "rgba(255, 255, 255, 0.1)",
-                        glassBorder: "rgba(255, 255, 255, 0.1)",
-                    },
-                    animation: {
-                        'gradient-x': 'gradient-x 15s ease infinite',
-                        'float': 'float 6s ease-in-out infinite',
-                        'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
-                        'pulse-glow': 'pulseGlow 2s infinite',
-                        'slide-in-right': 'slideInRight 0.3s ease-out forwards',
-                        'slide-out-right': 'slideOutRight 0.3s ease-in forwards',
-                        'expand-width': 'expandWidth 1s ease-out forwards',
-                    },
-                    keyframes: {
-                        'gradient-x': {
-                            '0%, 100%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'left center'
-                            },
-                            '50%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'right center'
-                            },
-                        },
-                        'float': {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-10px)' },
-                        },
-                        fadeInUp: {
-                            '0%': { opacity: '0', transform: 'translateY(20px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        },
-                        pulseGlow: {
-                            '0%, 100%': { opacity: 0.6, transform: 'scale(1)' },
-                            '50%': { opacity: 1, transform: 'scale(1.2)' },
-                        },
-                        slideInRight: {
-                            '0%': { transform: 'translateX(100%)', opacity: '0' },
-                            '100%': { transform: 'translateX(0)', opacity: '1' },
-                        },
-                        slideOutRight: {
-                            '0%': { transform: 'translateX(0)', opacity: '1' },
-                            '100%': { transform: 'translateX(100%)', opacity: '0' },
-                        },
-                        expandWidth: {
-                            '0%': { width: '0%' },
-                            '100%': { width: 'var(--target-width)' }
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+<title>Arnav Dugad — Interactive web work</title>
+<meta name="description" content="Portfolio of Arnav Dugad. Interactive web experiences, games and tools — every project live, with real GitHub data.">
+<meta name="author" content="Arnav Dugad">
+<link rel="canonical" href="https://arnav-dugad.github.io/Landing-Page/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Arnav Dugad — Interactive web work">
+<meta property="og:description" content="Interactive web experiences, games and tools — every project live, with real GitHub data.">
+<meta property="og:url" content="https://arnav-dugad.github.io/Landing-Page/">
+<meta property="og:image" content="https://opengraph.githubassets.com/1/Arnav-Dugad/Landing-Page">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Arnav Dugad — Interactive web work">
+<meta name="twitter:description" content="Interactive web experiences, games and tools — every project live, with real GitHub data.">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="site.webmanifest">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Inter+Tight:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/motion.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Arnav Dugad",
+  "url": "https://arnav-dugad.github.io/Landing-Page/",
+  "jobTitle": "Web developer",
+  "email": "mailto:arnavdugad@gmail.com",
+  "sameAs": [
+    "https://github.com/Arnav-Dugad",
+    "https://www.linkedin.com/in/arnav-dugad/"
+  ]
+}
+</script>
 </head>
-<body class="selection:bg-indigo-500 selection:text-white overflow-x-hidden">
 
-    <!-- Loading Screen -->
-    <div id="loader">
-        <div class="loader-name">Arnav Dugad</div>
-        <div class="loader-ring"></div>
+<body class="is-loading">
+
+<a class="u-skip" href="#work">Skip to the work</a>
+
+<!-- Intro curtain: plays once per session, removed from the DOM afterwards -->
+<div class="curtain" id="curtain" aria-hidden="true">
+    <div class="curtain-word">Arnav Dugad</div>
+    <div class="curtain-bar"><i></i></div>
+</div>
+
+<!-- Backdrop stack: colour wash → interactive dot lattice → film grain -->
+<div class="bd" aria-hidden="true">
+    <div class="bd-wash"><span></span><span></span><span></span></div>
+    <canvas id="field"></canvas>
+    <div class="bd-grain"></div>
+</div>
+
+<canvas id="confetti" style="position:fixed;inset:0;pointer-events:none;z-index:85" aria-hidden="true"></canvas>
+
+<div class="progress" aria-hidden="true"></div>
+<div class="cur-dot" aria-hidden="true"></div>
+<div class="cur-ring" aria-hidden="true"><b></b></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- ======================================================================
+     Navigation
+     ====================================================================== -->
+<nav class="nav" aria-label="Primary">
+    <a class="nav-mark" href="#top" aria-label="Arnav Dugad — home"><i>AD</i> Arnav Dugad</a>
+
+    <div class="nav-links" id="navLinks">
+        <a class="nav-link" href="#work">Work</a>
+        <a class="nav-link" href="#about">About</a>
+        <a class="nav-link" href="#stack">Stack</a>
+        <a class="nav-link" href="#contact">Contact</a>
     </div>
 
-    <!-- Progress Bar -->
-    <div id="progress-bar"></div>
-
-    <!-- Custom Cursor Elements -->
-    <div class="cursor-dot"></div>
-    <div class="cursor-outline"></div>
-
-    <!-- Canvas for Stars -->
-    <canvas id="starfield"></canvas>
-    <!-- Confetti Canvas -->
-    <canvas id="confetti-canvas"></canvas>
-
-    <!-- Toast Container -->
-    <div id="toast-container"></div>
-
-    <!-- Scroll To Top Button -->
-    <button id="scrollTopBtn" onclick="window.scrollTo(0,0)" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="fixed bottom-8 right-8 z-40 p-3 rounded-full bg-indigo-600/80 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 backdrop-blur-sm transition-all hover:scale-110">
-        <i class="fas fa-arrow-up"></i>
-    </button>
-
-    <!-- Ambient Background Elements -->
-    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-float"></div>
-        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-float" style="animation-delay: -2s;"></div>
-        <div class="absolute top-[40%] left-[50%] w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-10 animate-float" style="animation-delay: -4s;"></div>
+    <div class="nav-actions">
+        <button class="nav-cmd" data-palette aria-label="Open the command palette">
+            <span data-icon="search" data-size="15"></span>
+            <span class="nav-cmd-label">Search</span>
+            <kbd>⌘K</kbd>
+        </button>
+        <button class="ibtn nav-burger" id="navBurger" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks">
+            <span data-icon="menu" data-size="18"></span>
+        </button>
     </div>
+</nav>
 
-    <!-- Contact Modal -->
-    <div id="contactModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
-        <div class="bg-[#1e1b4b] border border-white/10 rounded-2xl p-8 max-w-md w-full m-4 shadow-2xl transform scale-95 transition-transform duration-300">
-            <h2 class="text-2xl font-bold mb-2 text-white">Get in Touch</h2>
-            <p class="text-slate-400 text-sm mb-6">Send me a message and I'll get back to you!</p>
-            <form id="contactForm" class="space-y-4">
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Your Name</label>
-                    <input type="text" id="cName" required class="form-input" placeholder="John Doe">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Email</label>
-                    <input type="email" id="cEmail" required class="form-input" placeholder="john@example.com">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Message</label>
-                    <textarea id="cMessage" required class="form-input h-24 resize-none" placeholder="Hello..."></textarea>
-                </div>
-                <div class="flex justify-end gap-3 mt-6">
-                    <button type="button" onclick="toggleContactModal(false)" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
-                    <button type="submit" id="sendMsgBtn" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="magnetic px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-lg shadow-emerald-500/30 transition-all transform hover:scale-105">Send Message</button>
-                </div>
-            </form>
+<!-- Section rail -->
+<aside class="rail" aria-hidden="true">
+    <button class="rail-dot" data-target="work"><span>Work</span><i></i></button>
+    <button class="rail-dot" data-target="about"><span>About</span><i></i></button>
+    <button class="rail-dot" data-target="stack"><span>Stack</span><i></i></button>
+    <button class="rail-dot" data-target="contact"><span>Contact</span><i></i></button>
+</aside>
+
+<main>
+
+<!-- ======================================================================
+     Hero
+     ====================================================================== -->
+<section class="hero" id="top">
+    <div class="u-shell">
+        <div class="hero-badge" data-reveal="down">
+            <span class="dot"></span>
+            <b>Open to work</b>
+            <s></s>
+            <span id="connStatus">Connecting</span>
         </div>
+
+        <h1 class="hero-name" data-split>
+            <span class="ln">Arnav</span>
+            <span class="ln"><em>Dugad</em></span>
+        </h1>
+
+        <div class="hero-body">
+            <div>
+                <p class="hero-lead" data-reveal="up" style="--delay:120ms">
+                    I build <b>interactive things for the web</b> — games, tools and
+                    interfaces that feel considered rather than assembled. Everything
+                    below is live, shipped, and running on real code.
+                </p>
+
+                <p class="hero-role" data-reveal="up" style="--delay:200ms">
+                    <span>Currently</span> <b id="heroRole">building for the web</b>
+                </p>
+
+                <div class="hero-cta" data-reveal="up" style="--delay:280ms">
+                    <a href="#work" class="btn btn--primary magnetic" data-cursor="Browse">
+                        <span data-icon="arrow-down" data-size="17"></span> See the work
+                    </a>
+                    <button class="btn btn--ghost magnetic" data-contact data-cursor="Write">
+                        <span data-icon="send" data-size="17"></span> Get in touch
+                    </button>
+                </div>
+            </div>
+
+            <dl class="hero-figures" data-reveal="left" style="--delay:340ms">
+                <div class="hero-fig">
+                    <dt id="figProjects">0</dt>
+                    <dd>Projects shipped</dd>
+                </div>
+                <div class="hero-fig">
+                    <dt id="figLive">0</dt>
+                    <dd>Live right now</dd>
+                </div>
+                <div class="hero-fig">
+                    <dt id="figTech">0</dt>
+                    <dd>Technologies used</dd>
+                </div>
+            </dl>
+        </div>
+
+        <a class="hero-scroll" href="#work">
+            <span class="rule"></span> Scroll to explore
+        </a>
     </div>
+</section>
 
-    <!-- Add Project Modal -->
-    <div id="addProjectModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
-        <div class="bg-[#1e1b4b] border border-white/10 rounded-2xl p-4 md:p-8 max-w-5xl w-full m-4 shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col lg:flex-row gap-8 overflow-y-auto max-h-[90vh]">
+<!-- Marquee -->
+<div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+        <span class="marquee-item">Interfaces <span>✳</span></span>
+        <span class="marquee-item">Games <span>✳</span></span>
+        <span class="marquee-item">Tools <span>✳</span></span>
+        <span class="marquee-item">Motion <span>✳</span></span>
+        <span class="marquee-item">Canvas <span>✳</span></span>
+        <span class="marquee-item">Realtime <span>✳</span></span>
+        <span class="marquee-item">Type <span>✳</span></span>
+        <span class="marquee-item">Systems <span>✳</span></span>
+    </div>
+</div>
 
-            <!-- Left Side: Form -->
-            <div class="flex-1 space-y-4">
-                <h2 class="text-2xl font-bold mb-2 text-white">Add New Project</h2>
-                <form id="addProjectForm" class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Project Title</label>
-                            <input type="text" id="pTitle" required class="form-input" placeholder="e.g. Space Shooter">
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Description</label>
-                            <textarea id="pDesc" required class="form-input h-20 resize-none" placeholder="Short description..."></textarea>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Project Link (URL)</label>
-                            <div class="flex gap-2">
-                                <input type="url" id="pLink" required class="form-input" placeholder="https://..." onblur="formatLink(this)">
-                                <button type="button" onclick="testLink()" class="px-3 py-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-sm" title="Test Link"><i class="fas fa-external-link-alt"></i></button>
-                            </div>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">GitHub Repo (URL) <span class="text-slate-600">— optional, auto-detected from github.io links</span></label>
-                            <input type="url" id="pRepo" class="form-input" placeholder="https://github.com/user/repo" onblur="formatLink(this)">
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Detailed Write-up <span class="text-slate-600">— optional, shown in the project detail view</span></label>
-                            <textarea id="pLongDesc" class="form-input h-24 resize-none" placeholder="The full story: what it does, how you built it, challenges, tech decisions..."></textarea>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Highlights <span class="text-slate-600">— optional, one per line (shown as a bulleted list)</span></label>
-                            <textarea id="pHighlights" class="form-input h-20 resize-none" placeholder="Real-time multiplayer with WebSockets&#10;Offline support via service worker&#10;Scored 100 on Lighthouse"></textarea>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Demo Video URL <span class="text-slate-600">— optional (YouTube/Vimeo, shown above the live preview)</span></label>
-                            <input type="url" id="pDemoVideo" class="form-input" placeholder="https://youtube.com/watch?v=..." onblur="formatLink(this)">
-                        </div>
+<!-- ======================================================================
+     Work
+     ====================================================================== -->
+<section class="section" id="work">
+    <div class="u-shell">
+
+        <header class="sec-head">
+            <div>
+                <div class="sec-index" data-reveal="fade"><b>01</b><i></i><span>Selected work</span></div>
+                <h2 class="sec-title" data-split>Things I've <em>built</em></h2>
+            </div>
+            <p class="sec-note" data-reveal="up" style="--delay:120ms">
+                Pulled live from the database — open any card for a running preview,
+                the write-up and real GitHub stats.
+            </p>
+        </header>
+
+        <!-- Admin bar -->
+        <div class="toolbar" data-admin-only style="margin-bottom:18px">
+            <button class="btn btn--primary magnetic" data-new-project>
+                <span data-icon="plus" data-size="17"></span> Add a project
+            </button>
+            <span style="font-size:var(--t-xs);color:var(--ink-35)">
+                Admin mode is on — hover a card to edit, duplicate or delete it.
+            </span>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar" data-reveal="up">
+            <label class="search">
+                <span class="u-sr">Search projects</span>
+                <span data-icon="search" data-size="16"></span>
+                <input type="search" id="search" placeholder="Search projects, tech, years…" autocomplete="off">
+                <kbd>/</kbd>
+            </label>
+
+            <div class="selectwrap">
+                <select id="sortSelect" aria-label="Sort projects">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="stars">Most starred</option>
+                    <option value="az">A–Z</option>
+                    <option value="featured">Featured first</option>
+                </select>
+                <span data-icon="chev-down" data-size="14"></span>
+            </div>
+
+            <div class="segment" role="group" aria-label="Layout">
+                <span class="thumb" aria-hidden="true"></span>
+                <button data-view="grid" class="is-active" aria-label="Grid view"><span data-icon="grid" data-size="16"></span></button>
+                <button data-view="list" aria-label="List view"><span data-icon="list" data-size="16"></span></button>
+            </div>
+
+            <button class="ibtn ibtn--solid" id="lucky" title="Open a random project" aria-label="Open a random project">
+                <span data-icon="dice" data-size="17"></span>
+            </button>
+        </div>
+
+        <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
+
+        <p class="u-mono" id="resultCount" style="color:var(--ink-35);margin:20px 0 18px"></p>
+
+        <dl class="stats u-hidden" id="stats" data-reveal="up">
+            <div class="stat"><dt id="statProjects">0</dt><dd><span data-icon="folder" data-size="12"></span> Projects</dd></div>
+            <div class="stat"><dt id="statStars">0</dt><dd><span data-icon="star" data-size="12"></span> GitHub stars</dd></div>
+            <div class="stat"><dt id="statTech">0</dt><dd><span data-icon="code" data-size="12"></span> Technologies</dd></div>
+            <div class="stat"><dt id="statCats">0</dt><dd><span data-icon="layers" data-size="12"></span> Categories</dd></div>
+        </dl>
+
+        <div class="grid" id="grid"></div>
+    </div>
+</section>
+
+<!-- ======================================================================
+     About
+     ====================================================================== -->
+<section class="section section--sunk" id="about">
+    <div class="u-shell">
+        <header class="sec-head">
+            <div>
+                <div class="sec-index" data-reveal="fade"><b>02</b><i></i><span>About</span></div>
+                <h2 class="sec-title" data-split>How I <em>work</em></h2>
+            </div>
+        </header>
+
+        <div class="about-grid">
+            <div class="about-copy">
+                <p data-reveal="up">
+                    I started building because I wanted things that didn't exist yet — a
+                    game that played the way I imagined, a tool that removed a chore.
+                    That instinct hasn't changed. Every project here began as a small
+                    irritation with the way something worked, and ended as software
+                    someone can actually open.
+                </p>
+                <p data-reveal="up" style="--delay:100ms">
+                    I care most about the <strong>middle 90%</strong> — the part after the
+                    idea and before the launch, where the interface either earns trust or
+                    quietly loses it. Loading states, empty states, the feel of a button
+                    under the cursor. Those aren't polish; they're the product.
+                </p>
+
+                <div class="principles">
+                    <div class="principle" data-reveal="up">
+                        <b>01</b>
                         <div>
-                            <label class="block text-xs text-slate-400 mb-1">Year <span class="text-slate-600">— optional</span></label>
-                            <input type="text" id="pYear" class="form-input" placeholder="2026" maxlength="24">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Your Role <span class="text-slate-600">— optional</span></label>
-                            <input type="text" id="pRole" class="form-input" placeholder="Solo / Frontend / Team of 3">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Status</label>
-                            <select id="pStatus" class="form-input cursor-pointer">
-                                <option value="live">Live</option>
-                                <option value="wip">In Progress</option>
-                                <option value="archived">Archived</option>
-                            </select>
-                        </div>
-                        <div class="flex items-end pb-1">
-                            <label class="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-300">
-                                <input type="checkbox" id="pFeatured" class="w-4 h-4 accent-indigo-500"> <i class="fas fa-star text-yellow-400"></i> Featured project
-                            </label>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Category</label>
-                            <select id="pCategory" class="form-input cursor-pointer">
-                                <option value="web">Website</option>
-                                <option value="app">App</option>
-                                <option value="game">Game</option>
-                                <option value="tool">Tool</option>
-                                <option value="ai">AI</option>
-                                <option value="ml">Machine Learning</option>
-                                <option value="data">Data/System</option>
-                                <option value="mobile">Mobile</option>
-                                <option value="dashboard">Dashboard</option>
-                                <option value="productivity">Productivity</option>
-                                <option value="ecommerce">E-commerce</option>
-                                <option value="social">Social</option>
-                                <option value="education">Education</option>
-                                <option value="finance">Finance</option>
-                                <option value="cli">CLI</option>
-                                <option value="extension">Extension</option>
-                                <option value="bot">Bot</option>
-                                <option value="api">API</option>
-                                <option value="design">Design</option>
-                                <option value="web3">Web3</option>
-                                <option value="blockchain">Blockchain</option>
-                                <option value="iot">IoT</option>
-                                <option value="library">Library</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Color Theme</label>
-                            <select id="pColor" class="form-input cursor-pointer">
-                                <option value="indigo">Indigo</option>
-                                <option value="blue">Blue</option>
-                                <option value="red">Red</option>
-                                <option value="emerald">Green</option>
-                                <option value="purple">Purple</option>
-                                <option value="orange">Orange</option>
-                                <option value="sky">Sky</option>
-                                <option value="yellow">Yellow</option>
-                                <option value="pink">Pink</option>
-                                <option value="teal">Teal</option>
-                                <option value="slate">Gray</option>
-                            </select>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Icon (FontAwesome)</label>
-                            <input type="text" id="pIcon" required class="form-input" placeholder="fa-rocket">
-                            <input type="text" id="iconSearch" oninput="filterIcons(this.value)" class="form-input mt-2 text-sm" placeholder="Search icons — e.g. game, chart, cloud, lock...">
-                            <!-- Quick Icons (searchable, scrollable) -->
-                            <div id="iconGrid" class="icon-grid mt-2 text-slate-400">
-                                <i class="fas fa-rocket icon-option" onclick="setIcon('fa-rocket')" title="rocket launch startup"></i>
-                                <i class="fas fa-gamepad icon-option" onclick="setIcon('fa-gamepad')" title="gamepad game controller"></i>
-                                <i class="fas fa-dice icon-option" onclick="setIcon('fa-dice')" title="dice game random board"></i>
-                                <i class="fas fa-puzzle-piece icon-option" onclick="setIcon('fa-puzzle-piece')" title="puzzle game logic"></i>
-                                <i class="fas fa-futbol icon-option" onclick="setIcon('fa-futbol')" title="football soccer sport"></i>
-                                <i class="fas fa-crosshairs icon-option" onclick="setIcon('fa-crosshairs')" title="crosshairs shooter fps aim"></i>
-                                <i class="fas fa-mobile-screen icon-option" onclick="setIcon('fa-mobile-screen')" title="mobile phone app"></i>
-                                <i class="fas fa-desktop icon-option" onclick="setIcon('fa-desktop')" title="desktop computer os"></i>
-                                <i class="fas fa-robot icon-option" onclick="setIcon('fa-robot')" title="robot ai bot"></i>
-                                <i class="fas fa-brain icon-option" onclick="setIcon('fa-brain')" title="brain ai ml machine learning"></i>
-                                <i class="fas fa-microchip icon-option" onclick="setIcon('fa-microchip')" title="microchip hardware iot cpu"></i>
-                                <i class="fas fa-atom icon-option" onclick="setIcon('fa-atom')" title="atom science physics"></i>
-                                <i class="fas fa-code icon-option" onclick="setIcon('fa-code')" title="code developer programming"></i>
-                                <i class="fas fa-terminal icon-option" onclick="setIcon('fa-terminal')" title="terminal cli console shell"></i>
-                                <i class="fas fa-diagram-project icon-option" onclick="setIcon('fa-diagram-project')" title="diagram project flow architecture"></i>
-                                <i class="fas fa-network-wired icon-option" onclick="setIcon('fa-network-wired')" title="network wired server api"></i>
-                                <i class="fas fa-server icon-option" onclick="setIcon('fa-server')" title="server backend hosting"></i>
-                                <i class="fas fa-database icon-option" onclick="setIcon('fa-database')" title="database data sql"></i>
-                                <i class="fas fa-globe icon-option" onclick="setIcon('fa-globe')" title="globe web website world"></i>
-                                <i class="fas fa-cloud icon-option" onclick="setIcon('fa-cloud')" title="cloud weather hosting"></i>
-                                <i class="fas fa-bolt icon-option" onclick="setIcon('fa-bolt')" title="bolt fast energy power"></i>
-                                <i class="fas fa-fire icon-option" onclick="setIcon('fa-fire')" title="fire firebase hot trending"></i>
-                                <i class="fas fa-chart-line icon-option" onclick="setIcon('fa-chart-line')" title="chart line graph analytics"></i>
-                                <i class="fas fa-chart-pie icon-option" onclick="setIcon('fa-chart-pie')" title="chart pie stats"></i>
-                                <i class="fas fa-chart-column icon-option" onclick="setIcon('fa-chart-column')" title="chart column bar data dashboard"></i>
-                                <i class="fas fa-table icon-option" onclick="setIcon('fa-table')" title="table grid data spreadsheet"></i>
-                                <i class="fas fa-list-check icon-option" onclick="setIcon('fa-list-check')" title="list check todo tasks productivity"></i>
-                                <i class="fas fa-calendar icon-option" onclick="setIcon('fa-calendar')" title="calendar date schedule"></i>
-                                <i class="fas fa-clock icon-option" onclick="setIcon('fa-clock')" title="clock time"></i>
-                                <i class="fas fa-wallet icon-option" onclick="setIcon('fa-wallet')" title="wallet money finance"></i>
-                                <i class="fas fa-cart-shopping icon-option" onclick="setIcon('fa-cart-shopping')" title="cart shopping ecommerce store"></i>
-                                <i class="fas fa-map icon-option" onclick="setIcon('fa-map')" title="map location geo"></i>
-                                <i class="fas fa-plane-departure icon-option" onclick="setIcon('fa-plane-departure')" title="plane travel flight"></i>
-                                <i class="fas fa-car icon-option" onclick="setIcon('fa-car')" title="car driving vehicle"></i>
-                                <i class="fas fa-camera icon-option" onclick="setIcon('fa-camera')" title="camera photo image"></i>
-                                <i class="fas fa-image icon-option" onclick="setIcon('fa-image')" title="image picture gallery"></i>
-                                <i class="fas fa-video icon-option" onclick="setIcon('fa-video')" title="video film media"></i>
-                                <i class="fas fa-film icon-option" onclick="setIcon('fa-film')" title="film movie cinema"></i>
-                                <i class="fas fa-music icon-option" onclick="setIcon('fa-music')" title="music audio sound"></i>
-                                <i class="fas fa-comments icon-option" onclick="setIcon('fa-comments')" title="comments chat social messaging"></i>
-                                <i class="fas fa-envelope icon-option" onclick="setIcon('fa-envelope')" title="envelope email mail"></i>
-                                <i class="fas fa-book icon-option" onclick="setIcon('fa-book')" title="book education read"></i>
-                                <i class="fas fa-graduation-cap icon-option" onclick="setIcon('fa-graduation-cap')" title="graduation education school learning"></i>
-                                <i class="fas fa-shield-halved icon-option" onclick="setIcon('fa-shield-halved')" title="shield security protect"></i>
-                                <i class="fas fa-lock icon-option" onclick="setIcon('fa-lock')" title="lock password security"></i>
-                                <i class="fas fa-wand-magic-sparkles icon-option" onclick="setIcon('fa-wand-magic-sparkles')" title="wand magic ai generate"></i>
-                                <i class="fas fa-palette icon-option" onclick="setIcon('fa-palette')" title="palette design art color"></i>
-                                <i class="fas fa-pen-ruler icon-option" onclick="setIcon('fa-pen-ruler')" title="pen ruler design ui"></i>
-                                <i class="fas fa-compass icon-option" onclick="setIcon('fa-compass')" title="compass explore navigate"></i>
-                                <i class="fas fa-heart icon-option" onclick="setIcon('fa-heart')" title="heart health love"></i>
-                                <i class="fas fa-dumbbell icon-option" onclick="setIcon('fa-dumbbell')" title="dumbbell fitness gym health"></i>
-                                <i class="fas fa-utensils icon-option" onclick="setIcon('fa-utensils')" title="utensils food recipe"></i>
-                                <i class="fas fa-flask icon-option" onclick="setIcon('fa-flask')" title="flask science lab experiment"></i>
-                                <i class="fas fa-layer-group icon-option" onclick="setIcon('fa-layer-group')" title="layers stack group"></i>
-                                <i class="fas fa-cubes icon-option" onclick="setIcon('fa-cubes')" title="cubes blocks 3d"></i>
-                                <i class="fas fa-gear icon-option" onclick="setIcon('fa-gear')" title="gear settings tool config"></i>
-                                <i class="fas fa-link icon-option" onclick="setIcon('fa-link')" title="link url chain"></i>
-                                <i class="fas fa-keyboard icon-option" onclick="setIcon('fa-keyboard')" title="keyboard typing input"></i>
-                            </div>
-                            <p id="iconNoResult" class="hidden text-xs text-slate-500 mt-2">No icons match — type a FontAwesome class above (e.g. fa-star).</p>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-slate-400 mb-1">Tech / Languages</label>
-                            <input type="text" id="pTags" class="form-input" placeholder="JavaScript, React, WebGL">
-                            <!-- Quick Tags (grouped) -->
-                            <div class="mt-3 space-y-2">
-                                <div>
-                                    <span class="block text-[10px] uppercase tracking-widest text-slate-600 mb-1">Languages</span>
-                                    <div class="flex flex-wrap gap-1.5" data-tag-group>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('JavaScript')">JavaScript</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('TypeScript')">TypeScript</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('HTML')">HTML</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('CSS')">CSS</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Python')">Python</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('C++')">C++</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('C')">C</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('C#')">C#</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Java')">Java</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Go')">Go</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Rust')">Rust</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Swift')">Swift</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Kotlin')">Kotlin</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('PHP')">PHP</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('SQL')">SQL</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Dart')">Dart</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <span class="block text-[10px] uppercase tracking-widest text-slate-600 mb-1">Frameworks</span>
-                                    <div class="flex flex-wrap gap-1.5" data-tag-group>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('React')">React</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Next.js')">Next.js</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Vue')">Vue</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Svelte')">Svelte</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Node.js')">Node.js</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Express')">Express</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Flask')">Flask</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Django')">Django</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Tailwind')">Tailwind</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Three.js')">Three.js</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <span class="block text-[10px] uppercase tracking-widest text-slate-600 mb-1">Tools & Platforms</span>
-                                    <div class="flex flex-wrap gap-1.5" data-tag-group>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Firebase')">Firebase</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Vercel')">Vercel</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('MongoDB')">MongoDB</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('PostgreSQL')">PostgreSQL</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Vite')">Vite</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('WebGL')">WebGL</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('Canvas')">Canvas</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('PWA')">PWA</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('AI')">AI</span>
-                                        <span class="tag-chip px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/10" onclick="addTag('WebSockets')">WebSockets</span>
-                                    </div>
-                                </div>
-                            </div>
+                            <h4>Ship it live, or it isn't real</h4>
+                            <p>Every project on this page has a working URL. A demo video is not a shipped product.</p>
                         </div>
                     </div>
-                    <div class="flex justify-end gap-3 mt-6">
-                        <button type="button" onclick="toggleModal(false)" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
-                        <button type="submit" id="submitProjectBtn" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="magnetic px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/30 transition-all transform hover:scale-105">Add Project</button>
+                    <div class="principle" data-reveal="up" style="--delay:80ms">
+                        <b>02</b>
+                        <div>
+                            <h4>Motion should mean something</h4>
+                            <p>Animation exists to explain what changed and where things went — never to fill silence.</p>
+                        </div>
+                    </div>
+                    <div class="principle" data-reveal="up" style="--delay:160ms">
+                        <b>03</b>
+                        <div>
+                            <h4>Fast beats clever</h4>
+                            <p>No framework here, no build step, no bundle to download. It loads because there's nothing to wait for.</p>
+                        </div>
+                    </div>
+                    <div class="principle" data-reveal="up" style="--delay:240ms">
+                        <b>04</b>
+                        <div>
+                            <h4>Everything is editable</h4>
+                            <p>The site reads from a live database, so the work updates itself the moment something changes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="about-aside" data-reveal="left">
+                <h4>This site, in short</h4>
+                <div class="tl">
+                    <div class="tl-item">
+                        <b>Live data</b>
+                        <time>Firestore</time>
+                        <p>Projects stream in over a realtime subscription. Nothing on this page is hardcoded.</p>
+                    </div>
+                    <div class="tl-item">
+                        <b>Real GitHub stats</b>
+                        <time>GitHub API</time>
+                        <p>Stars, forks, last push and language breakdowns, cached locally for six hours.</p>
+                    </div>
+                    <div class="tl-item">
+                        <b>Zero dependencies</b>
+                        <time>Vanilla</time>
+                        <p>Hand-written CSS and JavaScript. No framework, no build step, no bundler.</p>
+                    </div>
+                    <div class="tl-item">
+                        <b>Keyboard first</b>
+                        <time>⌘K</time>
+                        <p>Every action on the site is reachable from the command palette.</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================================
+     Stack — computed from the tags on real projects
+     ====================================================================== -->
+<section class="section" id="stack">
+    <div class="u-shell">
+        <header class="sec-head">
+            <div>
+                <div class="sec-index" data-reveal="fade"><b>03</b><i></i><span>Stack</span></div>
+                <h2 class="sec-title" data-split>What I <em>reach for</em></h2>
+            </div>
+            <p class="sec-note" data-reveal="up" style="--delay:120ms">
+                Counted from the projects above, not a wish list. Click any tool to
+                filter the work by it.
+            </p>
+        </header>
+
+        <div class="stack-grid" id="stackGrid"></div>
+    </div>
+</section>
+
+<!-- ======================================================================
+     Contact
+     ====================================================================== -->
+<section class="section section--sunk contact" id="contact">
+    <div class="u-shell">
+        <div class="sec-index" data-reveal="fade" style="justify-content:center"><b>04</b><i></i><span>Contact</span></div>
+
+        <h2 class="contact-line" data-split>
+            Got something worth <em>building?</em>
+        </h2>
+
+        <p class="contact-sub" data-reveal="up" style="--delay:100ms">
+            Freelance work, collaborations, or just an idea you want to argue about —
+            the inbox is open.
+        </p>
+
+        <div class="contact-cta" data-reveal="up" style="--delay:180ms">
+            <button class="mailchip magnetic" data-copy="arnavdugad@gmail.com" data-cursor="Copy">
+                arnavdugad@gmail.com
+                <i><span data-icon="copy" data-size="15"></span></i>
+            </button>
+            <button class="btn btn--primary magnetic" data-contact data-cursor="Write">
+                <span data-icon="send" data-size="17"></span> Send a message
+            </button>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<!-- ======================================================================
+     Footer
+     ====================================================================== -->
+<footer class="footer">
+    <div class="u-shell">
+        <div class="footer-top">
+            <div class="footer-word" data-reveal="up">Let's<br>make it.</div>
+
+            <nav class="footer-nav" aria-label="Footer">
+                <div class="footer-col">
+                    <h5>Site</h5>
+                    <a href="#work">Work</a>
+                    <a href="#about">About</a>
+                    <a href="#stack">Stack</a>
+                    <a href="#contact">Contact</a>
+                </div>
+                <div class="footer-col">
+                    <h5>Elsewhere</h5>
+                    <a href="https://github.com/Arnav-Dugad" target="_blank" rel="noopener noreferrer">
+                        <span data-icon="github" data-size="14"></span> GitHub</a>
+                    <a href="https://www.linkedin.com/in/arnav-dugad/" target="_blank" rel="noopener noreferrer">
+                        <span data-icon="linkedin" data-size="14"></span> LinkedIn</a>
+                    <a href="#" data-contact>
+                        <span data-icon="mail" data-size="14"></span> Email</a>
+                </div>
+            </nav>
+        </div>
+
+        <div class="footer-bot">
+            <span>© <span id="year"></span> Arnav Dugad</span>
+
+            <div class="footer-meta">
+                <span id="clock">00:00:00</span>
+                <span class="footer-sep"></span>
+                <span><span data-icon="eye" data-size="12"></span> <span id="visitors">—</span></span>
+                <span class="footer-sep"></span>
+                <button id="soundToggle">Sound off</button>
+                <span class="footer-sep"></span>
+                <button data-palette>⌘K</button>
+                <span class="footer-sep"></span>
+                <button id="adminLock" aria-label="Unlock admin mode" title="Admin"></button>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<button class="totop" aria-label="Back to top"><span data-icon="arrow-up" data-size="17"></span></button>
+
+<!-- ======================================================================
+     Command palette
+     ====================================================================== -->
+<div class="palette" id="palette" aria-hidden="true">
+    <div class="palette-box" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="palette-input">
+            <span data-icon="command" data-size="18"></span>
+            <input id="paletteInput" type="text" placeholder="Search projects or type a command…" autocomplete="off" spellcheck="false">
+            <kbd>esc</kbd>
+        </div>
+        <div class="palette-list" id="paletteList"></div>
+        <div class="palette-foot">
+            <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+            <span><kbd>↵</kbd> run</span>
+            <span><kbd>esc</kbd> close</span>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Project detail sheet
+     ====================================================================== -->
+<div class="sheet" id="detailSheet" aria-hidden="true">
+    <button class="sheet-nav sheet-nav--prev" data-detail-nav="-1" aria-label="Previous project">
+        <span data-icon="chev-left" data-size="18"></span>
+    </button>
+    <button class="sheet-nav sheet-nav--next" data-detail-nav="1" aria-label="Next project">
+        <span data-icon="chev-right" data-size="18"></span>
+    </button>
+
+    <div class="sheet-panel sheet-panel--md" role="dialog" aria-modal="true" aria-label="Project details">
+        <button class="sheet-close" aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+        <div id="detailBody"></div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Project editor (add / edit / duplicate)
+     ====================================================================== -->
+<div class="sheet" id="editorSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--lg" role="dialog" aria-modal="true" aria-label="Project editor">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+
+        <div class="editor-split">
+            <div class="editor-form">
+                <div style="padding-bottom:22px;border-bottom:1px solid var(--line);margin-bottom:24px">
+                    <h2 id="editorTitle" style="font-family:var(--font-display);font-size:1.7rem;font-weight:400;letter-spacing:-.025em">New project</h2>
+                    <p id="editorSub" style="font-size:var(--t-sm);color:var(--ink-50);margin-top:6px"></p>
+                </div>
+
+                <form id="editorForm">
+                    <div class="form-grid">
+                        <div class="field field--wide">
+                            <label for="fTitle">Title</label>
+                            <input class="input" id="fTitle" required placeholder="Space Shooter">
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fDesc">Short description <em>shown on the card</em></label>
+                            <textarea class="textarea" id="fDesc" required style="min-height:72px" placeholder="A one-or-two-line summary of what it does."></textarea>
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fLink">Live URL</label>
+                            <div class="field-row">
+                                <input class="input" id="fLink" type="url" placeholder="https://…">
+                                <button class="btn btn--quiet" type="button" id="testLink" title="Open in a new tab">
+                                    <span data-icon="external" data-size="15"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fRepo">GitHub repo <em>optional — auto-detected from github.io links</em></label>
+                            <input class="input" id="fRepo" type="url" placeholder="https://github.com/user/repo">
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fLongDesc">Write-up <em>optional — shown in the detail view</em></label>
+                            <textarea class="textarea" id="fLongDesc" placeholder="The full story: what it does, how you built it, what was hard."></textarea>
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fHighlights">Highlights <em>one per line</em></label>
+                            <textarea class="textarea" id="fHighlights" style="min-height:76px" placeholder="Realtime multiplayer over WebSockets&#10;Works offline via a service worker"></textarea>
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fDemoVideo">Demo video <em>optional — YouTube or Vimeo</em></label>
+                            <input class="input" id="fDemoVideo" type="url" placeholder="https://youtube.com/watch?v=…">
+                        </div>
+
+                        <div class="field">
+                            <label for="fCategory">Category</label>
+                            <div class="selectwrap" style="width:100%">
+                                <select class="select" id="fCategory"></select>
+                                <span data-icon="chev-down" data-size="14"></span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="fColor">Colour</label>
+                            <div class="selectwrap" style="width:100%">
+                                <select class="select" id="fColor"></select>
+                                <span data-icon="chev-down" data-size="14"></span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="fStatus">Status</label>
+                            <div class="selectwrap" style="width:100%">
+                                <select class="select" id="fStatus">
+                                    <option value="live">Live</option>
+                                    <option value="wip">In progress</option>
+                                    <option value="archived">Archived</option>
+                                </select>
+                                <span data-icon="chev-down" data-size="14"></span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="fYear">Year</label>
+                            <input class="input" id="fYear" maxlength="24" placeholder="2026">
+                        </div>
+
+                        <div class="field">
+                            <label for="fRole">Your role <em>optional</em></label>
+                            <input class="input" id="fRole" placeholder="Solo / Front-end / Team of 3">
+                        </div>
+
+                        <div class="field">
+                            <label for="fOrder">Manual order <em>optional</em></label>
+                            <input class="input" id="fOrder" type="number" placeholder="1">
+                        </div>
+
+                        <div class="field field--wide">
+                            <label class="check">
+                                <input type="checkbox" id="fFeatured">
+                                <span class="box"><span data-icon="check" data-size="12"></span></span>
+                                Feature this project — it pins to the top under “Featured first”
+                            </label>
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fIcon">Icon</label>
+                            <input class="input" id="fIcon" placeholder="rocket">
+                            <input class="input" id="iconSearch" placeholder="Search icons — game, chart, cloud, lock…" style="margin-top:8px">
+                            <div class="iconpick" id="iconPicker"></div>
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fTags">Tech <em>comma separated</em></label>
+                            <input class="input" id="fTags" placeholder="JavaScript, Canvas, WebGL">
+                            <div id="tagPicker"></div>
+                        </div>
                     </div>
                 </form>
             </div>
 
-            <!-- Right Side: Preview -->
-            <div class="flex-1 flex flex-col items-center justify-center bg-black/20 rounded-xl p-6 border border-white/5 min-h-[300px]">
-                <h3 class="text-slate-400 text-xs font-mono mb-6 uppercase tracking-widest">Live Preview</h3>
-                <div id="previewCardContainer" class="w-full max-w-[300px] pointer-events-none transform scale-100 transition-all">
-                    <!-- Preview Card Injected Here -->
-                </div>
-                <p class="text-slate-500 text-xs mt-6 italic text-center">This is how your project card will appear on the site.</p>
-            </div>
+            <aside class="editor-preview">
+                <h6>Live preview</h6>
+                <div id="editorPreview"></div>
+                <p class="hint">
+                    This is the exact component the grid renders — what you see here is
+                    what visitors get.
+                </p>
+            </aside>
+        </div>
 
+        <div class="sheet-foot">
+            <button class="btn btn--quiet" type="button" data-close>Cancel</button>
+            <button class="btn btn--primary" type="submit" form="editorForm" id="editorSave">Add project</button>
         </div>
     </div>
+</div>
 
-    <!-- Project Detail Modal -->
-    <div id="detailModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
-        <button onclick="window.detailNav(-1)" onmouseenter="playHoverSound()" class="detail-nav detail-nav-prev" title="Previous (←)"><i class="fas fa-chevron-left"></i></button>
-        <button onclick="window.detailNav(1)" onmouseenter="playHoverSound()" class="detail-nav detail-nav-next" title="Next (→)"><i class="fas fa-chevron-right"></i></button>
-        <div class="detail-panel rounded-2xl p-5 sm:p-6 md:p-8 max-w-2xl w-full mx-3 my-4 shadow-2xl transform scale-95 transition-transform duration-300 overflow-y-auto max-h-[92vh] relative">
-            <button onclick="closeDetailModal()" onmouseenter="playHoverSound()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center transition-colors z-10" title="Close (Esc)">
-                <i class="fas fa-times"></i>
-            </button>
-            <div id="detailBody"><!-- Filled by render.js --></div>
+<!-- ======================================================================
+     Contact sheet
+     ====================================================================== -->
+<div class="sheet" id="contactSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--sm" role="dialog" aria-modal="true" aria-label="Send a message">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+
+        <div class="sheet-head">
+            <h2>Get in touch</h2>
+            <p>Send a message and I'll get back to you.</p>
         </div>
-    </div>
 
-    <!-- Main Content -->
-    <div class="container mx-auto px-4 py-10 sm:py-16 min-h-screen flex flex-col justify-center relative z-10">
-
-        <!-- Header -->
-        <header class="text-center mb-8 sm:mb-12 animate-fade-in-up">
-            <div class="inline-flex items-center gap-2 p-1 px-3 rounded-full bg-indigo-500/10 border border-indigo-500/20 mb-4 text-indigo-300 text-sm font-medium tracking-wide">
-                <span>PORTFOLIO</span>
-                <span class="w-1 h-1 rounded-full bg-indigo-400"></span>
-                <span id="connection-status">Connecting...</span>
-            </div>
-            <h1 class="text-4xl sm:text-5xl lg:text-7xl font-bold mb-4 sm:mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400 animate-gradient-x">
-                Arnav Dugad
-            </h1>
-            <p class="text-slate-400 text-base sm:text-lg md:text-xl max-w-2xl mx-auto leading-relaxed min-h-[2rem] px-4">
-                <span id="typing-text" class="typing-cursor"></span>
-            </p>
-        </header>
-
-        <!-- Controls Section: Search & Filters -->
-        <div class="max-w-4xl mx-auto w-full mb-8 sm:mb-12 space-y-5 sm:space-y-6 animate-fade-in-up stagger-2">
-
-            <!-- Admin Controls (Hidden by default) -->
-            <div id="adminControls" class="hidden flex flex-wrap justify-center gap-3 mb-4 animate-fade-in-up">
-                <button onclick="toggleModal(true)" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="magnetic flex items-center gap-2 px-6 py-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 rounded-xl text-emerald-300 font-semibold transition-all">
-                    <i class="fas fa-plus"></i> Add New Project
-                </button>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="relative max-w-md mx-auto flex gap-2">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i class="fas fa-search text-slate-400"></i>
-                </div>
-                <input type="text" id="searchInput" placeholder="Search projects (Ctrl+K)..."
-                    class="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder-slate-400 transition-all backdrop-blur-sm hover:bg-white/10">
-                <button onclick="pickRandomProject()" onmouseenter="playHoverSound()" onmousedown="playClickSound()" title="Feeling Lucky" class="magnetic px-4 py-2 bg-white/10 hover:bg-indigo-500 rounded-xl text-white transition-colors border border-white/10">
-                    <i class="fas fa-dice"></i>
-                </button>
-            </div>
-
-            <!-- Category Filters & View Toggle -->
-            <div class="flex flex-col md:flex-row justify-between md:items-center gap-3 md:gap-4">
-                <!-- Filled dynamically by render.js; scrolls horizontally on mobile -->
-                <div class="filter-row flex gap-2 overflow-x-auto no-scrollbar snap-x pb-1 w-full md:w-auto md:flex-wrap md:justify-center md:overflow-visible" id="filterContainer">
-                    <button class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 border border-transparent transition-all whitespace-nowrap shrink-0" data-filter="all">All</button>
-                </div>
-
-                <div class="flex items-center gap-3 shrink-0">
-                    <!-- Sort -->
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-arrow-down-wide-short text-slate-500 text-sm"></i>
-                        <select id="sortSelect" onchange="window.setSort(this.value)" class="bg-white/5 border border-white/10 rounded-lg text-sm text-slate-200 px-3 py-1.5 cursor-pointer focus:outline-none focus:border-indigo-500">
-                            <option value="newest">Newest</option>
-                            <option value="stars">Most Starred</option>
-                            <option value="az">A–Z</option>
-                            <option value="featured">Featured</option>
-                        </select>
+        <form id="contactForm">
+            <div class="sheet-body">
+                <div class="form-grid">
+                    <div class="field field--wide">
+                        <label for="cName">Your name</label>
+                        <input class="input" id="cName" required placeholder="Jordan Rivera">
                     </div>
-
-                    <!-- View Toggle -->
-                    <div class="flex bg-white/5 p-1 rounded-lg border border-white/10">
-                        <button onclick="setView('grid'); playClickSound()" onmouseenter="playHoverSound()" id="btn-grid" class="px-3 py-1 rounded-md text-white bg-white/10 shadow-sm transition-all"><i class="fas fa-th-large"></i></button>
-                        <button onclick="setView('list'); playClickSound()" onmouseenter="playHoverSound()" id="btn-list" class="px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all"><i class="fas fa-list"></i></button>
+                    <div class="field field--wide">
+                        <label for="cEmail">Email</label>
+                        <input class="input" id="cEmail" type="email" required placeholder="jordan@example.com">
+                    </div>
+                    <div class="field field--wide">
+                        <label for="cMessage">Message</label>
+                        <textarea class="textarea" id="cMessage" required placeholder="Tell me what you're working on…"></textarea>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Portfolio Stats Bar -->
-        <div id="statsBar" class="hidden max-w-4xl mx-auto w-full mb-12 grid grid-cols-2 sm:grid-cols-4 gap-4 animate-fade-in-up stagger-3">
-            <div class="stat-tile">
-                <div class="stat-value" id="stat-projects" data-val="0">0</div>
-                <div class="stat-label"><i class="fas fa-folder-open"></i> Projects</div>
+            <div class="sheet-foot">
+                <button class="btn btn--quiet" type="button" data-close>Cancel</button>
+                <button class="btn btn--primary" type="submit" id="contactSend">Send message</button>
             </div>
-            <div class="stat-tile">
-                <div class="stat-value" id="stat-stars" data-val="0">0</div>
-                <div class="stat-label"><i class="fas fa-star text-yellow-400"></i> GitHub Stars</div>
-            </div>
-            <div class="stat-tile">
-                <div class="stat-value" id="stat-langs" data-val="0">0</div>
-                <div class="stat-label"><i class="fas fa-code"></i> Technologies</div>
-            </div>
-            <div class="stat-tile">
-                <div class="stat-value" id="stat-cats" data-val="0">0</div>
-                <div class="stat-label"><i class="fas fa-layer-group"></i> Categories</div>
-            </div>
-        </div>
-
-        <!-- Grid -->
-        <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto w-full transition-all mb-20">
-            <!-- Projects are rendered via js/render.js -->
-        </div>
-
-        <!-- Footer -->
-        <footer class="text-center mt-20 text-slate-500 text-sm animate-fade-in-up" style="animation-delay: 900ms;">
-            <p class="flex items-center justify-center gap-2 mb-2">
-                &copy; <script>document.write(new Date().getFullYear())</script> Arnav Dugad. All rights reserved.
-                <button id="adminToggleBtn" class="opacity-50 hover:opacity-100 hover:text-indigo-400 transition-opacity" title="Admin Login">
-                    <i class="fas fa-lock text-xs"></i>
-                </button>
-            </p>
-
-            <div class="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-600 font-mono mb-4">
-                <div id="live-clock">00:00:00</div>
-                <div class="w-1 h-1 rounded-full bg-slate-700"></div>
-                <div id="weather-widget" class="cursor-pointer hover:text-slate-400 transition-colors" title="Click to refresh weather">
-                    <i class="fas fa-cloud"></i> <span>Weather...</span>
-                </div>
-                <div class="w-1 h-1 rounded-full bg-slate-700"></div>
-                <div id="visitor-count-container" title="Total Visitors">
-                    <i class="fas fa-eye"></i> <span id="visitor-count">...</span>
-                </div>
-                <div class="w-1 h-1 rounded-full bg-slate-700"></div>
-                <button onclick="toggleTheme()" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="hover:text-white transition-colors" title="Switch Theme (Ctrl+B)">
-                    <i class="fas fa-palette"></i> Theme
-                </button>
-                <div class="w-1 h-1 rounded-full bg-slate-700"></div>
-                <button onclick="toggleContactModal(true)" onmouseenter="playHoverSound()" onmousedown="playClickSound()" class="hover:text-white transition-colors" title="Contact Me">
-                    <i class="fas fa-paper-plane"></i> Contact
-                </button>
-                <div class="w-1 h-1 rounded-full bg-slate-700"></div>
-                <button id="muteBtn" onclick="toggleMute()" class="hover:text-white transition-colors" title="Mute Sounds">
-                    <i class="fas fa-volume-mute text-red-400"></i>
-                </button>
-            </div>
-
-            <div class="mt-4 flex justify-center space-x-6">
-                <a href="https://github.com/Arnav-Dugad" target="_blank" class="group relative" onmouseenter="playHoverSound()" onmousedown="playClickSound()">
-                    <div class="absolute -inset-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full opacity-0 group-hover:opacity-75 blur transition duration-200"></div>
-                    <i class="fab fa-github text-xl relative text-slate-400 group-hover:text-white transition-colors"></i>
-                </a>
-                <a href="https://www.linkedin.com/in/arnav-dugad/" target="_blank" class="group relative" onmouseenter="playHoverSound()" onmousedown="playClickSound()">
-                    <div class="absolute -inset-2 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-full opacity-0 group-hover:opacity-75 blur transition duration-200"></div>
-                    <i class="fab fa-linkedin text-xl relative text-slate-400 group-hover:text-white transition-colors"></i>
-                </a>
-                <a href="mailto:arnavdugad@gmail.com" class="group relative" onmouseenter="playHoverSound()" onmousedown="playClickSound()">
-                    <div class="absolute -inset-2 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full opacity-0 group-hover:opacity-75 blur transition duration-200"></div>
-                    <i class="fas fa-envelope text-xl relative text-slate-400 group-hover:text-white transition-colors"></i>
-                </a>
-            </div>
-        </footer>
-
+        </form>
     </div>
+</div>
 
-    <!-- Scripts: presentation/chrome (classic) → firebase data layer (module, last).
-         The classic scripts define window.renderAllProjects / showToast / COLOR_MAP /
-         fetchGitHubStats before firebase.js runs and pushes live data into them. -->
-    <script src="js/github.js"></script>
-    <script src="js/render.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/effects.js"></script>
-    <script type="module" src="js/firebase.js"></script>
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+
+<!-- Classic scripts define the UI surface, then firebase.js (module, last)
+     pushes live data into it. Order matters: icons → motion → backdrop →
+     github → render → admin → palette → app. -->
+<script src="js/icons.js"></script>
+<script src="js/motion.js"></script>
+<script src="js/backdrop.js"></script>
+<script src="js/github.js"></script>
+<script src="js/render.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/app.js"></script>
+<script type="module" src="js/firebase.js"></script>
+
 </body>
 </html>
