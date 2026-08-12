@@ -266,8 +266,10 @@
             const col = cols[i];
             if (!col) return;
             // Small per-column delay makes the roll read as mechanical, not uniform.
+            // --odo-h is the digit cell height; translating by an em guess
+            // instead would drift and clip on fonts with tall ascenders.
             col.style.transitionDelay = `${i * 55}ms`;
-            col.style.transform = `translateY(-${Number(d)}em)`;
+            col.style.transform = `translateY(calc(${Number(d)} * var(--odo-h) * -1))`;
         });
     }
 

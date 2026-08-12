@@ -48,17 +48,22 @@
    Split-text reveal — js/motion.js wraps each word in .sp > i
    --------------------------------------------------------------------------- */
 
+/* The mask has to be noticeably taller and wider than the glyphs it hides.
+   Fraunces has deep descenders and, in italic, real horizontal overhang — a
+   tight mask clips the tail of a "g" and the exit stroke of a "y". Padding
+   grows the clip box; the matching negative margin keeps layout unchanged. */
 .sp {
     display: inline-block;
     overflow: hidden;
     vertical-align: bottom;
-    padding-bottom: .06em;
-    margin-bottom: -.06em;
+    padding: .14em .08em .3em;
+    margin: -.14em -.08em -.3em;
 }
 .sp > i {
     display: inline-block;
     font-style: inherit;
-    transform: translateY(115%) rotate(3deg);
+    /* Must exceed the padded mask height, not just the glyph height. */
+    transform: translateY(150%) rotate(3deg);
     opacity: 0;
     filter: blur(5px);
     transition: transform var(--d-5) var(--e-expo),

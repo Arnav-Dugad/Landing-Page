@@ -23,8 +23,26 @@
     const SPACING = 34;          // lattice pitch in CSS px
     const RADIUS = 1.05;         // resting dot radius
     const FIELD = 180;           // pointer influence radius
-    const INK = [20, 18, 16];
-    const ACCENT = [209, 68, 36];
+
+    /* Canvas paints raw RGB, so it can't inherit CSS tokens — it reads them
+       once per theme change instead. --field-* are declared in tokens.css for
+       both themes, which is what lets the lattice invert with the palette. */
+    let INK = [16, 14, 12];
+    let ACCENT = [196, 62, 31];
+    let ALPHA = 1;
+
+    function readPalette() {
+        const cs = getComputedStyle(document.documentElement);
+        const rgb = (name, fallback) => {
+            const raw = cs.getPropertyValue(name).trim();
+            const parts = raw.split(',').map((n) => parseFloat(n));
+            return (parts.length === 3 && parts.every((n) => !Number.isNaN(n))) ? parts : fallback;
+        };
+        INK = rgb('--field-ink', INK);
+        ACCENT = rgb('--field-accent', ACCENT);
+        const a = parseFloat(cs.getPropertyValue('--field-alpha'));
+        ALPHA = Number.isNaN(a) ? 1 : a;
+    }
 
     let w = 0, h = 0, dpr = 1;
     let cols = 0, rows = 0, offsetX = 0, offsetY = 0;
@@ -124,7 +142,7 @@
                     : INK;
 
                 ctx.beginPath();
-                ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${Math.min(alpha, 0.62)})`;
+                ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${Math.min(alpha, 0.62) * ALPHA})`;
                 ctx.arc(bx + dx, by + dy, RADIUS * scale, 0, Math.PI * 2);
                 ctx.fill();
             }
@@ -133,8 +151,13 @@
 
     /* ---- Wiring --------------------------------------------------------- */
 
+    readPalette();
     resize();
     window.addEventListener('resize', resize, { passive: true });
+    window.addEventListener('themechange', () => {
+        readPalette();
+        if (reduced()) draw(0);          // frozen lattice still needs repainting
+    });
 
     // A gentle parallax: the lattice drifts a fraction of the scroll distance.
     window.addEventListener('scroll', () => {

@@ -18,7 +18,12 @@
     overflow: hidden;
 }
 
-.bd-wash { position: absolute; inset: -30%; filter: blur(90px); opacity: .55; }
+.bd-wash {
+    position: absolute; inset: -30%;
+    filter: blur(90px);
+    opacity: var(--wash-opacity);
+    transition: opacity var(--d-3) var(--e-out);
+}
 
 .bd-wash span {
     position: absolute;
@@ -48,8 +53,8 @@
 .bd-grain {
     position: absolute; inset: -50%;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
-    opacity: .30;
-    mix-blend-mode: multiply;
+    opacity: var(--grain-opacity);
+    mix-blend-mode: var(--grain-blend);
     animation: grain 6s steps(6) infinite;
 }
 
@@ -57,7 +62,7 @@
 .bd::after {
     content: "";
     position: absolute; inset: 0;
-    background: radial-gradient(120% 90% at 50% 0%, transparent 45%, rgba(20,18,16,.05) 100%);
+    background: radial-gradient(120% 90% at 50% 0%, transparent 45%, var(--vignette) 100%);
 }
 
 /* ---------------------------------------------------------------------------
@@ -305,8 +310,8 @@
     font-optical-sizing: auto;
     font-size: var(--t-display);
     font-weight: 350;
-    line-height: .84;
-    letter-spacing: -.045em;
+    line-height: .92;          /* room for the descender in "Dugad"          */
+    letter-spacing: -.04em;
     font-variation-settings: "SOFT" 24, "WONK" 1;
     color: var(--ink);
     margin-bottom: clamp(24px, 4vh, 44px);

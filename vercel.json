@@ -2,6 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/p/:slug", "destination": "/api/share?slug=:slug" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -19,7 +22,7 @@
       ]
     },
     {
-      "source": "/(favicon.svg|site.webmanifest)",
+      "source": "/(favicon.svg|site.webmanifest|robots.txt|sitemap.xml)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]

@@ -64,6 +64,8 @@
 .btn--danger { background: var(--accent-soft); color: var(--accent-deep); }
 .btn--danger::before { background: var(--accent-deep); }
 .btn--danger:hover { color: #fff; }
+/* On dark, --accent-deep is too dark to read as a label on --accent-soft. */
+[data-theme="dark"] .btn--danger { color: var(--accent); }
 
 .btn[disabled] { opacity: .5; pointer-events: none; }
 
@@ -158,7 +160,7 @@
     color: var(--ink-35); font-weight: 500;
 }
 .chip.is-active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-.chip.is-active b { color: rgba(255,255,255,.55); }
+.chip.is-active b { color: currentColor; opacity: .6; }
 
 /* Native select, restyled to match the chips. */
 .selectwrap { position: relative; display: inline-flex; flex: none; }
@@ -249,13 +251,26 @@
 }
 .stat dd svg { width: 12px; height: 12px; }
 
-/* One rolling digit column. */
-.odo { display: inline-block; height: 1em; overflow: hidden; vertical-align: baseline; }
+/* One rolling digit column. The cell height is a token because js/motion.js
+   translates by an exact multiple of it — an em-based guess clips glyphs
+   whose ascent + descent exceeds the em box. */
+.odo {
+    --odo-h: 1.16em;
+    display: inline-block;
+    height: var(--odo-h);
+    overflow: hidden;
+    vertical-align: baseline;
+}
 .odo u {
     display: block; text-decoration: none;
     transition: transform var(--d-5) var(--e-expo);
 }
-.odo u i { display: block; height: 1em; line-height: 1; font-style: normal; }
+.odo u i {
+    display: block;
+    height: var(--odo-h);
+    line-height: var(--odo-h);
+    font-style: normal;
+}
 
 @media (max-width: 760px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
@@ -292,7 +307,7 @@
     content: "";
     position: absolute; inset: 0;
     background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%),
-                rgba(255,255,255,.9), transparent 62%);
+                var(--sheen), transparent 62%);
     opacity: 0;
     transition: opacity var(--d-3) var(--e-out);
     pointer-events: none;
@@ -325,6 +340,10 @@
 }
 .card:hover .card-plaque { transform: rotate(-7deg) scale(1.08); border-radius: 18px; }
 .card-plaque svg { width: 23px; height: 23px; }
+
+/* The duotones lift toward the light end on dark, so a white glyph loses
+   contrast against them — an ink glyph on a bright chip reads far better. */
+[data-theme="dark"] .card-plaque { color: #131110; }
 
 .card-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 
@@ -395,15 +414,19 @@
     background: currentColor; text-decoration: none;
 }
 
-/* Featured star, top-right. */
+/* Corner marks: featured star, case-study badge. */
 .card-star {
     position: absolute; top: 18px; right: 18px;
-    display: grid; place-items: center;
-    width: 28px; height: 28px; border-radius: 50%;
-    background: var(--amber-soft); color: var(--amber);
+    display: flex; gap: 5px;
     z-index: 2;
 }
-.card-star svg { width: 13px; height: 13px; }
+.card-mark {
+    display: grid; place-items: center;
+    width: 26px; height: 26px; border-radius: 50%;
+}
+.card-mark--star { background: var(--amber-soft); color: var(--amber); }
+.card-mark--case { background: var(--accent-soft); color: var(--accent); }
+.card-star svg { width: 12px; height: 12px; }
 
 /* List view flattens the card into a row. */
 .grid.is-list .card {
@@ -445,8 +468,26 @@
                 transform var(--d-2) var(--e-spring);
 }
 .card-admin button:hover { transform: scale(1.12); background: var(--ink); color: var(--paper); }
-.card-admin button.is-danger:hover { background: var(--accent); }
+.card-admin button.is-danger:hover { background: var(--accent); color: var(--accent-ink); }
 .card-admin svg { width: 13px; height: 13px; }
+
+/* Drag handle — the only control that should feel grabbable. */
+.card-admin .is-handle { cursor: grab; touch-action: none; }
+.card-admin .is-handle:active { cursor: grabbing; }
+
+.card.is-dragging {
+    z-index: 60;
+    cursor: grabbing;
+    box-shadow: var(--shadow-4);
+    border-color: var(--accent);
+    opacity: .96;
+    transition: none;
+}
+.card.is-dragging::after { transform: scaleX(1); }
+
+/* While a drag is live nothing else should react to the pointer. */
+.grid.is-reordering .card:not(.is-dragging) { pointer-events: none; }
+.grid.is-reordering { user-select: none; }
 
 /* Skeletons + empty state */
 .skeleton {
@@ -479,7 +520,7 @@
     z-index: var(--z-sheet);
     display: grid; place-items: center;
     padding: clamp(12px, 3vw, 40px);
-    background: rgba(20, 18, 16, .34);
+    background: var(--scrim);
     backdrop-filter: blur(6px) saturate(1.2);
     -webkit-backdrop-filter: blur(6px) saturate(1.2);
     opacity: 0;
@@ -752,6 +793,42 @@
 .check input:checked ~ .box svg { opacity: 1; transform: scale(1); }
 .check input:focus-visible ~ .box { box-shadow: 0 0 0 4px var(--accent-veil); }
 
+/* Collapsible section inside the editor */
+.fold {
+    margin-top: 22px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--paper);
+    overflow: hidden;
+}
+.fold > summary {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    font-size: var(--t-sm);
+    font-weight: 500;
+    color: var(--ink);
+    list-style: none;
+    user-select: none;
+    transition: background var(--d-2) var(--e-out);
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary:hover { background: var(--paper-sunk); }
+.fold > summary em {
+    font-style: normal; font-weight: 400;
+    font-size: var(--t-2xs); color: var(--ink-35);
+    margin-left: 2px;
+}
+.fold .fold-chev {
+    margin-left: auto;
+    color: var(--ink-35);
+    display: inline-flex;
+    transition: transform var(--d-3) var(--e-expo);
+}
+.fold[open] .fold-chev { transform: rotate(180deg); }
+.fold[open] > summary { border-bottom: 1px solid var(--line); background: var(--paper-sunk); }
+.fold > .form-grid { padding: 0 16px 18px; }
+
 /* Icon picker */
 .field .iconpick { margin-top: 8px; }
 .iconpick {
@@ -824,6 +901,26 @@
     .editor-preview { position: static; border-left: 0; border-top: 1px solid var(--line); border-radius: 0; }
 }
 
+/* Keyboard shortcut table */
+.keys {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 12px 20px;
+}
+.keys dt { display: flex; gap: 4px; justify-content: flex-end; }
+.keys dd { font-size: var(--t-sm); color: var(--ink-50); }
+.keys kbd {
+    display: inline-grid; place-items: center;
+    min-width: 26px; height: 26px; padding: 0 7px;
+    font-family: var(--font-mono); font-size: var(--t-2xs);
+    background: var(--paper-sunk);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: var(--r-xs);
+    color: var(--ink-70);
+}
+
 /* ---------------------------------------------------------------------------
    Command palette
    --------------------------------------------------------------------------- */
@@ -834,7 +931,7 @@
     display: grid;
     align-items: start; justify-items: center;
     padding: clamp(60px, 14vh, 160px) 16px 16px;
-    background: rgba(20, 18, 16, .30);
+    background: var(--scrim);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     opacity: 0; visibility: hidden;
@@ -951,6 +1048,23 @@
 .toast--success svg { color: #6EE7A8; }
 .toast--error svg { color: var(--accent-lift); }
 .toast span { flex: 1; }
+
+.toast-action {
+    flex: none;
+    padding: 5px 13px;
+    border-radius: var(--r-full);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: var(--t-xs);
+    font-weight: 500;
+    transition: transform var(--d-2) var(--e-spring), opacity var(--d-2) var(--e-out);
+}
+.toast-action:hover { transform: scale(1.05); }
+.toast-action[disabled] { opacity: .6; }
+
+/* In dark mode the toast ground is already light, so invert the action chip. */
+[data-theme="dark"] .toast { background: var(--paper-raised); color: var(--ink); border: 1px solid var(--line); }
+[data-theme="dark"] .toast-action { background: var(--ink); color: var(--paper); }
 
 /* ---------------------------------------------------------------------------
    Custom cursor — ink dot + lagging ring that morphs over targets.

@@ -17,10 +17,13 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import {
+    getAuth, signInAnonymously, onAuthStateChanged,
+    signInWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
     getFirestore, collection, addDoc, deleteDoc, doc,
-    onSnapshot, query, orderBy, setDoc, updateDoc, increment
+    onSnapshot, query, orderBy, setDoc, updateDoc, increment, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -77,13 +80,70 @@ const setStatus = (text, tone) => {
     }
 })();
 
+/* Two identities share one session:
+     · anonymous  — every visitor, so reads/messages/visit counts work
+     · password   — the admin, which is what firestore.rules actually checks
+   Admin state is therefore derived from Firebase, never from a client flag. */
+let subscribed = false;
+
 onAuthStateChanged(auth, (u) => {
-    if (!u) return;
     user = u;
+
+    if (!u) {
+        // Signed out (e.g. the admin left) — drop straight back to a visitor.
+        if (window.isAdmin) { window.isAdmin = false; window.applyAdminState && window.applyAdminState(); }
+        signInAnonymously(auth).catch((e) => console.error('Re-auth failed:', e));
+        return;
+    }
+
     setStatus('Live', 'ok');
-    subscribe();
-    countVisit();
+
+    const nowAdmin = !u.isAnonymous;
+    if (window.isAdmin !== nowAdmin) {
+        window.isAdmin = nowAdmin;
+        window.applyAdminState && window.applyAdminState();
+    }
+
+    if (!subscribed) { subscribed = true; subscribe(); countVisit(); }
 });
+
+/* -------- Admin session --------------------------------------------------- */
+
+const AUTH_MESSAGES = {
+    'auth/invalid-credential': 'That email or password is not right',
+    'auth/invalid-login-credentials': 'That email or password is not right',
+    'auth/wrong-password': 'That email or password is not right',
+    'auth/user-not-found': 'No admin account with that email',
+    'auth/invalid-email': "That doesn't look like an email address",
+    'auth/too-many-requests': 'Too many attempts — wait a moment and retry',
+    'auth/operation-not-allowed': 'Enable Email/Password sign-in in the Firebase console',
+    'auth/network-request-failed': 'Network problem — check your connection'
+};
+
+window.adminSignIn = async (email, password) => {
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        window.toast('Signed in — admin unlocked', 'success');
+        return true;
+    } catch (e) {
+        console.error('Admin sign-in failed:', e.code || e);
+        window.toast(AUTH_MESSAGES[e.code] || 'Could not sign in', 'error');
+        return false;
+    }
+};
+
+window.adminSignOut = async () => {
+    try {
+        await signOut(auth);            // onAuthStateChanged re-auths anonymously
+        window.toast('Signed out', 'info');
+        return true;
+    } catch (e) {
+        console.error('Sign-out failed:', e);
+        return false;
+    }
+};
+
+window.adminEmail = () => (user && !user.isAnonymous ? user.email : null);
 
 /* -------- Projects subscription ----------------------------------------- */
 
@@ -179,13 +239,40 @@ window.updateProjectInDb = async (id, data) => {
 
 window.deleteProjectFromDb = async (id) => {
     if (!user) return false;
+    // Snapshot the doc before it goes, so the toast can offer a real undo.
+    const backup = projects.find((p) => String(p.id) === String(id));
     try {
         await deleteDoc(projectDoc(id));
-        window.toast('Project deleted', 'success');
+        if (backup && window.toastWithAction) {
+            window.toastWithAction('Project deleted', 'Undo', async () => {
+                const { id: _drop, ...data } = backup;
+                await setDoc(projectDoc(id), data);   // same id, so links survive
+                window.toast('Project restored', 'success');
+            });
+        } else {
+            window.toast('Project deleted', 'success');
+        }
         return true;
     } catch (e) {
         console.error('Delete failed:', e);
         window.toast('Could not delete the project', 'error');
+        return false;
+    }
+};
+
+/* Writes a whole new ordering in one atomic batch. Firestore caps a batch at
+   500 writes, which is far beyond any realistic project count here. */
+window.reorderProjectsInDb = async (orderedIds) => {
+    if (!user) { window.toast('Not connected to the database yet', 'error'); return false; }
+    try {
+        const batch = writeBatch(db);
+        orderedIds.forEach((id, i) => batch.update(projectDoc(String(id)), { order: i + 1 }));
+        await batch.commit();
+        window.toast('Order saved', 'success');
+        return true;
+    } catch (e) {
+        console.error('Reorder failed:', e);
+        window.toast(`Could not save the order: ${e.message}`, 'error');
         return false;
     }
 };

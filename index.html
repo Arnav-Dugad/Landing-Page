@@ -3,22 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FBFAF7">
-<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F7F5F0">
+<meta name="color-scheme" content="light dark">
+
+<!-- Set the theme before first paint so the page never flashes the wrong
+     palette. Everything after this is handled by js/theme.js. -->
+<script>
+(function () {
+    try {
+        var pref = localStorage.getItem('theme') || 'system';
+        var dark = pref === 'dark' ||
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        root.dataset.theme = dark ? 'dark' : 'light';
+        root.dataset.themePref = pref;
+    } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+    }
+})();
+</script>
 
 <title>Arnav Dugad — Interactive web work</title>
 <meta name="description" content="Portfolio of Arnav Dugad. Interactive web experiences, games and tools — every project live, with real GitHub data.">
 <meta name="author" content="Arnav Dugad">
-<link rel="canonical" href="https://arnav-dugad.github.io/Landing-Page/">
+<link rel="canonical" href="https://www.arnavdugad.in/">
 
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Arnav Dugad">
 <meta property="og:title" content="Arnav Dugad — Interactive web work">
 <meta property="og:description" content="Interactive web experiences, games and tools — every project live, with real GitHub data.">
-<meta property="og:url" content="https://arnav-dugad.github.io/Landing-Page/">
-<meta property="og:image" content="https://opengraph.githubassets.com/1/Arnav-Dugad/Landing-Page">
+<meta property="og:url" content="https://www.arnavdugad.in/">
+<meta property="og:image" content="https://www.arnavdugad.in/api/og">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Arnav Dugad — Interactive web work">
 <meta name="twitter:description" content="Interactive web experiences, games and tools — every project live, with real GitHub data.">
+<meta name="twitter:image" content="https://www.arnavdugad.in/api/og">
 
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="site.webmanifest">
@@ -92,6 +113,7 @@
             <span class="nav-cmd-label">Search</span>
             <kbd>⌘K</kbd>
         </button>
+        <button class="ibtn ibtn--solid" data-theme-toggle data-size="16" aria-label="Change theme"></button>
         <button class="ibtn nav-burger" id="navBurger" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks">
             <span data-icon="menu" data-size="18"></span>
         </button>
@@ -226,6 +248,7 @@
                     <option value="stars">Most starred</option>
                     <option value="az">A–Z</option>
                     <option value="featured">Featured first</option>
+                    <option value="order">Custom order</option>
                 </select>
                 <span data-icon="chev-down" data-size="14"></span>
             </div>
@@ -431,9 +454,13 @@
                 <span class="footer-sep"></span>
                 <span><span data-icon="eye" data-size="12"></span> <span id="visitors">—</span></span>
                 <span class="footer-sep"></span>
+                <button data-theme-toggle data-theme-label data-size="12">Theme</button>
+                <span class="footer-sep"></span>
                 <button id="soundToggle">Sound off</button>
                 <span class="footer-sep"></span>
                 <button data-palette>⌘K</button>
+                <span class="footer-sep"></span>
+                <button id="helpBtn" title="Keyboard shortcuts">Shortcuts</button>
                 <span class="footer-sep"></span>
                 <button id="adminLock" aria-label="Unlock admin mode" title="Admin"></button>
             </div>
@@ -599,6 +626,56 @@
                             <div id="tagPicker"></div>
                         </div>
                     </div>
+
+                    <!-- Case study: everything needed for the long-form page -->
+                    <details class="fold" id="caseFold">
+                        <summary>
+                            <span data-icon="doc" data-size="15"></span>
+                            Case study
+                            <em>problem, process, outcome — turns this project into a full page</em>
+                            <span class="fold-chev" data-icon="chev-down" data-size="15"></span>
+                        </summary>
+
+                        <div class="form-grid" style="margin-top:18px">
+                            <div class="field field--wide">
+                                <label class="check">
+                                    <input type="checkbox" id="fCaseStudy">
+                                    <span class="box"><span data-icon="check" data-size="12"></span></span>
+                                    Publish a case-study page for this project
+                                </label>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fProblem">The problem <em>what wasn't working, and for whom</em></label>
+                                <textarea class="textarea" id="fProblem" placeholder="Nobody in my year could tell how close they were to the attendance cutoff…"></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fApproach">The approach <em>how you attacked it</em></label>
+                                <textarea class="textarea" id="fApproach" placeholder="Started with the maths, then worked backwards to the smallest interface that could show it…"></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fChallenges">What broke <em>one per line — the honest part</em></label>
+                                <textarea class="textarea" id="fChallenges" placeholder="Timezones silently shifted every date by a day&#10;The first data model made editing a row impossible"></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fOutcome">The outcome <em>what shipped, what you'd change</em></label>
+                                <textarea class="textarea" id="fOutcome" placeholder="Used by ~40 people in my course; the next version needs offline support…"></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fMetrics">Numbers <em>one per line, as "Label: value"</em></label>
+                                <textarea class="textarea" id="fMetrics" style="min-height:72px" placeholder="Users: 40+&#10;Load time: 0.4s&#10;Lighthouse: 100"></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fGallery">Screenshots <em>one image URL per line</em></label>
+                                <textarea class="textarea" id="fGallery" style="min-height:72px" placeholder="https://…/screen-1.png&#10;https://…/screen-2.png"></textarea>
+                            </div>
+                        </div>
+                    </details>
                 </form>
             </div>
 
@@ -615,6 +692,73 @@
         <div class="sheet-foot">
             <button class="btn btn--quiet" type="button" data-close>Cancel</button>
             <button class="btn btn--primary" type="submit" form="editorForm" id="editorSave">Add project</button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Admin sign-in (Firebase Email/Password — the real boundary is in
+     firestore.rules, this form just obtains the identity)
+     ====================================================================== -->
+<div class="sheet" id="authSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--sm" role="dialog" aria-modal="true" aria-label="Admin sign in">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+
+        <div class="sheet-head">
+            <h2>Admin sign in</h2>
+            <p>Signing in unlocks adding, editing and reordering projects.</p>
+        </div>
+
+        <form id="authForm">
+            <div class="sheet-body">
+                <div class="form-grid">
+                    <div class="field field--wide">
+                        <label for="aEmail">Email</label>
+                        <input class="input" id="aEmail" type="email" required autocomplete="username"
+                               placeholder="you@example.com">
+                    </div>
+                    <div class="field field--wide">
+                        <label for="aPassword">Password</label>
+                        <input class="input" id="aPassword" type="password" required autocomplete="current-password"
+                               placeholder="••••••••">
+                    </div>
+                </div>
+                <p style="font-size:var(--t-2xs);color:var(--ink-35);margin-top:16px;line-height:1.6">
+                    Writes are enforced by Firestore security rules against this account,
+                    not by hiding buttons in the interface.
+                </p>
+            </div>
+            <div class="sheet-foot">
+                <button class="btn btn--quiet" type="button" data-close>Cancel</button>
+                <button class="btn btn--primary" type="submit" id="authSubmit">Sign in</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Keyboard shortcuts
+     ====================================================================== -->
+<div class="sheet" id="helpSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--sm" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+
+        <div class="sheet-head">
+            <h2>Keyboard shortcuts</h2>
+            <p>Everything here is reachable without a mouse.</p>
+        </div>
+
+        <div class="sheet-body">
+            <dl class="keys">
+                <dt><kbd>⌘</kbd><kbd>K</kbd></dt><dd>Open the command palette</dd>
+                <dt><kbd>/</kbd></dt><dd>Jump to search</dd>
+                <dt><kbd>G</kbd></dt><dd>Toggle grid / list layout</dd>
+                <dt><kbd>T</kbd></dt><dd>Cycle theme</dd>
+                <dt><kbd>R</kbd></dt><dd>Open a random project</dd>
+                <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Previous / next project</dd>
+                <dt><kbd>Esc</kbd></dt><dd>Close whatever is open</dd>
+                <dt><kbd>?</kbd></dt><dd>Show this list</dd>
+            </dl>
         </div>
     </div>
 </div>
@@ -662,14 +806,22 @@
      pushes live data into it. Order matters: icons → motion → backdrop →
      github → render → admin → palette → app. -->
 <script src="js/icons.js"></script>
+<script src="js/theme.js"></script>
 <script src="js/motion.js"></script>
 <script src="js/backdrop.js"></script>
 <script src="js/github.js"></script>
 <script src="js/render.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/reorder.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/app.js"></script>
 <script type="module" src="js/firebase.js"></script>
+
+<!-- Vercel Analytics + Speed Insights. These paths are served by Vercel only
+     once the features are switched on in the project dashboard; until then
+     they 404 harmlessly and nothing else is affected. -->
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 
 </body>
 </html>

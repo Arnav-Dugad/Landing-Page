@@ -12,25 +12,42 @@ No framework. No build step. No bundler. No CDN for CSS or icons.
 
 ## Design
 
-| | |
-|---|---|
-| **Ground** | `#FBFAF7` warm paper — never pure white |
-| **Ink** | `#141210` warm near-black |
-| **Accent** | `#D14424` vermillion, used sparingly on purpose |
-| **Display** | Fraunces (variable — `opsz`, `SOFT`, `WONK` axes) |
-| **Interface** | Inter Tight |
-| **Mono** | JetBrains Mono |
+| | Light | Dark |
+|---|---|---|
+| **Ground** | `#F7F5F0` warm paper | `#131110` warm near-black |
+| **Ink** | `#100E0C` | `#FAF7F1` |
+| **Accent** | `#C43E1F` vermillion | `#F2764E` |
+| **Display** | Fraunces (variable — `opsz`, `SOFT`, `WONK` axes) | ← |
+| **Interface** | Inter Tight | ← |
+| **Mono** | JetBrains Mono | ← |
 
 Every value lives in [`css/tokens.css`](css/tokens.css). Nothing downstream hardcodes
 a colour, radius, easing curve or duration.
+
+**Contrast is a constraint, not a preference.** Every text tone in both themes clears
+WCAG AA against its own background — the weakest link in the ramp is `--ink-35` at
+**5.14:1** (light) and **5.01:1** (dark), and that tone is only used for meta text.
+Dark mode is a full restatement of the ramp, not a filter: the duotones lift toward
+the light end, the card sheen inverts, and the canvas lattice repaints in paper
+instead of ink.
+
+Theme follows the OS by default and cycles **System → Light → Dark** from the nav,
+the footer, the palette or <kbd>T</kbd>. It is applied by an inline script in `<head>`,
+so the page never flashes the wrong palette.
 
 ## Features
 
 **The work**
 - **Live from Firestore** — projects arrive over a realtime `onSnapshot`
   subscription; skeletons hold the layout until the first snapshot lands.
-- **Full project editing** — add, **edit**, duplicate and delete from an editor
-  sheet with a live preview that renders through the *same* component the grid uses.
+- **Full project editing** — add, **edit**, duplicate, **drag to reorder** and delete
+  from an editor sheet with a live preview that renders through the *same* component
+  the grid uses. Deletes are undoable; long write-ups autosave as drafts.
+- **Case-study pages** — mark a project as a case study and it gets a full page at
+  `case.html?p=<slug>`: problem, approach, a numbered "what broke" list, outcome,
+  metrics and a zoomable screenshot gallery.
+- **Per-project link previews** — sharing a project produces a real
+  [social card](#open-graph) generated at request time from its live record.
 - **Detail sheet** — running preview of the real site in an iframe, write-up,
   highlights, tech, GitHub stats, animated language bar, share, and ←/→ navigation.
 - **Real GitHub data** — stars, forks, last push and language breakdown. The repo is
@@ -53,28 +70,62 @@ a colour, radius, easing curve or duration.
 - **View Transitions API** for filter and sort re-layouts, where supported.
 - **Reduced motion is a first-class path**, not an afterthought — ambience stops,
   the custom cursor and intro curtain disappear, state changes stay legible.
+- **Shareable views** — the filter, sort, search and layout live in the query
+  string, so `/?cat=game&sort=stars` is a link you can send someone.
+- **Keyboard shortcuts** — <kbd>⌘K</kbd> palette, <kbd>/</kbd> search, <kbd>G</kbd>
+  layout, <kbd>T</kbd> theme, <kbd>R</kbd> random, <kbd>←</kbd><kbd>→</kbd> between
+  projects, <kbd>?</kbd> for the full list.
+- **Prints cleanly** — a dedicated print stylesheet strips the chrome and expands
+  link URLs, so the portfolio survives being turned into a PDF.
+
+<h3 id="open-graph">Open Graph</h3>
+
+A hash fragment is never sent to a server, so `/#project-slug` can never carry
+per-project preview tags — a crawler only ever sees the homepage. Two edge functions
+fix that:
+
+- **`/p/<slug>`** ([`api/share.js`](api/share.js)) returns a small document with that
+  project's real title, description and image, then forwards a human to the site.
+- **`/api/og?p=<slug>`** ([`api/og.js`](api/og.js)) renders a 1200×630 card at request
+  time from the live Firestore record — the project's own duotone, tags and copy, set
+  in Fraunces. Nothing is pre-built, so a card is correct the moment you edit a project.
+
+This is the only part of the site with a dependency (`@vercel/og`) and the only part
+that needs a server. Everything else still runs as plain static files — on GitHub
+Pages the share button simply falls back to the hash deep link.
 
 ## Structure
 
 ```
 index.html            Semantic markup only — no app logic, no framework classes
-css/tokens.css        Design tokens, reset, base typography, utilities
+case.html             The long-form case-study page
+
+css/tokens.css        Design tokens (both themes), reset, typography, utilities
 css/layout.css        Backdrop, nav, hero, section rhythm, marquee, footer, rail
 css/components.css    Buttons, cards, sheets, forms, palette, toasts, cursor
 css/motion.css        Reveal vocabulary + every keyframe
+css/case.css          Case-study layout
 
 js/icons.js           Hand-drawn 24px SVG icon set + legacy `fa-*` mapping
+js/theme.js           Light / dark / system switching
 js/motion.js          Reveals, split text, magnetic, tilt, cursor, odometer, marquee
 js/backdrop.js        The interactive dot lattice
 js/github.js          GitHub stats/languages, repo resolution, deploy detection
 js/render.js          Cards, filters, stats, stack band, detail sheet, deep links
-js/admin.js           Add / edit / duplicate / delete + live preview
+js/admin.js           Add / edit / duplicate / delete, drafts, admin sign-in
+js/reorder.js         Drag-to-reorder with FLIP
 js/palette.js         ⌘K command palette
 js/app.js             Sheets, toasts, dialogs, sound, contact, curtain, shortcuts
+js/case.js            Renders the case-study page from one project record
 js/firebase.js        Firebase init + the entire Firestore data layer (module)
 
+api/_project.js       Shared Firestore REST reader for the edge functions
+api/og.js             GET /api/og?p=<slug> → 1200x630 social card
+api/share.js          GET /p/<slug> → per-project Open Graph tags
+
 firestore.rules       Security rules — deploy from the Firebase console
-vercel.json           Headers + caching for Vercel
+vercel.json           Rewrites, headers and caching for Vercel
+package.json          Exists only for @vercel/og; the pages have no dependencies
 ```
 
 Classic scripts run first and define the UI surface; `firebase.js` loads last as a
@@ -84,14 +135,31 @@ competing render loops.
 
 ## Editing projects
 
-1. Click the lock in the footer (or ⌘K → *Unlock admin mode*) and enter the PIN.
-2. Hover any card for **edit**, **duplicate** and **delete**; or use *Add a project*.
+1. Click the padlock in the footer (or ⌘K → *Unlock admin mode*) and sign in.
+2. Hover any card for **drag**, **edit**, **duplicate** and **delete**; or use
+   *Add a project*.
 3. Save. The change is live immediately — no rebuild, no deploy.
 
-The PIN gate hides the controls; it is **not** the security boundary. What actually
-decides whether a write lands is `firestore.rules`. For genuinely admin-only writes,
-switch to Email/Password auth and replace the `signedIn()` checks with
-`request.auth.uid == "<your-admin-uid>"`.
+Drag-to-reorder writes an `order` field to every card in one atomic batch and
+switches the sort to *Custom order* so you can see what you did. It is only offered
+with no filter or search active — writing `1..n` over a filtered subset would
+scramble it against the projects you can't see.
+
+### Admin access is real auth
+
+Admin is a **Firebase Email/Password account**, and `firestore.rules` checks that
+identity on every write. Hiding the edit buttons is cosmetic; the rules are what stop
+somebody writing to the collection straight from the console.
+
+Set it up **in this order** — the other way round locks you out:
+
+1. Firebase console → **Authentication → Sign-in method** → enable *Email/Password*.
+2. **Authentication → Users → Add user**, with a long unique password.
+3. Sign in on the site via the footer padlock and confirm it works.
+4. *Then* publish `firestore.rules` (edit `adminEmail()` first if the address differs).
+
+Visitors stay signed in anonymously, which is what lets them read projects, send a
+message and bump the visit counter — and nothing else.
 
 ## Running locally
 
@@ -117,12 +185,19 @@ defaults:
 | Output directory | *(leave empty — repo root)* |
 | Install command | *(leave empty)* |
 
-`vercel.json` supplies security headers and cache policy. After the first deploy,
-every push to `main` ships automatically.
+`vercel.json` supplies the `/p/:slug` rewrite, security headers and cache policy.
+After the first deploy, every push to `main` ships automatically.
 
-One thing to do once the Vercel URL exists: add it to **Firebase console → Authentication
-→ Settings → Authorized domains**, otherwise anonymous sign-in is blocked there and no
-projects will load.
+Two one-time steps:
+
+- Add the deployed domain to **Firebase console → Authentication → Settings →
+  Authorized domains**, otherwise sign-in is blocked there and no projects load.
+- Turn on **Analytics** and **Speed Insights** in the Vercel project dashboard. The
+  script tags are already in the pages; until the features are enabled those paths
+  return 404 and nothing else is affected.
+
+**Analytics** is wired via `/_vercel/insights/script.js` and
+`/_vercel/speed-insights/script.js` — no npm package, no React provider.
 
 ## Firebase
 

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F5F0">
+<meta name="color-scheme" content="light dark">
+
+<title>Case study — Arnav Dugad</title>
+<meta name="description" content="A long-form look at how one project was built: the problem, the approach, what broke, and what shipped.">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="site.webmanifest">
+
+<script>
+(function () {
+    try {
+        var pref = localStorage.getItem('theme') || 'system';
+        var dark = pref === 'dark' ||
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.dataset.themePref = pref;
+    } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+    }
+})();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Inter+Tight:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/case.css">
+</head>
+
+<body>
+
+<a class="u-skip" href="#caseMain">Skip to the case study</a>
+
+<div class="bd" aria-hidden="true">
+    <div class="bd-wash"><span></span><span></span><span></span></div>
+    <canvas id="field"></canvas>
+    <div class="bd-grain"></div>
+</div>
+
+<div class="progress" aria-hidden="true"></div>
+<div class="cur-dot" aria-hidden="true"></div>
+<div class="cur-ring" aria-hidden="true"><b></b></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<nav class="nav" aria-label="Primary">
+    <a class="nav-mark" href="./" aria-label="Back to the portfolio"><i>AD</i> Arnav Dugad</a>
+    <div class="nav-links">
+        <a class="nav-link" href="./#work">All work</a>
+        <a class="nav-link" href="./#about">About</a>
+        <a class="nav-link" href="./#contact">Contact</a>
+    </div>
+    <div class="nav-actions">
+        <button class="ibtn ibtn--solid" data-theme-toggle data-size="16" aria-label="Change theme"></button>
+    </div>
+</nav>
+
+<main id="caseMain">
+    <!-- Everything below is rendered by js/case.js from the project record. -->
+    <div id="caseRoot">
+        <div class="case-loading u-shell">
+            <div class="skeleton" style="height:220px;border-radius:var(--r-2xl);margin-bottom:20px"></div>
+            <div class="skeleton" style="height:80px;border-radius:var(--r-lg);margin-bottom:12px"></div>
+            <div class="skeleton" style="height:300px;border-radius:var(--r-lg)"></div>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="u-shell">
+        <div class="footer-bot" style="padding-top:0;border:0">
+            <span>© <span id="year"></span> Arnav Dugad</span>
+            <div class="footer-meta">
+                <a href="./#work">← Back to all work</a>
+                <span class="footer-sep"></span>
+                <button data-theme-toggle data-theme-label data-size="12">Theme</button>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<button class="totop" aria-label="Back to top"><span data-icon="arrow-up" data-size="17"></span></button>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+
+<script src="js/icons.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/motion.js"></script>
+<script src="js/backdrop.js"></script>
+<script src="js/github.js"></script>
+<script src="js/case.js"></script>
+
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
+
+</body>
+</html>

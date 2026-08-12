@@ -1,0 +1,13 @@
+{
+  "name": "arnav-dugad-portfolio",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Portfolio site. The pages themselves are dependency-free static files; this manifest exists only for the Vercel edge functions under /api that generate per-project Open Graph cards.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@vercel/og": "^0.6.3"
+  }
+}

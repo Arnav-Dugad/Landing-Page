@@ -1,49 +1,70 @@
 /* ===========================================================================
    tokens.css — the design system's single source of truth.
 
-   The palette is deliberately warm paper + near-black ink + ONE saturated
-   accent (vermillion). No violet gradients, no rainbow. Everything else in
-   the site derives from these values; nothing hardcodes a colour.
+   Warm paper + near-black ink + ONE saturated accent (vermillion). No violet
+   gradients, no rainbow. Everything downstream derives from these values.
+
+   Two themes live here. Light is the default and is tuned so that every text
+   tone clears WCAG AA against its own background (the smallest ratio in the
+   ramp is ~5.1:1, not the ~2.8:1 a "soft" grey usually lands on). Dark is a
+   full restatement of the same ramp, not a filter over the light one.
    =========================================================================== */
 
 :root {
+    color-scheme: light;
+
     /* ---- Paper & ink --------------------------------------------------- */
-    --paper:        #FBFAF7;   /* page ground — warm, never pure white      */
-    --paper-sunk:   #F3F1EB;   /* recessed bands, inputs                    */
+    --paper:        #F7F5F0;   /* page ground — warm, never pure white      */
+    --paper-sunk:   #EDEAE1;   /* recessed bands                            */
     --paper-raised: #FFFFFF;   /* cards, sheets                             */
-    --paper-veil:   rgba(251, 250, 247, .78);
+    --paper-veil:   rgba(247, 245, 240, .86);
 
-    --ink:      #141210;       /* warm near-black — headings                */
-    --ink-70:   #3E3830;
-    --ink-50:   #6B6459;
-    --ink-35:   #99917F;
-    --ink-20:   #C4BDAF;
+    --ink:      #100E0C;       /* headings                        ~17.9:1   */
+    --ink-70:   #332E27;       /* body copy                       ~11.6:1   */
+    --ink-50:   #4F493F;       /* secondary copy                   ~8.1:1   */
+    --ink-35:   #6E6759;       /* meta, labels, captions           ~5.1:1   */
+    --ink-20:   #9A9284;       /* decorative only — never text             */
 
-    --line:        rgba(20, 18, 16, .10);
-    --line-soft:   rgba(20, 18, 16, .055);
-    --line-strong: rgba(20, 18, 16, .20);
+    --line:        rgba(16, 14, 12, .14);
+    --line-soft:   rgba(16, 14, 12, .08);
+    --line-strong: rgba(16, 14, 12, .26);
 
-    /* ---- Accent (used sparingly, which is what makes it read premium) -- */
-    --accent:      #D14424;
-    --accent-deep: #A63014;
-    --accent-lift: #F0623C;
-    --accent-soft: #FBE9E2;
-    --accent-veil: rgba(209, 68, 36, .12);
+    /* ---- Accent -------------------------------------------------------- */
+    --accent:      #C43E1F;    /* ~5.4:1 on paper — safe for body-size text */
+    --accent-deep: #97270E;
+    --accent-lift: #E4552F;
+    --accent-soft: #FAE6DF;
+    --accent-veil: rgba(196, 62, 31, .14);
+    --accent-ink:  #FFFFFF;    /* text that sits ON the accent             */
+
+    /* Surfaces that must invert rather than inherit. A white sheen and a
+       near-black scrim are correct on paper and catastrophic on black. */
+    --sheen: rgba(255, 255, 255, .9);
+    --scrim: rgba(16, 14, 12, .36);
 
     /* ---- Semantic tones ------------------------------------------------ */
-    --pine:      #10653F;      /* live / success                            */
-    --pine-soft: #E3F0E9;
-    --amber:     #9A6B12;      /* in-progress / warning                     */
-    --amber-soft:#FAEFD8;
-    --slate:     #55606E;      /* archived / neutral                        */
-    --slate-soft:#ECEEF1;
+    --pine:      #0C5636;
+    --pine-soft: #DDEDE4;
+    --amber:     #7E560C;
+    --amber-soft:#F8EBCF;
+    --slate:     #414B57;
+    --slate-soft:#E7EAEE;
+
+    /* ---- Backdrop intensity (themed so ambience never eats contrast) --- */
+    --wash-opacity: .34;
+    --grain-opacity: .16;
+    --grain-blend: multiply;
+    --field-ink: 16, 14, 12;         /* dot lattice base colour, as RGB    */
+    --field-accent: 196, 62, 31;
+    --field-alpha: 1;
+    --vignette: rgba(16, 14, 12, .06);
 
     /* ---- Elevation ----------------------------------------------------- */
-    --shadow-1: 0 1px 2px rgba(20,18,16,.04), 0 2px 6px -1px rgba(20,18,16,.05);
-    --shadow-2: 0 2px 4px rgba(20,18,16,.03), 0 12px 26px -10px rgba(20,18,16,.14);
-    --shadow-3: 0 4px 10px rgba(20,18,16,.04), 0 28px 60px -18px rgba(20,18,16,.22);
-    --shadow-4: 0 10px 20px rgba(20,18,16,.05), 0 48px 100px -28px rgba(20,18,16,.30);
-    --shadow-accent: 0 10px 30px -10px rgba(209,68,36,.45);
+    --shadow-1: 0 1px 2px rgba(16,14,12,.06), 0 2px 6px -1px rgba(16,14,12,.06);
+    --shadow-2: 0 2px 4px rgba(16,14,12,.05), 0 12px 26px -10px rgba(16,14,12,.18);
+    --shadow-3: 0 4px 10px rgba(16,14,12,.06), 0 28px 60px -18px rgba(16,14,12,.26);
+    --shadow-4: 0 10px 20px rgba(16,14,12,.07), 0 48px 100px -28px rgba(16,14,12,.34);
+    --shadow-accent: 0 10px 30px -10px rgba(196,62,31,.48);
 
     /* ---- Radii --------------------------------------------------------- */
     --r-xs: 6px;  --r-sm: 10px; --r-md: 14px;
@@ -54,19 +75,18 @@
     --font-sans: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-    /* Fluid type scale — clamp() so every size is continuous, never stepped */
-    --t-display: clamp(3.4rem, 11vw, 10.5rem);
-    --t-h1:      clamp(2.6rem, 6.4vw, 5.2rem);
-    --t-h2:      clamp(2rem, 4.4vw, 3.5rem);
+    --t-display: clamp(3.2rem, 10.4vw, 9.8rem);
+    --t-h1:      clamp(2.5rem, 6.2vw, 5rem);
+    --t-h2:      clamp(1.95rem, 4.2vw, 3.4rem);
     --t-h3:      clamp(1.35rem, 2.2vw, 1.9rem);
-    --t-lead:    clamp(1.05rem, 1.5vw, 1.35rem);
+    --t-lead:    clamp(1.05rem, 1.5vw, 1.32rem);
     --t-body:    1rem;
-    --t-sm:      .875rem;
-    --t-xs:      .78rem;
-    --t-2xs:     .69rem;
+    --t-sm:      .9rem;
+    --t-xs:      .8rem;
+    --t-2xs:     .72rem;
 
     /* ---- Motion -------------------------------------------------------- */
-    --e-expo:   cubic-bezier(.16, 1, .3, 1);      /* the workhorse          */
+    --e-expo:   cubic-bezier(.16, 1, .3, 1);
     --e-out:    cubic-bezier(.22, .61, .36, 1);
     --e-spring: cubic-bezier(.34, 1.42, .64, 1);
     --e-inout:  cubic-bezier(.65, 0, .35, 1);
@@ -81,7 +101,7 @@
     --maxw-prose: 62ch;
     --nav-h: 68px;
 
-    /* ---- Z-index ladder (named so nothing fights) ---------------------- */
+    /* ---- Z-index ladder ------------------------------------------------ */
     --z-backdrop: 0;
     --z-content: 1;
     --z-rail: 40;
@@ -97,21 +117,89 @@
    plaque gradient) plus a tint and an ink for text on the tint. Keys match
    the values already stored in Firestore, so old projects keep working. */
 :root {
-    --tone-indigo-a:#4F46E5; --tone-indigo-b:#818CF8; --tone-indigo-t:#EEEDFD; --tone-indigo-i:#3A32B4;
-    --tone-blue-a:  #1D6FE0; --tone-blue-b:  #5BA8F5; --tone-blue-t:  #E7F1FE; --tone-blue-i:  #14539F;
-    --tone-sky-a:   #0891B2; --tone-sky-b:   #38BDF8; --tone-sky-t:   #E3F5FB; --tone-sky-i:   #0A6F86;
-    --tone-teal-a:  #0D9488; --tone-teal-b:  #5EEAD4; --tone-teal-t:  #E1F5F2; --tone-teal-i:  #0B6F67;
-    --tone-emerald-a:#0F7A4F; --tone-emerald-b:#4ADE80; --tone-emerald-t:#E4F3EA; --tone-emerald-i:#0B5A3A;
-    --tone-yellow-a:#CA8A04; --tone-yellow-b:#FCD34D; --tone-yellow-t:#FBF1D9; --tone-yellow-i:#8A5D02;
-    --tone-orange-a:#EA6A0B; --tone-orange-b:#FBA94C; --tone-orange-t:#FCEDDD; --tone-orange-i:#A94B06;
-    --tone-red-a:   #D1442A; --tone-red-b:   #F87171; --tone-red-t:   #FBE8E4; --tone-red-i:   #A32E1A;
-    --tone-pink-a:  #DB2777; --tone-pink-b:  #F9A8D4; --tone-pink-t:  #FBE7F0; --tone-pink-i:  #A01B57;
-    --tone-purple-a:#7C3AED; --tone-purple-b:#C4B5FD; --tone-purple-t:#F2EBFE; --tone-purple-i:#5B21B6;
-    --tone-slate-a: #475569; --tone-slate-b: #94A3B8; --tone-slate-t: #ECEEF1; --tone-slate-i: #33404F;
+    --tone-indigo-a:#4338CA; --tone-indigo-b:#7C74F0; --tone-indigo-t:#EBEAFB; --tone-indigo-i:#332BA0;
+    --tone-blue-a:  #1560C4; --tone-blue-b:  #4A97E8; --tone-blue-t:  #E4EEFC; --tone-blue-i:  #10488F;
+    --tone-sky-a:   #067594; --tone-sky-b:   #2BAEE0; --tone-sky-t:   #E0F2F9; --tone-sky-i:   #075B73;
+    --tone-teal-a:  #0B7C72; --tone-teal-b:  #3FD0BB; --tone-teal-t:  #DEF3F0; --tone-teal-i:  #085C55;
+    --tone-emerald-a:#0C6742; --tone-emerald-b:#35C46B; --tone-emerald-t:#E0F1E7; --tone-emerald-i:#084B30;
+    --tone-yellow-a:#A8720B; --tone-yellow-b:#EFBE3A; --tone-yellow-t:#F9EED4; --tone-yellow-i:#734D02;
+    --tone-orange-a:#C8560A; --tone-orange-b:#F59A3D; --tone-orange-t:#FBEAD8; --tone-orange-i:#8E3F05;
+    --tone-red-a:   #B93A22; --tone-red-b:   #EF5F5F; --tone-red-t:   #FAE5E1; --tone-red-i:   #8C2715;
+    --tone-pink-a:  #BC1F66; --tone-pink-b:  #F189BE; --tone-pink-t:  #FAE3EE; --tone-pink-i:  #8A1549;
+    --tone-purple-a:#6A2CD4; --tone-purple-b:#AE9BF7; --tone-purple-t:#F0E8FD; --tone-purple-i:#4E1B9F;
+    --tone-slate-a: #3B4756; --tone-slate-b: #7C8BA0; --tone-slate-t: #E8EBEF; --tone-slate-i: #2A343F;
 }
 
 /* ===========================================================================
-   Reset — modern, minimal, opinionated.
+   Dark theme — a full restatement, applied by js/theme.js on <html>.
+   =========================================================================== */
+
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    --paper:        #131110;
+    --paper-sunk:   #0D0C0B;
+    --paper-raised: #1C1A17;
+    --paper-veil:   rgba(19, 17, 16, .86);
+
+    --ink:      #FAF7F1;
+    --ink-70:   #DCD6C9;
+    --ink-50:   #B2AA9A;
+    --ink-35:   #8B8373;
+    --ink-20:   #5C564C;
+
+    --line:        rgba(250, 247, 241, .13);
+    --line-soft:   rgba(250, 247, 241, .07);
+    --line-strong: rgba(250, 247, 241, .28);
+
+    --accent:      #F2764E;
+    --accent-deep: #A8351A;    /* keeps white button labels above 5:1      */
+    --accent-lift: #FF9370;
+    --accent-soft: rgba(242, 118, 78, .15);
+    --accent-veil: rgba(242, 118, 78, .22);
+    --accent-ink:  #1A0D07;
+
+    --sheen: rgba(255, 255, 255, .055);
+    --scrim: rgba(0, 0, 0, .62);
+
+    --pine:      #56D98C;
+    --pine-soft: rgba(86, 217, 140, .14);
+    --amber:     #F0BC4A;
+    --amber-soft:rgba(240, 188, 74, .14);
+    --slate:     #A3B0C0;
+    --slate-soft:rgba(163, 176, 192, .14);
+
+    --wash-opacity: .30;
+    --grain-opacity: .11;
+    --grain-blend: screen;
+    --field-ink: 250, 247, 241;
+    --field-accent: 242, 118, 78;
+    --field-alpha: .82;
+    --vignette: rgba(0, 0, 0, .34);
+
+    --shadow-1: 0 1px 2px rgba(0,0,0,.5), 0 2px 6px -1px rgba(0,0,0,.42);
+    --shadow-2: 0 2px 4px rgba(0,0,0,.44), 0 12px 26px -10px rgba(0,0,0,.66);
+    --shadow-3: 0 4px 10px rgba(0,0,0,.46), 0 28px 60px -18px rgba(0,0,0,.74);
+    --shadow-4: 0 10px 20px rgba(0,0,0,.5), 0 48px 100px -28px rgba(0,0,0,.82);
+    --shadow-accent: 0 10px 30px -10px rgba(242,118,78,.44);
+
+    /* Duotones lift toward the light end so plaques stay legible on black,
+       and the tints invert to translucent washes. */
+    --tone-indigo-a:#6366F1; --tone-indigo-b:#A5A0FF; --tone-indigo-t:rgba(99,102,241,.16); --tone-indigo-i:#B4B1FF;
+    --tone-blue-a:  #3B8FEA; --tone-blue-b:  #79BDFF; --tone-blue-t:  rgba(59,143,234,.16); --tone-blue-i:  #93C6FF;
+    --tone-sky-a:   #22A8CC; --tone-sky-b:   #63D6F5; --tone-sky-t:   rgba(34,168,204,.16); --tone-sky-i:   #7FDFFA;
+    --tone-teal-a:  #17B3A2; --tone-teal-b:  #6EEAD6; --tone-teal-t:  rgba(23,179,162,.16); --tone-teal-i:  #83EFDC;
+    --tone-emerald-a:#1DA35F; --tone-emerald-b:#63E08D; --tone-emerald-t:rgba(29,163,95,.16); --tone-emerald-i:#7CE9A1;
+    --tone-yellow-a:#D9A21C; --tone-yellow-b:#F7D96B; --tone-yellow-t:rgba(217,162,28,.16); --tone-yellow-i:#F8DE83;
+    --tone-orange-a:#EF7C22; --tone-orange-b:#FFB067; --tone-orange-t:rgba(239,124,34,.16); --tone-orange-i:#FFBC80;
+    --tone-red-a:   #E4553A; --tone-red-b:   #FF8A80; --tone-red-t:   rgba(228,85,58,.16);  --tone-red-i:   #FF9A90;
+    --tone-pink-a:  #E64C90; --tone-pink-b:  #FBA3CD; --tone-pink-t:  rgba(230,76,144,.16); --tone-pink-i:  #FCB2D6;
+    --tone-purple-a:#9366F0; --tone-purple-b:#C7B6FB; --tone-purple-t:rgba(147,102,240,.16);--tone-purple-i:#CFC1FC;
+    --tone-slate-a: #67748A; --tone-slate-b: #A4B0C2; --tone-slate-t: rgba(103,116,138,.18);--tone-slate-i: #B3BECD;
+}
+
+/* ===========================================================================
+   Reset
    =========================================================================== */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -122,6 +210,7 @@ html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
     scroll-padding-top: calc(var(--nav-h) + 24px);
+    background: var(--paper);
 }
 
 body {
@@ -129,13 +218,14 @@ body {
     color: var(--ink-70);
     font-family: var(--font-sans);
     font-size: var(--t-body);
-    line-height: 1.6;
+    line-height: 1.62;
     font-synthesis-weight: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
     min-height: 100svh;
+    transition: background var(--d-3) var(--e-out), color var(--d-3) var(--e-out);
 }
 
 img, svg, video, canvas { display: block; max-width: 100%; }
@@ -144,7 +234,7 @@ svg { flex: none; }
 input, button, textarea, select { font: inherit; color: inherit; }
 button { background: none; border: 0; cursor: pointer; }
 
-h1, h2, h3, h4 { color: var(--ink); font-weight: 500; line-height: 1.06; text-wrap: balance; }
+h1, h2, h3, h4 { color: var(--ink); font-weight: 500; line-height: 1.08; text-wrap: balance; }
 p { text-wrap: pretty; }
 
 a { color: inherit; text-decoration: none; }
@@ -154,14 +244,14 @@ ul, ol { list-style: none; padding: 0; }
 /* <s> is used purely as a hairline/dot primitive throughout, never as strike. */
 s { text-decoration: none; }
 
+/* Lining, tabular figures everywhere numbers matter. Fraunces ships old-style
+   figures by default, whose descenders get clipped by the odometer masks. */
+.stat dt, .hero-fig dt, .odo, .u-mono, [class*="mono"] {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
+}
+
 ::selection { background: var(--ink); color: var(--paper); }
-
-/* Page is locked only while the intro curtain is on screen. */
-body.is-loading { overflow: hidden; }
-
-/* Connection pill states, written by js/firebase.js. */
-[data-tone="ok"]   { color: var(--pine); }
-[data-tone="warn"] { color: var(--amber); }
 
 /* Focus: invisible for mouse users, unmissable for keyboard users. */
 :focus { outline: none; }
@@ -181,6 +271,13 @@ body.is-loading { overflow: hidden; }
     border-radius: var(--r-full);
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--ink-35); }
+
+/* Page is locked only while the intro curtain is on screen. */
+body.is-loading { overflow: hidden; }
+
+/* Connection pill states, written by js/firebase.js. */
+[data-tone="ok"]   { color: var(--pine); }
+[data-tone="warn"] { color: var(--amber); }
 
 /* ===========================================================================
    Utilities
@@ -207,7 +304,6 @@ body.is-loading { overflow: hidden; }
 
 .u-hidden { display: none !important; }
 
-/* Visually hidden but announced by screen readers. */
 .u-sr {
     position: absolute; width: 1px; height: 1px;
     padding: 0; margin: -1px; overflow: hidden;
@@ -228,7 +324,6 @@ body.is-loading { overflow: hidden; }
 
 .u-nowrap { white-space: nowrap; }
 
-/* Truncation to N lines. */
 .u-clamp-2, .u-clamp-3 {
     display: -webkit-box; -webkit-box-orient: vertical;
     overflow: hidden;
@@ -237,7 +332,7 @@ body.is-loading { overflow: hidden; }
 .u-clamp-3 { -webkit-line-clamp: 3; line-clamp: 3; }
 
 /* ===========================================================================
-   Reduced motion — honoured everywhere, not bolted on.
+   Reduced motion
    =========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -248,4 +343,19 @@ body.is-loading { overflow: hidden; }
         transition-duration: .001ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* ===========================================================================
+   Print — a portfolio that prints cleanly is worth the twenty lines.
+   =========================================================================== */
+
+@media print {
+    .bd, .nav, .rail, .progress, .totop, .marquee, .toasts,
+    .cur-dot, .cur-ring, .curtain, .sheet, .palette, .toolbar, .filters { display: none !important; }
+    body { background: #fff; color: #000; }
+    .section { padding-block: 18pt; break-inside: avoid; }
+    .card { break-inside: avoid; box-shadow: none; border: 1pt solid #ccc; }
+    .grid { display: block; }
+    .card { margin-bottom: 10pt; }
+    a::after { content: " (" attr(href) ")"; font-size: 8pt; color: #555; }
 }

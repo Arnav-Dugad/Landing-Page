@@ -57,13 +57,30 @@ window.safeUrl = (value) => {
     let currentDetailId = null;
     let deepLinkDone = false;
 
-    /* View + query state. The single place the grid's contents are decided. */
+    /* View + query state. The single place the grid's contents are decided.
+       Seeded from the URL so a filtered view is a shareable link. */
+    const params = new URLSearchParams(location.search);
     const state = window.PState = {
-        filter: 'all',
-        search: '',
-        sort: 'newest',
-        view: localStorage.getItem('view') || 'grid'
+        filter: params.get('cat') || 'all',
+        search: params.get('q') || '',
+        sort: params.get('sort') || 'newest',
+        view: params.get('view') || localStorage.getItem('view') || 'grid'
     };
+
+    /* Mirror the query back into the URL, omitting anything at its default so
+       the common case stays a clean link. The hash (an open project) is left
+       untouched — the two coexist as `/?cat=game#some-project`. */
+    function syncUrl() {
+        const next = new URLSearchParams();
+        if (state.search.trim()) next.set('q', state.search.trim());
+        if (state.filter !== 'all') next.set('cat', state.filter);
+        if (state.sort !== 'newest') next.set('sort', state.sort);
+        if (state.view !== 'grid') next.set('view', state.view);
+        const qs = next.toString();
+        const url = location.pathname + (qs ? `?${qs}` : '') + location.hash;
+        try { history.replaceState(null, '', url); } catch { /* file:// */ }
+    }
+    window.syncUrl = syncUrl;
 
     const projects = () => (window.getProjects ? window.getProjects() : []);
     const loaded = () => (window.projectsLoaded ? window.projectsLoaded() : false);
@@ -148,13 +165,17 @@ window.safeUrl = (value) => {
 
         const admin = window.isAdmin ? `
             <div class="card-admin">
+                <button type="button" data-drag title="Drag to reorder" aria-label="Drag ${window.esc(p.title)} to reorder" class="is-handle">${window.icon('drag', { raw: true, size: 13 })}</button>
                 <button type="button" data-act="edit" data-id="${id}" title="Edit project" aria-label="Edit ${window.esc(p.title)}">${window.icon('pencil', { raw: true, size: 13 })}</button>
                 <button type="button" data-act="dupe" data-id="${id}" title="Duplicate project" aria-label="Duplicate ${window.esc(p.title)}">${window.icon('copy', { raw: true, size: 13 })}</button>
                 <button type="button" data-act="del" data-id="${id}" class="is-danger" title="Delete project" aria-label="Delete ${window.esc(p.title)}">${window.icon('trash', { raw: true, size: 13 })}</button>
             </div>` : '';
 
-        const star = p.featured
-            ? `<div class="card-star" title="Featured">${window.icon('star-fill', { raw: true, size: 13 })}</div>` : '';
+        const marks = [
+            p.featured ? `<span class="card-mark card-mark--star" title="Featured">${window.icon('star-fill', { raw: true, size: 12 })}</span>` : '',
+            p.caseStudy ? `<span class="card-mark card-mark--case" title="Has a case study">${window.icon('doc', { raw: true, size: 12 })}</span>` : ''
+        ].filter(Boolean).join('');
+        const star = marks ? `<div class="card-star">${marks}</div>` : '';
 
         const repo = window.resolveRepoUrl ? window.resolveRepoUrl(p) : null;
 
@@ -233,6 +254,7 @@ window.safeUrl = (value) => {
         renderFilters();
         renderStats();
         renderStack();
+        syncUrl();
 
         if (document.startViewTransition && !window.motionReduced()) {
             document.startViewTransition(() => paint());
@@ -497,7 +519,9 @@ window.safeUrl = (value) => {
                 <div id="ghLangs"></div>
 
                 <div class="detail-actions">
-                    ${link ? `<a href="${window.esc(link)}" target="_blank" rel="noopener noreferrer" class="btn btn--primary magnetic" data-cursor="Visit">
+                    ${p.caseStudy ? `<a href="case.html?p=${encodeURIComponent(window.projectSlug(p))}" class="btn btn--primary magnetic" data-cursor="Read">
+                        ${window.icon('doc', { raw: true, size: 17 })} Read the case study</a>` : ''}
+                    ${link ? `<a href="${window.esc(link)}" target="_blank" rel="noopener noreferrer" class="btn ${p.caseStudy ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Visit">
                         ${window.icon('external', { raw: true, size: 17 })} Visit live</a>` : ''}
                     ${repo ? `<a href="${window.esc(repo)}" target="_blank" rel="noopener noreferrer" class="btn btn--ghost magnetic" data-cursor="Code">
                         ${window.icon('github', { raw: true, size: 17 })} View code</a>` : ''}
@@ -511,7 +535,10 @@ window.safeUrl = (value) => {
         window.openSheet(sheet);
         if (window.Motion) window.Motion.magnetic(body);
 
-        try { history.replaceState(null, '', `#${window.projectSlug(p)}`); } catch { /* file:// */ }
+        // Keep any active filter in the URL alongside the open project.
+        try {
+            history.replaceState(null, '', `${location.pathname}${location.search}#${window.projectSlug(p)}`);
+        } catch { /* file:// */ }
 
         // GitHub stats + language breakdown, async and non-blocking.
         if (repo && window.fetchGitHubStats) {
@@ -560,10 +587,21 @@ window.safeUrl = (value) => {
         window.openProject(ids[(i + dir + ids.length) % ids.length]);
     };
 
+    /* On Vercel there is a real /p/<slug> route that serves per-project OG
+       tags to crawlers before bouncing a human to the site. Anywhere else
+       (GitHub Pages, localhost) fall back to the hash deep link, which works
+       for people but not for link previews. */
+    const HAS_EDGE = /(^|\.)arnavdugad\.in$/i.test(location.hostname)
+        || /\.vercel\.app$/i.test(location.hostname);
+
+    window.projectUrl = (p) => (HAS_EDGE
+        ? `${location.origin}/p/${encodeURIComponent(window.projectSlug(p))}`
+        : `${location.origin}${location.pathname}#${window.projectSlug(p)}`);
+
     window.shareProject = (id) => {
         const p = projects().find((x) => String(x.id) === String(id));
         if (!p) return;
-        const url = `${location.origin}${location.pathname}#${window.projectSlug(p)}`;
+        const url = window.projectUrl(p);
         if (navigator.share) {
             navigator.share({ title: `${p.title} — Arnav Dugad`, text: p.desc, url }).catch(() => {});
         } else if (navigator.clipboard) {
@@ -628,6 +666,20 @@ window.safeUrl = (value) => {
             if (edit && window.editProject) { window.closeProject(); window.editProject(edit.dataset.id); }
         });
     }
+
+    /* Reflect URL-seeded state in the controls before the first paint, so a
+       shared link like /?cat=game&sort=stars shows those controls already set. */
+    (function syncControls() {
+        const searchEl = document.getElementById('search');
+        if (searchEl) searchEl.value = state.search;
+        const sortEl = document.getElementById('sortSelect');
+        if (sortEl) sortEl.value = state.sort;
+        document.querySelectorAll('.segment button[data-view]').forEach((b) => {
+            b.classList.toggle('is-active', b.dataset.view === state.view);
+        });
+        const thumb = document.querySelector('.segment .thumb');
+        if (thumb) thumb.style.transform = state.view === 'list' ? 'translateX(36px)' : 'translateX(0)';
+    })();
 
     /* First paint: skeletons until the data layer reports in. */
     render();

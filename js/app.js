@@ -61,19 +61,46 @@
 
     const toastBox = document.getElementById('toasts');
 
-    window.toast = (message, type = 'info') => {
-        if (!toastBox) return;
+    function makeToast(message, type, life) {
         const el = document.createElement('div');
         el.className = `toast toast--${type}`;
         el.setAttribute('role', type === 'error' ? 'alert' : 'status');
         const mark = type === 'success' ? 'check' : type === 'error' ? 'alert' : 'info';
         el.innerHTML = `${window.icon(mark, { raw: true, size: 16 })}<span>${window.esc(message)}</span>`;
         toastBox.appendChild(el);
-        setTimeout(() => {
+
+        const dismiss = () => {
+            if (!el.isConnected) return;
             el.classList.add('is-out');
             setTimeout(() => el.remove(), 260);
-        }, 3200);
+        };
+        const timer = setTimeout(dismiss, life);
+        return { el, dismiss, timer };
+    }
+
+    window.toast = (message, type = 'info') => {
+        if (!toastBox) return;
+        makeToast(message, type, 3200);
     };
+
+    /* A destructive action deserves a way back. The toast stays up longer and
+       carries the undo itself, so nothing has to be confirmed twice. */
+    window.toastWithAction = (message, label, run, life = 8000) => {
+        if (!toastBox) return;
+        const { el, dismiss, timer } = makeToast(message, 'success', life);
+        const btn = document.createElement('button');
+        btn.className = 'toast-action';
+        btn.textContent = label;
+        btn.addEventListener('click', async () => {
+            clearTimeout(timer);
+            btn.disabled = true;
+            btn.textContent = '…';
+            try { await run(); } catch (e) { window.toast('That did not work', 'error'); }
+            dismiss();
+        });
+        el.appendChild(btn);
+    };
+
     // Back-compat for anything still calling the old name.
     window.showToast = window.toast;
 
@@ -379,8 +406,19 @@
        Keyboard shortcuts
        ===================================================================== */
 
+    const helpSheet = document.getElementById('helpSheet');
+    window.openHelp = () => window.openSheet(helpSheet);
+    if (helpSheet) {
+        helpSheet.addEventListener('click', (e) => {
+            if (e.target === helpSheet || e.target.closest('[data-close]')) window.closeSheet(helpSheet);
+        });
+    }
+    const helpBtn = document.getElementById('helpBtn');
+    if (helpBtn) helpBtn.addEventListener('click', () => window.openHelp());
+
     document.addEventListener('keydown', (e) => {
-        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')
+            || document.activeElement?.isContentEditable;
 
         if (e.key === 'Escape') {
             if (window.paletteOpen && window.paletteOpen()) { window.closePalette(); return; }
@@ -392,16 +430,24 @@
             return;
         }
 
-        if (!typing && e.key === '/') {
-            e.preventDefault();
-            search?.focus();
-            return;
-        }
+        // Single-key shortcuts must never fire while someone is typing, and
+        // never steal a browser or OS chord.
+        if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+
+        if (e.key === '/') { e.preventDefault(); search?.focus(); return; }
+        if (e.key === '?') { e.preventDefault(); window.openHelp(); return; }
 
         if (detailSheet && detailSheet.classList.contains('is-open')) {
             if (e.key === 'ArrowLeft')  { e.preventDefault(); window.detailNav(-1); }
             if (e.key === 'ArrowRight') { e.preventDefault(); window.detailNav(1); }
+            return;
         }
+        if (topSheet()) return;      // don't act behind an open sheet
+
+        const k = e.key.toLowerCase();
+        if (k === 'g') { e.preventDefault(); window.setView(window.PState.view === 'grid' ? 'list' : 'grid'); }
+        else if (k === 't') { e.preventDefault(); window.cycleTheme(); }
+        else if (k === 'r') { e.preventDefault(); window.randomProject(); }
     });
 
     /* =====================================================================

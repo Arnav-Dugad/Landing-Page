@@ -1,0 +1,255 @@
+/* ===========================================================================
+   case.css — the long-form case-study page.
+
+   Deliberately narrower and quieter than the index: this is a reading page,
+   so the measure is short, the rhythm is vertical, and the only loud element
+   is the title.
+   =========================================================================== */
+
+.case-loading { padding-block: calc(var(--nav-h) + 80px) 60px; }
+
+/* ---- Masthead ---------------------------------------------------------- */
+
+.case-head {
+    position: relative;
+    padding-block: calc(var(--nav-h) + 70px) 54px;
+}
+
+.case-back {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-family: var(--font-mono); font-size: var(--t-2xs);
+    text-transform: uppercase; letter-spacing: .12em;
+    color: var(--ink-35);
+    margin-bottom: 32px;
+    transition: color var(--d-2) var(--e-out), gap var(--d-2) var(--e-out);
+}
+.case-back:hover { color: var(--ink); gap: 13px; }
+
+.case-eyebrow {
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    font-family: var(--font-mono); font-size: var(--t-2xs);
+    text-transform: uppercase; letter-spacing: .12em;
+    color: var(--ink-35);
+}
+
+.case-title {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-size: clamp(2.6rem, 7vw, 5.4rem);
+    font-weight: 350;
+    line-height: .98;
+    letter-spacing: -.04em;
+    font-variation-settings: "SOFT" 24, "WONK" 1;
+    margin-bottom: 22px;
+}
+
+.case-lead {
+    max-width: 56ch;
+    font-size: var(--t-lead);
+    line-height: 1.6;
+    color: var(--ink-50);
+}
+
+.case-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+
+/* ---- Metric band ------------------------------------------------------- */
+
+.case-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px;
+    margin-top: 48px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+.case-metric { padding: 22px; background: var(--paper); }
+.case-metric dt {
+    font-family: var(--font-display);
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+    font-weight: 400; line-height: 1.1;
+    letter-spacing: -.03em;
+    color: var(--ink);
+}
+.case-metric dd {
+    font-family: var(--font-mono); font-size: var(--t-2xs);
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--ink-35); margin-top: 8px;
+}
+
+/* ---- Hero media -------------------------------------------------------- */
+
+.case-media {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r-2xl);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-3);
+    background: var(--paper-sunk);
+    margin-bottom: clamp(50px, 8vh, 90px);
+}
+.case-media iframe, .case-media img { width: 100%; height: 100%; border: 0; object-fit: cover; }
+
+/* ---- Body -------------------------------------------------------------- */
+
+.case-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: clamp(36px, 6vw, 88px);
+    align-items: start;
+    padding-bottom: clamp(60px, 10vh, 120px);
+}
+
+.case-prose { max-width: 66ch; }
+
+.case-block { margin-bottom: clamp(42px, 6vh, 72px); }
+
+.case-block h2 {
+    display: flex; align-items: baseline; gap: 14px;
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+    font-weight: 400;
+    letter-spacing: -.025em;
+    font-variation-settings: "SOFT" 24, "WONK" 1;
+    margin-bottom: 20px;
+}
+.case-block h2 b {
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: .12em;
+}
+
+.case-block p {
+    font-size: 1.06rem;
+    line-height: 1.78;
+    color: var(--ink-70);
+    white-space: pre-line;
+}
+.case-block p + p { margin-top: 1.1em; }
+
+/* "What broke" — numbered, because the count is the point. */
+.case-breaks { counter-reset: brk; display: grid; gap: 2px; }
+.case-breaks li {
+    counter-increment: brk;
+    display: grid; grid-template-columns: auto 1fr; gap: 16px;
+    padding: 18px 4px;
+    border-top: 1px solid var(--line);
+    font-size: var(--t-sm);
+    color: var(--ink-70);
+    line-height: 1.65;
+}
+.case-breaks li:last-child { border-bottom: 1px solid var(--line); }
+.case-breaks li::before {
+    content: counter(brk, decimal-leading-zero);
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    color: var(--accent);
+    padding-top: 4px;
+}
+
+/* ---- Gallery ----------------------------------------------------------- */
+
+.case-gallery { display: grid; gap: 16px; margin-top: 26px; }
+.case-shot {
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-2);
+    background: var(--paper-sunk);
+    cursor: zoom-in;
+    transition: transform var(--d-3) var(--e-expo), box-shadow var(--d-3) var(--e-expo);
+}
+.case-shot:hover { transform: translateY(-3px); box-shadow: var(--shadow-3); }
+.case-shot img { width: 100%; height: auto; display: block; }
+
+/* Lightbox */
+.lightbox {
+    position: fixed; inset: 0;
+    z-index: var(--z-sheet);
+    display: grid; place-items: center;
+    padding: 24px;
+    background: rgba(8, 7, 6, .84);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0; visibility: hidden;
+    transition: opacity var(--d-2) var(--e-out), visibility var(--d-2);
+    cursor: zoom-out;
+}
+.lightbox.is-open { opacity: 1; visibility: visible; }
+.lightbox img {
+    max-width: 100%; max-height: 90svh;
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-4);
+    transform: scale(.96);
+    transition: transform var(--d-3) var(--e-expo);
+}
+.lightbox.is-open img { transform: none; }
+
+/* ---- Sidebar ----------------------------------------------------------- */
+
+.case-side {
+    position: sticky;
+    top: calc(var(--nav-h) + 28px);
+    display: grid;
+    gap: 26px;
+}
+.case-side section h5 {
+    font-family: var(--font-mono); font-size: var(--t-2xs);
+    text-transform: uppercase; letter-spacing: .12em;
+    color: var(--ink-35);
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+.case-side .tag { margin: 0 4px 4px 0; display: inline-block; }
+.case-side dl { display: grid; gap: 10px; }
+.case-side dl div { display: flex; justify-content: space-between; gap: 12px; font-size: var(--t-xs); }
+.case-side dt { color: var(--ink-35); }
+.case-side dd { color: var(--ink-70); font-weight: 500; text-align: right; }
+
+/* ---- Next project ------------------------------------------------------ */
+
+.case-next {
+    border-top: 1px solid var(--line);
+    padding-block: clamp(50px, 8vh, 90px);
+}
+.case-next a {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 5vw, 3.4rem);
+    font-weight: 350;
+    letter-spacing: -.035em;
+    color: var(--ink);
+    transition: color var(--d-2) var(--e-out);
+}
+.case-next a:hover { color: var(--accent); }
+.case-next span {
+    font-family: var(--font-mono); font-size: var(--t-2xs);
+    text-transform: uppercase; letter-spacing: .12em;
+    color: var(--ink-35);
+}
+
+/* ---- Empty / error ----------------------------------------------------- */
+
+.case-missing {
+    min-height: 70svh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 16px;
+}
+.case-missing h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 400;
+}
+.case-missing p { color: var(--ink-50); max-width: 44ch; }
+
+@media (max-width: 900px) {
+    .case-body { grid-template-columns: 1fr; }
+    .case-side { position: static; }
+}

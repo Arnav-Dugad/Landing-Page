@@ -5,13 +5,27 @@ rules_version = '2';
 //
 // Data lives under:  artifacts/{appId}/public/data/{projects|messages|stats}
 //
-// The site signs visitors in with ANONYMOUS auth, so "request.auth != null"
-// means "came through the real app" — it blocks unauthenticated REST abuse and
-// lets us validate payload shape/size, but it does NOT by itself make writes
-// admin-only (every visitor is anonymously authed). The admin PIN gate is a
-// client-side convenience only. For true admin-only writes, switch to Email/
-// Password auth and replace the `signedIn()` checks below with
-// `request.auth.uid == "<your-admin-uid>"`.
+// Two identities exist:
+//
+//   · anonymous  — every visitor. Enough to read projects, leave a message
+//                  and bump the visit counter. Nothing else.
+//   · password   — the admin account. The ONLY identity that may create,
+//                  edit, reorder or delete projects.
+//
+// This is the actual security boundary. The interface hiding its edit buttons
+// is cosmetic; these rules are what stop somebody writing to the collection
+// straight from the console.
+//
+// SETUP, in this order — doing it the other way round locks you out:
+//   1. Firebase console → Authentication → Sign-in method → enable
+//      "Email/Password" (leave "Email link" off).
+//   2. Authentication → Users → Add user. Use the email in ADMIN_EMAIL below
+//      and a long, unique password.
+//   3. Confirm you can sign in on the site (footer padlock).
+//   4. Only then paste these rules into Firestore Database → Rules → Publish.
+//
+// If you ever change the admin address, change it in ADMIN_EMAIL and publish
+// again — the rules are the source of truth, not the client.
 //
 // DEPLOY: Firebase console → Firestore Database → Rules → paste → Publish
 //         (or `firebase deploy --only firestore:rules`). Editing this file
@@ -21,65 +35,85 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---- CHANGE THIS to the address you created in step 2 ----------------
+    function adminEmail() {
+      return "arnavrival12@gmail.com";
+    }
+
     function signedIn() {
       return request.auth != null;
     }
 
+    // A password sign-in matching the admin address. Anonymous sessions can
+    // never satisfy this, whatever the client claims about itself.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.get("firebase", {}).get("sign_in_provider", "") == "password"
+        && request.auth.token.get("email", "").lower() == adminEmail();
+    }
+
     match /artifacts/{appId}/public/data {
 
-      // ---- Projects: world-readable, writes validated -------------------
+      // ---- Projects: world-readable, admin-only writes -------------------
       match /projects/{projectId} {
         allow read: if true;
 
-        allow create: if signedIn()
-          && request.resource.data.title is string
-          && request.resource.data.title.size() > 0
-          && request.resource.data.title.size() <= 120
-          && request.resource.data.desc is string
-          && request.resource.data.desc.size() <= 1000
-          && request.resource.data.link is string
-          && request.resource.data.link.size() <= 2000
-          && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
-          && (!('status' in request.resource.data) || request.resource.data.status is string)
-          && (!('featured' in request.resource.data) || request.resource.data.featured is bool)
-          && (!('repo' in request.resource.data) || (request.resource.data.repo is string && request.resource.data.repo.size() <= 2000))
-          && (!('year' in request.resource.data) || (request.resource.data.year is string && request.resource.data.year.size() <= 24))
-          && (!('role' in request.resource.data) || (request.resource.data.role is string && request.resource.data.role.size() <= 120))
-          && (!('demoVideo' in request.resource.data) || (request.resource.data.demoVideo is string && request.resource.data.demoVideo.size() <= 2000))
-          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20))
-          && (!('order' in request.resource.data) || request.resource.data.order is number);
+        // Shape validation still applies to the admin — it catches a bad
+        // client build before it corrupts the collection.
+        function validProject() {
+          return request.resource.data.title is string
+            && request.resource.data.title.size() > 0
+            && request.resource.data.title.size() <= 120
+            && request.resource.data.desc is string
+            && request.resource.data.desc.size() <= 1000
+            && request.resource.data.link is string
+            && request.resource.data.link.size() <= 2000
+            && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
+            && (!('status' in request.resource.data) || request.resource.data.status is string)
+            && (!('featured' in request.resource.data) || request.resource.data.featured is bool)
+            && (!('caseStudy' in request.resource.data) || request.resource.data.caseStudy is bool)
+            && (!('repo' in request.resource.data) || (request.resource.data.repo is string && request.resource.data.repo.size() <= 2000))
+            && (!('year' in request.resource.data) || (request.resource.data.year is string && request.resource.data.year.size() <= 24))
+            && (!('role' in request.resource.data) || (request.resource.data.role is string && request.resource.data.role.size() <= 120))
+            && (!('demoVideo' in request.resource.data) || (request.resource.data.demoVideo is string && request.resource.data.demoVideo.size() <= 2000))
+            && (!('order' in request.resource.data) || request.resource.data.order is number)
+            && (!('problem' in request.resource.data) || (request.resource.data.problem is string && request.resource.data.problem.size() <= 5000))
+            && (!('approach' in request.resource.data) || (request.resource.data.approach is string && request.resource.data.approach.size() <= 5000))
+            && (!('outcome' in request.resource.data) || (request.resource.data.outcome is string && request.resource.data.outcome.size() <= 5000))
+            && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20))
+            && (!('challenges' in request.resource.data) || (request.resource.data.challenges is list && request.resource.data.challenges.size() <= 20))
+            && (!('metrics' in request.resource.data) || (request.resource.data.metrics is list && request.resource.data.metrics.size() <= 12))
+            && (!('gallery' in request.resource.data) || (request.resource.data.gallery is list && request.resource.data.gallery.size() <= 20))
+            && (!('tags' in request.resource.data) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 30));
+        }
 
-        // The editor saves edits with setDoc (a full overwrite, not a merge),
-        // so an update carries the same shape as a create and is validated
-        // the same way. `link` may be an empty string: a project without a
-        // public URL is legitimate.
-        allow update: if signedIn()
-          && request.resource.data.title is string
-          && request.resource.data.title.size() > 0
-          && request.resource.data.title.size() <= 120
-          && request.resource.data.desc is string
-          && request.resource.data.desc.size() <= 1000
-          && request.resource.data.link is string
-          && request.resource.data.link.size() <= 2000
-          && (!('longDesc' in request.resource.data) || (request.resource.data.longDesc is string && request.resource.data.longDesc.size() <= 5000))
-          && (!('featured' in request.resource.data) || request.resource.data.featured is bool)
-          && (!('highlights' in request.resource.data) || (request.resource.data.highlights is list && request.resource.data.highlights.size() <= 20))
-          && (!('order' in request.resource.data) || request.resource.data.order is number);
+        allow create: if isAdmin() && validProject();
 
-        allow delete: if signedIn();
+        // The editor saves with setDoc (a full overwrite, not a merge), so an
+        // update carries the same shape as a create. Drag-to-reorder instead
+        // writes only `order`, which must stay permitted.
+        allow update: if isAdmin() && (
+          validProject()
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['order'])
+        );
+
+        allow delete: if isAdmin();
       }
 
       // ---- Contact messages: write-only from the app, never public ------
       match /messages/{messageId} {
-        allow read: if false;             // keep inbox private
+        allow read: if isAdmin();          // read your own inbox when signed in
         allow create: if signedIn()
           && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
           && request.resource.data.name.size() <= 120
           && request.resource.data.email is string
           && request.resource.data.email.size() <= 200
           && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
           && request.resource.data.message.size() <= 5000;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isAdmin();
       }
 
       // ---- Stats: public read, only the visit counter may change --------

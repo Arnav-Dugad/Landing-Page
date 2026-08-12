@@ -3,9 +3,10 @@
    The project editor: add, EDIT, duplicate and delete, with a live preview
    card that renders through exactly the same code path as the real grid.
 
-   Admin state is a client-side PIN gate. That is honest about what it is —
-   it hides the controls, it is not the security boundary. The real boundary
-   is firestore.rules, which is what actually decides whether a write lands.
+   Admin state is NOT a client flag any more — it is derived from the Firebase
+   session (`user.isAnonymous === false`). Hiding the buttons is cosmetic; what
+   actually decides whether a write lands is firestore.rules matching the
+   signed-in account.
    =========================================================================== */
 
 (() => {
@@ -17,7 +18,6 @@
     const saveBtn = document.getElementById('editorSave');
     if (!sheet || !form) return;
 
-    const PIN = '8574';
     const F = (id) => document.getElementById(id);
     const val = (id) => { const el = F(id); return el ? String(el.value).trim() : ''; };
 
@@ -25,8 +25,9 @@
     let editingId = null;
     let dirty = false;
     let snapshot = '';
+    let draftTimer = null;
 
-    window.isAdmin = sessionStorage.getItem('admin') === '1';
+    window.isAdmin = false;   // the auth listener in firebase.js owns this
 
     const CATEGORIES = [
         ['web', 'Website'], ['app', 'App'], ['game', 'Game'], ['tool', 'Tool'],
@@ -103,6 +104,8 @@
        Read / write the form
        ===================================================================== */
 
+    const lines = (id) => val(id).split('\n').map((s) => s.trim()).filter(Boolean);
+
     function readForm() {
         return {
             title: val('fTitle'),
@@ -119,13 +122,25 @@
             role: val('fRole'),
             featured: !!(F('fFeatured') && F('fFeatured').checked),
             order: val('fOrder') ? Number(val('fOrder')) : null,
-            highlights: val('fHighlights').split('\n').map((s) => s.trim()).filter(Boolean),
-            tags: val('fTags').split(',').map((s) => s.trim()).filter(Boolean)
+            highlights: lines('fHighlights'),
+            tags: val('fTags').split(',').map((s) => s.trim()).filter(Boolean),
+
+            /* Case study — only surfaced on the project page when caseStudy
+               is on AND there is something in at least one of these. */
+            caseStudy: !!(F('fCaseStudy') && F('fCaseStudy').checked),
+            problem: val('fProblem'),
+            approach: val('fApproach'),
+            challenges: lines('fChallenges'),
+            outcome: val('fOutcome'),
+            metrics: lines('fMetrics'),
+            gallery: lines('fGallery')
         };
     }
 
     function writeForm(p = {}) {
         const set = (id, v) => { const el = F(id); if (el) el.value = v ?? ''; };
+        const join = (v) => (Array.isArray(v) ? v.join('\n') : (v || ''));
+
         set('fTitle', p.title);
         set('fDesc', p.desc);
         set('fLongDesc', p.longDesc);
@@ -139,10 +154,45 @@
         set('fYear', p.year);
         set('fRole', p.role);
         set('fOrder', p.order ?? '');
-        set('fHighlights', Array.isArray(p.highlights) ? p.highlights.join('\n') : (p.highlights || ''));
+        set('fHighlights', join(p.highlights));
         set('fTags', Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''));
+
+        set('fProblem', p.problem);
+        set('fApproach', p.approach);
+        set('fChallenges', join(p.challenges));
+        set('fOutcome', p.outcome);
+        set('fMetrics', join(p.metrics));
+        set('fGallery', join(p.gallery));
+
         const feat = F('fFeatured');
         if (feat) feat.checked = !!p.featured;
+        const cs = F('fCaseStudy');
+        if (cs) cs.checked = !!p.caseStudy;
+    }
+
+    /* =====================================================================
+       Draft autosave — a long write-up should survive a stray Esc, a reload
+       or a closed tab. Keyed per project so drafts never cross-contaminate.
+       ===================================================================== */
+
+    const draftKey = () => `draft:${editingId || 'new'}`;
+
+    function saveDraft() {
+        try { localStorage.setItem(draftKey(), JSON.stringify({ at: Date.now(), data: readForm() })); }
+        catch { /* storage full or disabled */ }
+    }
+    function dropDraft() {
+        try { localStorage.removeItem(draftKey()); } catch { /* no-op */ }
+    }
+    function readDraft() {
+        try {
+            const raw = localStorage.getItem(draftKey());
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            // A week-old draft is noise, not a rescue.
+            if (Date.now() - parsed.at > 7 * 24 * 60 * 60 * 1000) { dropDraft(); return null; }
+            return parsed;
+        } catch { return null; }
     }
 
     /* =====================================================================
@@ -178,13 +228,17 @@
         </article>`;
     }
 
-    /* Any field edit refreshes the preview and marks the form dirty. */
-    form.addEventListener('input', () => {
+    /* Any field edit refreshes the preview, marks the form dirty and (debounced)
+       parks a draft in localStorage. */
+    function onEdit() {
         dirty = JSON.stringify(readForm()) !== snapshot;
         renderPreview();
         syncTagStates();
-    });
-    form.addEventListener('change', () => { renderPreview(); syncTagStates(); });
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(() => { if (dirty) saveDraft(); }, 600);
+    }
+    form.addEventListener('input', onEdit);
+    form.addEventListener('change', onEdit);
 
     /* =====================================================================
        Open / close
@@ -221,18 +275,32 @@
 
         window.openSheet(sheet);
         setTimeout(() => F('fTitle') && F('fTitle').focus(), 320);
+
+        // Offer to restore anything left over from an interrupted session.
+        const draft = readDraft();
+        if (draft && JSON.stringify(draft.data) !== snapshot) {
+            const when = new Date(draft.at).toLocaleString();
+            window.toastWithAction(`Unsaved draft from ${when}`, 'Restore', () => {
+                writeForm(draft.data);
+                renderPreview();
+                syncTagStates();
+                dirty = true;
+            }, 12000);
+        }
     }
 
     async function close(force) {
         if (dirty && !force) {
             const ok = await window.confirmAction({
                 title: 'Discard changes?',
-                message: 'This project has unsaved edits. Closing now will lose them.',
-                confirm: 'Discard',
+                message: 'This project has unsaved edits. They are kept as a draft you can restore next time you open it.',
+                confirm: 'Close',
                 danger: true
             });
             if (!ok) return;
+            saveDraft();
         }
+        clearTimeout(draftTimer);
         dirty = false;
         window.closeSheet(sheet);
     }
@@ -304,6 +372,7 @@
                 ? await window.updateProjectInDb(editingId, data)
                 : await window.saveProjectToDb(data);
             if (ok) {
+                dropDraft();
                 dirty = false;
                 close(true);
                 if (!editingId && window.celebrate) window.celebrate();
@@ -375,38 +444,64 @@
         const lock = document.getElementById('adminLock');
         if (lock) {
             lock.innerHTML = window.icon(window.isAdmin ? 'unlock' : 'lock', { raw: true, size: 13 });
-            lock.setAttribute('aria-label', window.isAdmin ? 'Lock admin mode' : 'Unlock admin mode');
+            lock.setAttribute('aria-label', window.isAdmin ? 'Sign out of admin' : 'Sign in as admin');
+            lock.setAttribute('title', window.isAdmin
+                ? `Signed in as ${(window.adminEmail && window.adminEmail()) || 'admin'} — click to sign out`
+                : 'Admin sign in');
             lock.style.color = window.isAdmin ? 'var(--accent)' : '';
         }
         if (window.renderProjects) window.renderProjects();
     }
     window.applyAdminState = applyAdminState;
 
+    /* ---- Sign in / out -------------------------------------------------- */
+
+    const authSheet = document.getElementById('authSheet');
+    const authForm = document.getElementById('authForm');
+
     window.toggleAdmin = async () => {
         if (window.isAdmin) {
-            window.isAdmin = false;
-            sessionStorage.removeItem('admin');
-            applyAdminState();
-            window.toast('Admin mode locked', 'info');
+            const ok = await window.confirmAction({
+                title: 'Sign out?',
+                message: 'You will go back to browsing as a visitor.',
+                confirm: 'Sign out'
+            });
+            if (ok) await window.adminSignOut();
             return;
         }
-        const pin = await window.promptAction({
-            title: 'Admin access',
-            message: 'Enter the admin PIN to add or edit projects.',
-            placeholder: 'PIN',
-            confirm: 'Unlock',
-            password: true
-        });
-        if (pin === null) return;
-        if (pin === PIN) {
-            window.isAdmin = true;
-            sessionStorage.setItem('admin', '1');
-            applyAdminState();
-            window.toast('Admin mode unlocked', 'success');
-        } else {
-            window.toast('That PIN is not right', 'error');
-        }
+        if (!window.adminSignIn) { window.toast('Still connecting — try again in a second', 'error'); return; }
+        window.openSheet(authSheet);
     };
+
+    if (authSheet) {
+        authSheet.addEventListener('click', (e) => {
+            if (e.target === authSheet || e.target.closest('[data-close]')) window.closeSheet(authSheet);
+        });
+    }
+
+    if (authForm) {
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('authSubmit');
+            const email = F('aEmail').value.trim();
+            const password = F('aPassword').value;
+            if (!email || !password) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Signing in…';
+            const ok = await window.adminSignIn(email, password);
+            btn.disabled = false;
+            btn.textContent = 'Sign in';
+
+            if (ok) {
+                authForm.reset();
+                window.closeSheet(authSheet);
+            } else {
+                F('aPassword').value = '';
+                F('aPassword').focus();
+            }
+        });
+    }
 
     const lockBtn = document.getElementById('adminLock');
     if (lockBtn) lockBtn.addEventListener('click', window.toggleAdmin);
