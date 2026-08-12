@@ -323,6 +323,199 @@
     }
 
     /* =======================================================================
+       FLIP re-layout
+
+       Filtering used to cross-fade the whole grid, which reads as "the page
+       reloaded". FLIP instead measures where every card is, lets the DOM
+       change, then plays each card from where it *was* to where it now is —
+       so a filter looks like the cards physically rearranging.
+       ===================================================================== */
+
+    function flipGrid(container, mutate, { key = 'data-id', duration = 540 } = {}) {
+        if (!container) return;
+        // No Web Animations API means no FLIP — swap the DOM and move on.
+        if (reduced() || typeof Element.prototype.animate !== 'function') { mutate(); return; }
+
+        const before = new Map();
+        container.querySelectorAll(`[${key}]`).forEach((el) => {
+            before.set(el.getAttribute(key), el.getBoundingClientRect());
+        });
+
+        mutate();
+
+        const easing = 'cubic-bezier(.16, 1, .3, 1)';
+        let entrants = 0;
+
+        container.querySelectorAll(`[${key}]`).forEach((el) => {
+            const first = before.get(el.getAttribute(key));
+            const last = el.getBoundingClientRect();
+            if (!last.width) return;                    // laid out as display:none
+
+            if (first) {
+                const dx = first.left - last.left;
+                const dy = first.top - last.top;
+                const sx = first.width / last.width;
+                const sy = first.height / last.height;
+
+                // Nothing moved — don't burn a composite layer on it.
+                if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5
+                    && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
+
+                el.animate(
+                    [{ transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+                     { transform: 'none' }],
+                    { duration, easing }
+                );
+            } else {
+                // A card that wasn't on screen a moment ago rises in, staggered.
+                el.animate(
+                    [{ opacity: 0, transform: 'translateY(26px) scale(.94)', filter: 'blur(6px)' },
+                     { opacity: 1, transform: 'none', filter: 'none' }],
+                    { duration, easing, delay: Math.min(entrants, 10) * 38, fill: 'backwards' }
+                );
+                entrants++;
+            }
+        });
+    }
+
+    /* =======================================================================
+       Morphing filter indicator — one pill that travels between chips rather
+       than each chip painting its own background.
+       ===================================================================== */
+
+    function filterPill(container) {
+        if (!container) return;
+
+        let pill = container.querySelector('.filters-pill');
+        if (!pill) {
+            pill = document.createElement('span');
+            pill.className = 'filters-pill';
+            pill.setAttribute('aria-hidden', 'true');
+            container.prepend(pill);
+        }
+
+        const move = (animate = true) => {
+            const active = container.querySelector('.chip.is-active');
+            if (!active) { pill.style.opacity = '0'; return; }
+
+            pill.style.opacity = '1';
+            // offset* is relative to the scrolling container, so this stays
+            // correct when the chip row is scrolled horizontally on mobile.
+            const next = {
+                transform: `translate(${active.offsetLeft}px, ${active.offsetTop}px)`,
+                width: `${active.offsetWidth}px`,
+                height: `${active.offsetHeight}px`
+            };
+            if (!animate || reduced()) {
+                pill.style.transition = 'none';
+                Object.assign(pill.style, next);
+                void pill.offsetWidth;
+                pill.style.transition = '';
+            } else {
+                Object.assign(pill.style, next);
+            }
+        };
+
+        // Fonts landing late change chip widths, so re-measure once they do.
+        move(false);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => move(false));
+        window.addEventListener('resize', () => move(false), { passive: true });
+
+        return move;
+    }
+
+    /* =======================================================================
+       Scroll-linked text illumination
+
+       Words brighten as the paragraph travels up the viewport, so reading
+       and scrolling are the same gesture. One style write per frame drives
+       the whole paragraph — each word works out its own opacity in CSS from
+       the shared progress value, rather than JS touching N elements.
+       ===================================================================== */
+
+    function illuminate(el) {
+        if (!el || el.dataset.lit === '1') return;
+        el.dataset.lit = '1';
+
+        // Wrap each word, preserving inline markup like <strong>.
+        const wrap = (node) => {
+            Array.from(node.childNodes).forEach((child) => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    if (!child.textContent.trim()) return;
+                    const frag = document.createDocumentFragment();
+                    child.textContent.split(/(\s+)/).forEach((chunk) => {
+                        if (!chunk.trim()) { frag.appendChild(document.createTextNode(chunk)); return; }
+                        const w = document.createElement('span');
+                        w.className = 'w';
+                        w.textContent = chunk;
+                        frag.appendChild(w);
+                    });
+                    child.replaceWith(frag);
+                } else if (child.nodeType === Node.ELEMENT_NODE && !child.classList.contains('w')) {
+                    wrap(child);
+                }
+            });
+        };
+        wrap(el);
+
+        const words = el.querySelectorAll('.w');
+        if (!words.length) return;
+        words.forEach((w, i) => w.style.setProperty('--i', i));
+        el.style.setProperty('--n', words.length);
+        el.classList.add('is-lit');
+
+        if (reduced()) { el.style.setProperty('--p', '1'); return; }
+
+        let ticking = false;
+        const update = () => {
+            ticking = false;
+            const rect = el.getBoundingClientRect();
+            // 0 when the paragraph's top hits 85% of the viewport, 1 by 35%.
+            const from = window.innerHeight * 0.85;
+            const to = window.innerHeight * 0.35;
+            const p = clamp((from - rect.top) / (from - to), 0, 1);
+            el.style.setProperty('--p', p.toFixed(4));
+        };
+
+        window.addEventListener('scroll', () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(update);
+        }, { passive: true });
+        window.addEventListener('resize', update, { passive: true });
+        update();
+    }
+
+    /* =======================================================================
+       Scroll-velocity skew — the grid leans very slightly into the direction
+       of travel, then settles. Subtle enough to feel like weight, not a trick.
+       ===================================================================== */
+
+    function scrollSkew(el, { max = 1.6, strength = 0.045 } = {}) {
+        if (!el || reduced() || !FINE.matches) return;
+
+        let last = window.scrollY;
+        let velocity = 0;
+        let current = 0;
+
+        window.addEventListener('scroll', () => {
+            const now = window.scrollY;
+            velocity = clamp((now - last) * strength, -max, max);
+            last = now;
+        }, { passive: true });
+
+        onFrame(() => {
+            velocity *= 0.9;
+            current = lerp(current, velocity, 0.18);
+            if (Math.abs(current) < 0.005) {
+                if (el.style.transform) el.style.transform = '';
+                return;
+            }
+            el.style.transform = `skewY(${current.toFixed(3)}deg)`;
+        });
+    }
+
+    /* =======================================================================
        Scroll chrome: progress, nav condense, section rail, scroll-to-top
        ===================================================================== */
 
@@ -421,6 +614,8 @@
 
     window.Motion = {
         reveal, stagger, splitText, magnetic, tilt, cursor,
-        odometer, marquee, scrollChrome, scramble, onFrame, lerp, clamp
+        odometer, marquee, scrollChrome, scramble,
+        flipGrid, filterPill, scrollSkew, illuminate,
+        onFrame, lerp, clamp
     };
 })();

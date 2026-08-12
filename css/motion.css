@@ -74,6 +74,34 @@
 .is-split-in .sp > i { transform: none; opacity: 1; filter: none; }
 
 /* ---------------------------------------------------------------------------
+   Scroll-linked illumination
+
+   JS writes one number (--p, 0→1) on the paragraph. Each word derives its own
+   opacity from that plus its index, so the highlight sweeps through the line
+   as you scroll without JS ever touching an individual word.
+   --------------------------------------------------------------------------- */
+
+.is-lit .w {
+    /* Word i lights when progress passes i/n, with a soft two-word ramp. */
+    opacity: clamp(.26, calc((var(--p, 0) * (var(--n) + 2) - var(--i)) / 2), 1);
+    transition: opacity .18s linear;
+}
+
+/* ---------------------------------------------------------------------------
+   Card depth — the plaque and title sit above the card surface, so tilting
+   the card parallaxes them instead of moving the whole face as one plane.
+   --------------------------------------------------------------------------- */
+
+@media (hover: hover) and (pointer: fine) {
+    .card-plaque { transform: translateZ(34px); }
+    .card:hover .card-plaque { transform: translateZ(46px) rotate(-7deg) scale(1.08); }
+    .card-head   { transform: translateZ(20px); }
+    .card-actions { transform: translateZ(28px); }
+    .card:hover .card-actions,
+    .card:focus-within .card-actions { transform: translateZ(28px); }
+}
+
+/* ---------------------------------------------------------------------------
    Magnetic + tilt hooks (transforms written by JS, easing owned here)
    --------------------------------------------------------------------------- */
 
@@ -159,18 +187,34 @@
 .is-popping { animation: pop var(--d-3) var(--e-spring); }
 
 /* ---------------------------------------------------------------------------
-   View Transitions — used for filter/sort re-layouts where supported.
-   Progressive enhancement: browsers without it just re-render instantly.
+   Cross-document View Transitions.
+
+   Grid re-layouts are handled by FLIP in js/motion.js, which animates each
+   card individually — better than a crossfade. What View Transitions are used
+   for here is *navigation*: index → case study → back, which becomes a single
+   continuous move instead of a white flash. Browsers without support simply
+   navigate normally.
    --------------------------------------------------------------------------- */
 
-@view-transition { navigation: none; }
+@view-transition { navigation: auto; }
 
-::view-transition-group(*) { animation-duration: var(--d-3); animation-timing-function: var(--e-expo); }
+::view-transition-group(*) {
+    animation-duration: var(--d-4);
+    animation-timing-function: var(--e-expo);
+}
 ::view-transition-old(root) { animation: vt-out var(--d-2) var(--e-out) forwards; }
-::view-transition-new(root) { animation: vt-in var(--d-3) var(--e-expo) forwards; }
+::view-transition-new(root) { animation: vt-in var(--d-4) var(--e-expo) forwards; }
 
-@keyframes vt-out { to { opacity: 0; } }
-@keyframes vt-in  { from { opacity: 0; } }
+@keyframes vt-out { to { opacity: 0; transform: scale(.99); } }
+@keyframes vt-in  { from { opacity: 0; transform: translateY(14px); } }
+
+/* The nav is the one element that should stay put across a navigation. */
+.nav { view-transition-name: site-nav; }
+::view-transition-group(site-nav) { animation-duration: var(--d-3); }
+
+@media (prefers-reduced-motion: reduce) {
+    @view-transition { navigation: none; }
+}
 
 /* ---------------------------------------------------------------------------
    Reduced motion — kill ambience, keep state changes legible.
@@ -178,6 +222,8 @@
 
 @media (prefers-reduced-motion: reduce) {
     [data-reveal], .sp > i { opacity: 1 !important; transform: none !important; filter: none !important; }
+    .is-lit .w { opacity: 1 !important; }
+    .card-plaque, .card-head, .card-actions { transform: none !important; }
     .bd-wash span, .bd-grain, .hero-scroll .rule::after, .hero-badge .dot::after { animation: none !important; }
     .marquee-track { transform: none !important; }
     .cur-dot, .cur-ring { display: none !important; }

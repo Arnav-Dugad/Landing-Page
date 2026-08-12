@@ -101,6 +101,36 @@
         el.appendChild(btn);
     };
 
+    /* A toast that stays up and reports progress, for work that takes a while
+       (the GitHub enrichment pass). Returns handles rather than a promise so
+       the caller stays in charge of when it closes. */
+    window.progressToast = (message) => {
+        if (!toastBox) return { update() {}, close() {} };
+
+        const el = document.createElement('div');
+        el.className = 'toast toast--progress';
+        el.setAttribute('role', 'status');
+        el.innerHTML = `
+            <span class="toast-spin">${window.icon('refresh', { raw: true, size: 16 })}</span>
+            <span class="toast-msg">${window.esc(message)}</span>
+            <span class="toast-bar"><i></i></span>`;
+        toastBox.appendChild(el);
+
+        const msg = el.querySelector('.toast-msg');
+        const bar = el.querySelector('.toast-bar i');
+
+        return {
+            update(next, fraction) {
+                if (next) msg.textContent = next;
+                if (typeof fraction === 'number') bar.style.transform = `scaleX(${Math.min(1, Math.max(0, fraction))})`;
+            },
+            close() {
+                el.classList.add('is-out');
+                setTimeout(() => el.remove(), 260);
+            }
+        };
+    };
+
     // Back-compat for anything still calling the old name.
     window.showToast = window.toast;
 
@@ -370,6 +400,18 @@
         btn.addEventListener('click', () => window.setView(btn.dataset.view));
     });
 
+    const enrichBtn = document.getElementById('enrichAll');
+    if (enrichBtn) {
+        enrichBtn.addEventListener('click', async () => {
+            const ok = await window.confirmAction({
+                title: 'Auto-fill every project?',
+                message: 'This reads each project’s GitHub repo and fills in whatever is missing — tech, description, year, status and repo link. Anything you typed yourself is left alone.',
+                confirm: 'Run it'
+            });
+            if (ok) window.enrichAllProjects();
+        });
+    }
+
     const lucky = document.getElementById('lucky');
     if (lucky) lucky.addEventListener('click', () => window.randomProject());
 
@@ -496,6 +538,8 @@
         M.cursor();
         M.scrollChrome();
         M.marquee(document.querySelector('.marquee'));
+        M.scrollSkew(document.getElementById('grid'));
+        document.querySelectorAll('[data-lit]').forEach((el) => M.illuminate(el));
 
         const role = document.getElementById('heroRole');
         if (role) {

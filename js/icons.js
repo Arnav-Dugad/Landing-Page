@@ -129,7 +129,55 @@
         wrench:   '<path d="M14.6 6.4a4.6 4.6 0 0 0 5.9 5.9l-8.2 8.2a2.6 2.6 0 0 1-3.7-3.7Z"/><path d="m19 3.5-2.6 2.6"/>',
         arrows:   '<path d="M12 3.5 8.5 7M12 3.5 15.5 7M12 3.5v17M12 20.5 8.5 17M12 20.5 15.5 17"/>',
         doc:      '<path d="M13.5 2.8H7a2.5 2.5 0 0 0-2.5 2.5v13.4A2.5 2.5 0 0 0 7 21.2h10a2.5 2.5 0 0 0 2.5-2.5V8.8Z"/><path d="M13.5 2.8v6h6M8.5 13h7M8.5 16.8h4.5"/>',
-        at:       '<circle cx="12" cy="12" r="3.6"/><path d="M15.6 8.4v4.8a3 3 0 0 0 6 0V12a9.5 9.5 0 1 0-3.8 7.6"/>'
+        at:       '<circle cx="12" cy="12" r="3.6"/><path d="M15.6 8.4v4.8a3 3 0 0 0 6 0V12a9.5 9.5 0 1 0-3.8 7.6"/>',
+
+        /* -- second wave of project marks --------------------------------- */
+        chess:    '<path d="M9 3.5h6M12 3.5v3M8.4 6.5h7.2l-1.1 4.2H9.5Z"/><path d="M9.5 10.7c0 2.6-.9 4.5-2.1 6.3h9.2c-1.2-1.8-2.1-3.7-2.1-6.3"/><path d="M5.5 21h13v-2.5h-13Z"/>',
+        cards:    '<rect x="7.5" y="3.5" width="11" height="15" rx="2.4"/><path d="M5.2 6.6 3.6 17.4a2 2 0 0 0 1.7 2.3l7.2 1"/><path d="M13 8.2v6M10 11.2h6"/>',
+        trophy:   '<path d="M7.5 3.5h9v5.2a4.5 4.5 0 0 1-9 0Z"/><path d="M7.5 5.2H4.8v1.6a3.2 3.2 0 0 0 2.7 3.2M16.5 5.2h2.7v1.6a3.2 3.2 0 0 1-2.7 3.2"/><path d="M12 13.2v3.6M8.5 20.5h7l-1-3.7h-5Z"/>',
+        joystick: '<circle cx="12" cy="6" r="3"/><path d="M12 9v5"/><path d="M6.5 14h11l1.8 6.5H4.7Z"/>',
+        wand:     '<path d="m4 20 11-11M14.5 3.2l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9Z"/><path d="M19.4 12.4l.6 1.3 1.3.6-1.3.6-.6 1.3-.6-1.3-1.3-.6 1.3-.6Z"/>',
+        shapes:   '<circle cx="7" cy="17" r="4"/><rect x="13" y="13" width="8" height="8" rx="1.8"/><path d="m12 2.5 4.3 7.5H7.7Z"/>',
+        pen:      '<path d="M12 19.5H21"/><path d="M15.6 3.9a2.2 2.2 0 0 1 3.1 3.1L8 17.7l-4.2 1.1L4.9 14.6Z"/>',
+        crop:     '<path d="M6.5 2.5v13a2 2 0 0 0 2 2h13M2.5 6.5h13a2 2 0 0 1 2 2v13"/>',
+        contrast: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18Z" fill="currentColor" stroke="none"/>',
+        type:     '<path d="M4.5 6.5V4.5h15v2M12 4.5v15M8.5 19.5h7"/>',
+        speaker:  '<path d="M11.5 4.8 6.8 8.8H3.5v6.4h3.3l4.7 4Z"/><path d="M15.6 9.2a4 4 0 0 1 0 5.6M18.4 6.4a8 8 0 0 1 0 11.2"/>',
+        mic:      '<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11.5a7 7 0 0 0 14 0M12 18.5v3M8.5 21.5h7"/>',
+        headset:  '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="2.5" y="13.5" width="4.5" height="7" rx="2"/><rect x="17" y="13.5" width="4.5" height="7" rx="2"/>',
+        pulse:    '<path d="M2.5 12h4l2-5 4 12 2.5-7h6.5"/>',
+        stethos:  '<path d="M5.5 2.8v5.4a4 4 0 0 0 8 0V2.8"/><path d="M4 2.8h3M12 2.8h3M9.5 12.2v2.6a5 5 0 0 0 10 0v-1.4"/><circle cx="19.5" cy="11.5" r="2"/>',
+        pill:     '<rect x="2.6" y="8.2" width="18.8" height="7.6" rx="3.8" transform="rotate(-45 12 12)"/><path d="m9 9 6 6"/>',
+        seed:     '<path d="M12 21.5V11"/><path d="M12 11c0-4 2.6-7 7-7.5.5 4.9-2.2 7.5-7 7.5ZM12 14c0-3.2-2.1-5.6-5.6-6-.4 3.9 1.8 6 5.6 6Z"/>',
+        sun2:     '<circle cx="12" cy="12" r="3.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2 6 6M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/>',
+        rain:     '<path d="M7.5 15a4.3 4.3 0 0 1-.4-8.55 5.3 5.3 0 0 1 10.1-1.35A4.1 4.1 0 0 1 17.5 15Z"/><path d="M8.5 18.2 7.6 20.6M12.2 18.2l-.9 2.4M15.9 18.2l-.9 2.4"/>',
+        snow:     '<path d="M12 2.5v19M3.8 7.2l16.4 9.6M20.2 7.2 3.8 16.8"/><path d="m9.4 4.4 2.6 2 2.6-2M9.4 19.6l2.6-2 2.6 2"/>',
+        pin:      '<path d="M12 21.5s7-6.2 7-11.2a7 7 0 1 0-14 0c0 5 7 11.2 7 11.2Z"/><circle cx="12" cy="10" r="2.6"/>',
+        train:    '<rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14M8.6 6.4h2M13.4 6.4h2M8.5 13h.01M15.5 13h.01"/><path d="m8 16-2.5 4.5M16 16l2.5 4.5"/>',
+        rocket2:  '<path d="M13.5 3.5c4 1.6 6.5 5 7 9.5-4.5-.5-7.9-3-9.5-7Z"/><path d="M11 6c-4.4.6-7 3.2-7.5 7.5C7.8 13 10.4 10.4 11 6Z"/><path d="M3.5 20.5c1.6-.4 3-1.2 4.2-2.4M20.5 20.5c-.4-1.6-1.2-3-2.4-4.2"/>',
+        infinity: '<path d="M7 8.4c-2.2 0-3.9 1.6-3.9 3.6S4.8 15.6 7 15.6c3.5 0 6.5-7.2 10-7.2 2.2 0 3.9 1.6 3.9 3.6s-1.7 3.6-3.9 3.6c-3.5 0-6.5-7.2-10-7.2Z"/>',
+        scale:    '<path d="M12 3.5v17M6 6.4h12M4.5 20.5h15"/><path d="m6 6.4-3 6a3 3 0 0 0 6 0ZM18 6.4l-3 6a3 3 0 0 0 6 0Z"/>',
+        badge:    '<path d="m12 2.6 2.5 1.8 3-.3 1 2.9 2.4 1.9-1.2 2.8 1.2 2.8-2.4 1.9-1 2.9-3-.3L12 21.4l-2.5-1.8-3 .3-1-2.9-2.4-1.9L4.3 12 3.1 9.2l2.4-1.9 1-2.9 3 .3Z"/><path d="m9.2 12 2 2 3.6-3.8"/>',
+        blocks:   '<rect x="3" y="3" width="8" height="8" rx="1.8"/><rect x="13" y="3" width="8" height="8" rx="1.8"/><rect x="3" y="13" width="8" height="8" rx="1.8"/><path d="M17 13v8M13 17h8"/>',
+        wifi:     '<path d="M2.5 9.2a14 14 0 0 1 19 0M5.8 12.8a9.2 9.2 0 0 1 12.4 0M9 16.3a4.5 4.5 0 0 1 6 0"/><path d="M12 20h.01"/>',
+        battery:  '<rect x="2.5" y="7" width="16" height="10" rx="2.6"/><path d="M21.5 10.5v3M5.5 10.5v3M9 10.5v3"/>',
+        cpu2:     '<rect x="4" y="4" width="16" height="16" rx="3"/><rect x="9" y="9" width="6" height="6" rx="1.4"/><path d="M9 1.8v2.2M15 1.8v2.2M9 20v2.2M15 20v2.2M1.8 9H4M1.8 15H4M20 9h2.2M20 15h2.2"/>',
+        cart2:    '<circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2.5 3.5h2.6l2.2 11.3h11.4l2-8.4H6.2"/>',
+        tag:      '<path d="M11.6 2.8H21v9.4l-9.4 9.4a1.8 1.8 0 0 1-2.6 0l-6.8-6.8a1.8 1.8 0 0 1 0-2.6Z"/><path d="M16.8 7.2h.01"/>',
+        gift:     '<rect x="2.8" y="8.5" width="18.4" height="4.5" rx="1.4"/><path d="M4.5 13v7.5h15V13M12 8.5v12"/><path d="M12 8.5S10.8 3.5 8.2 3.5a2.4 2.4 0 0 0 0 5ZM12 8.5s1.2-5 3.8-5a2.4 2.4 0 0 1 0 5Z"/>',
+        coin:     '<ellipse cx="12" cy="6.4" rx="7.5" ry="3.4"/><path d="M4.5 6.4v11.2c0 1.9 3.4 3.4 7.5 3.4s7.5-1.5 7.5-3.4V6.4"/><path d="M19.5 12c0 1.9-3.4 3.4-7.5 3.4S4.5 13.9 4.5 12"/>',
+        news:     '<path d="M3 5.5A1.6 1.6 0 0 1 4.6 4h11.8a1.6 1.6 0 0 1 1.6 1.5v13a1.5 1.5 0 0 0 1.5 1.5H5A2 2 0 0 1 3 18Z"/><path d="M6.5 8h7M6.5 11.5h7M6.5 15h4"/><path d="M18 9h1.5A1.5 1.5 0 0 1 21 10.5V18"/>',
+        quote:    '<path d="M9.5 6.5C6.6 7.6 5 10 5 13.2c0 2.6 1.5 4.3 3.6 4.3 1.9 0 3.3-1.4 3.3-3.2 0-1.8-1.2-3.1-2.9-3.1-.3 0-.7 0-1 .2.3-1.6 1.3-2.8 3-3.5ZM19 6.5c-2.9 1.1-4.5 3.5-4.5 6.7 0 2.6 1.5 4.3 3.6 4.3 1.9 0 3.3-1.4 3.3-3.2 0-1.8-1.2-3.1-2.9-3.1-.3 0-.7 0-1 .2.3-1.6 1.3-2.8 3-3.5Z"/>',
+        scan:     '<path d="M3.5 8V5.5a2 2 0 0 1 2-2H8M16 3.5h2.5a2 2 0 0 1 2 2V8M20.5 16v2.5a2 2 0 0 1-2 2H16M8 20.5H5.5a2 2 0 0 1-2-2V16"/><path d="M3.5 12h17"/>',
+        filter2:  '<path d="M3 5h18M6 12h12M10 19h4"/>',
+        shuffle:  '<path d="M17 3.5 20.5 7 17 10.5M17 13.5 20.5 17 17 20.5"/><path d="M3.5 7h3.2c1.2 0 2.3.6 3 1.6l4.6 6.8c.7 1 1.8 1.6 3 1.6h3.2M3.5 17h3.2c1.2 0 2.3-.6 3-1.6l.9-1.3M15.4 9.9l.9-1.3c.7-1 1.8-1.6 3-1.6h1.2"/>',
+        repeat:   '<path d="M17 2.5 20.5 6 17 9.5"/><path d="M3.5 12V9a3 3 0 0 1 3-3h14M7 21.5 3.5 18 7 14.5"/><path d="M20.5 12v3a3 3 0 0 1-3 3h-14"/>',
+        history:  '<path d="M3.2 12a8.8 8.8 0 1 0 2.7-6.3"/><path d="M3 3.4v4.4h4.4M12 7.4V12l3.4 2"/>',
+        moon2:    '<path d="M20.8 13.6A9 9 0 1 1 10.4 3.2a7 7 0 0 0 10.4 10.4Z"/><path d="M17 3.2v3.2M15.4 4.8h3.2"/>',
+        target2:  '<path d="M20.5 12a8.5 8.5 0 1 1-4.9-7.7"/><path d="M20.8 4.6 12 13.4l-2.6-2.6"/>',
+        bolt2:    '<path d="M12.5 2.5 5.5 12h5l-1 9.5L17 12h-5Z"/><path d="M2.5 8h3M2.5 16h4M18.5 16h3"/>',
+        stack:    '<path d="M4 8.5 12 4l8 4.5-8 4.5Z"/><path d="M4 13.2 12 17.7l8-4.5"/>',
+        wallet2:  '<path d="M3.5 7.2a2.4 2.4 0 0 1 2.4-2.4h12a1.8 1.8 0 0 1 1.8 1.8v1.4"/><rect x="3.5" y="7.2" width="17" height="12.4" rx="2.8"/><circle cx="16.4" cy="13.4" r="1.4"/>'
     };
 
     /* Old FontAwesome values → new keys. Anything unmatched falls back to
@@ -213,7 +261,16 @@
         'cap', 'shield', 'lock', 'key', 'sparkles', 'palette',
         'ruler', 'compass', 'heart', 'dumbbell', 'utensils', 'flask',
         'layers', 'cubes', 'gear', 'link', 'keyboard', 'cube',
-        'leaf', 'anchor', 'bookmark', 'wave'
+        'leaf', 'anchor', 'bookmark', 'wave',
+
+        'chess', 'cards', 'trophy', 'joystick', 'wand', 'shapes',
+        'pen', 'crop', 'contrast', 'type', 'speaker', 'mic',
+        'headset', 'pulse', 'stethos', 'pill', 'seed', 'sun2',
+        'rain', 'snow', 'pin', 'train', 'rocket2', 'infinity',
+        'scale', 'badge', 'blocks', 'wifi', 'battery', 'cpu2',
+        'cart2', 'tag', 'gift', 'coin', 'news', 'quote',
+        'scan', 'filter2', 'shuffle', 'repeat', 'history', 'moon2',
+        'target2', 'bolt2', 'stack', 'wallet2', 'sun', 'moon', 'monitor', 'doc'
     ];
 
     /* Search terms for the picker's filter box. */
@@ -249,6 +306,32 @@
         gear: 'gear settings config tool', link: 'link url chain shortener',
         keyboard: 'keyboard typing input shortcuts', cube: 'cube box generic 3d',
         leaf: 'leaf nature eco green', anchor: 'anchor stable base',
-        bookmark: 'bookmark save read later', wave: 'wave audio signal sound'
+        bookmark: 'bookmark save read later', wave: 'wave audio signal sound',
+
+        chess: 'chess board strategy game', cards: 'cards deck poker game',
+        trophy: 'trophy award win leaderboard', joystick: 'joystick arcade retro game',
+        wand: 'wand magic generate ai sparkle', shapes: 'shapes geometry abstract',
+        pen: 'pen write edit draw note', crop: 'crop frame image editor',
+        contrast: 'contrast theme dark light', type: 'type font typography text',
+        speaker: 'speaker volume audio sound', mic: 'microphone record voice speech',
+        headset: 'headset headphones audio support', pulse: 'pulse heartbeat monitor live',
+        stethos: 'stethoscope medical health doctor', pill: 'pill medicine pharmacy health',
+        seed: 'seed sprout grow nature plant', sun2: 'sun weather bright day clear',
+        rain: 'rain weather shower storm', snow: 'snow winter cold flake',
+        pin: 'pin location marker place map', train: 'train transit metro rail transport',
+        rocket2: 'rocket launch orbit space', infinity: 'infinity endless loop unlimited',
+        scale: 'scale balance justice compare law', badge: 'badge verified quality seal',
+        blocks: 'blocks modules grid layout', wifi: 'wifi network signal wireless',
+        battery: 'battery power charge energy', cpu2: 'cpu processor chip compute',
+        cart2: 'cart shop trolley basket order', tag: 'tag label price category',
+        gift: 'gift present reward box', coin: 'coin money currency crypto token',
+        news: 'news article paper feed press', quote: 'quote testimonial review words',
+        scan: 'scan qr barcode detect', filter2: 'filter sort refine narrow',
+        shuffle: 'shuffle random mix reorder', repeat: 'repeat loop sync cycle',
+        history: 'history undo timeline past version', moon2: 'moon night sleep dark',
+        target2: 'goal target complete achieve', bolt2: 'bolt energy power fast surge',
+        stack: 'stack layers pile collection', wallet2: 'wallet card payment money',
+        sun: 'sun light theme day', moon: 'moon dark theme night',
+        monitor: 'monitor screen display system', doc: 'document file page case study'
     };
 })();

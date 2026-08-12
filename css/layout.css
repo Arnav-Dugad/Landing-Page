@@ -445,12 +445,10 @@
    About band
    --------------------------------------------------------------------------- */
 
-.about-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    gap: clamp(36px, 6vw, 90px);
-    align-items: start;
-}
+/* One column now that the site-summary sidebar is gone: the prose keeps a
+   readable measure and the principles spread into two columns beneath it. */
+.about-grid { display: block; }
+.about-copy > p { max-width: 68ch; }
 
 .about-copy p {
     font-size: var(--t-lead);
@@ -472,7 +470,12 @@
     font-variation-settings: "SOFT" 40, "WONK" 1;
 }
 
-.principles { display: grid; gap: 2px; margin-top: 44px; }
+.principles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 0 clamp(28px, 5vw, 72px);
+    margin-top: 54px;
+}
 .principle {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -482,7 +485,13 @@
     transition: padding-left var(--d-3) var(--e-expo);
 }
 .principle:hover { padding-left: 14px; }
-.principle:last-child { border-bottom: 1px solid var(--line); }
+/* With two columns the last row needs a rule under each cell, not just the
+   final one — nth-last-child(-n+2) covers both bottom cells. */
+.principle:nth-last-child(-n+2) { border-bottom: 1px solid var(--line); }
+@media (max-width: 700px) {
+    .principle:nth-last-child(-n+2) { border-bottom: 0; }
+    .principle:last-child { border-bottom: 1px solid var(--line); }
+}
 .principle b {
     font-family: var(--font-mono);
     font-size: var(--t-2xs);
@@ -492,53 +501,6 @@
 }
 .principle h4 { font-size: 1.05rem; font-weight: 500; margin-bottom: 5px; }
 .principle p { font-size: var(--t-sm); color: var(--ink-50); }
-
-/* Timeline card in the right column. */
-.about-aside {
-    position: sticky;
-    top: calc(var(--nav-h) + 28px);
-    padding: 28px;
-    background: var(--paper-raised);
-    border: 1px solid var(--line);
-    border-radius: var(--r-xl);
-    box-shadow: var(--shadow-2);
-}
-.about-aside h4 {
-    font-size: var(--t-2xs);
-    font-family: var(--font-mono);
-    text-transform: uppercase; letter-spacing: .12em;
-    color: var(--ink-35);
-    margin-bottom: 20px;
-}
-.tl { display: grid; gap: 0; }
-.tl-item {
-    position: relative;
-    padding: 0 0 24px 26px;
-    border-left: 1px solid var(--line);
-}
-.tl-item:last-child { padding-bottom: 0; border-left-color: transparent; }
-.tl-item::before {
-    content: ""; position: absolute;
-    left: -4.5px; top: 5px;
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--paper-raised);
-    border: 1.5px solid var(--ink-20);
-    transition: border-color var(--d-2) var(--e-out), transform var(--d-2) var(--e-spring);
-}
-.tl-item:hover::before { border-color: var(--accent); transform: scale(1.35); }
-.tl-item:first-child::before { border-color: var(--accent); background: var(--accent); }
-.tl-item b { display: block; font-size: var(--t-sm); font-weight: 500; color: var(--ink); }
-.tl-item time {
-    display: block;
-    font-family: var(--font-mono); font-size: var(--t-2xs);
-    color: var(--ink-35); margin: 3px 0 5px;
-}
-.tl-item p { font-size: var(--t-xs); color: var(--ink-50); line-height: 1.55; }
-
-@media (max-width: 900px) {
-    .about-grid { grid-template-columns: 1fr; }
-    .about-aside { position: static; }
-}
 
 /* ---------------------------------------------------------------------------
    Stack band — auto-derived from the tags on real projects.

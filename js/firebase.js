@@ -217,7 +217,9 @@ window.saveProjectToDb = async (data) => {
     }
 };
 
-window.updateProjectInDb = async (id, data) => {
+/* `quiet` suppresses the toast — the bulk enrichment pass shows one progress
+   bar rather than thirty "Changes saved" notifications. */
+window.updateProjectInDb = async (id, data, { quiet = false } = {}) => {
     if (!user) { window.toast('Not connected to the database yet', 'error'); return false; }
     try {
         // setDoc with merge:false so fields the editor cleared are actually
@@ -228,11 +230,11 @@ window.updateProjectInDb = async (id, data) => {
             createdAt: existing?.createdAt || Date.now(),
             updatedAt: Date.now()
         });
-        window.toast('Changes saved', 'success');
+        if (!quiet) window.toast('Changes saved', 'success');
         return true;
     } catch (e) {
         console.error('Update failed:', e);
-        window.toast(`Could not save: ${e.message}`, 'error');
+        if (!quiet) window.toast(`Could not save: ${e.message}`, 'error');
         return false;
     }
 };

@@ -91,6 +91,14 @@ window.safeUrl = (value) => {
 
     const titleCase = (s) => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1);
 
+    /* Categories are stored as slugs ("threed", "dataviz"). admin.js owns the
+       human labels; fall back to title case for anything it doesn't know. */
+    const categoryLabel = (key) => {
+        const slug = key || 'other';
+        return (window.CATEGORY_LABELS && window.CATEGORY_LABELS[slug]) || titleCase(slug);
+    };
+    window.categoryLabel = categoryLabel;
+
     /* -------- Status badges --------------------------------------------- */
     const STATUS = {
         live:     { label: 'Live',        cls: 'badge--live' },
@@ -157,6 +165,11 @@ window.safeUrl = (value) => {
        Card
        ===================================================================== */
 
+    /* The card uses the "primary link" pattern: the title is the only real
+       control for opening the project, and it stretches an invisible overlay
+       across the whole card. Everything else (Visit, Code, admin) sits above
+       that overlay. This keeps one accessible name per action and avoids
+       nesting interactive elements inside a role="button" container. */
     function cardHtml(p, index) {
         const id = window.esc(p.id);
         const tags = (p.tags || []).filter(Boolean);
@@ -178,31 +191,46 @@ window.safeUrl = (value) => {
         const star = marks ? `<div class="card-star">${marks}</div>` : '';
 
         const repo = window.resolveRepoUrl ? window.resolveRepoUrl(p) : null;
+        const link = window.safeUrl(p.link);
+        const title = window.esc(p.title);
 
         return `
-        <article class="card" data-tilt data-cursor="Open"
-                 role="button" tabindex="0"
+        <article class="card" data-tilt
                  data-id="${id}"
                  data-category="${window.esc(p.category || 'other')}"
                  ${repo ? `data-repo="${window.esc(repo)}"` : ''}
-                 data-reveal="card" style="${window.toneVars(p.color)}--delay:${Math.min(index, 9) * 55}ms"
-                 aria-label="${window.esc(p.title)} — open details">
+                 data-reveal="card" style="${window.toneVars(p.color)}--delay:${Math.min(index, 9) * 55}ms">
             ${admin}${star}
-            <div class="card-plaque">${window.icon(p.icon, { size: 23 })}</div>
+
+            <div class="card-plaque">${window.icon(p.icon, { size: 24 })}</div>
+
             <div class="card-body">
                 <div class="card-head">
-                    <h3 class="card-title">${window.esc(p.title)}</h3>
+                    <h3 class="card-title"><button type="button" class="card-open" data-open="${id}" data-cursor="Open">${title}</button></h3>
                     ${window.statusBadge(p.status)}
                 </div>
                 <p class="card-desc u-clamp-2">${window.esc(p.desc)}</p>
                 ${shown.length ? `<div class="card-tags">
                     ${shown.map((t) => `<span class="tag">${window.esc(t)}</span>`).join('')}
-                    ${overflow > 0 ? `<span class="tag">+${overflow}</span>` : ''}
+                    ${overflow > 0 ? `<span class="tag" title="${window.esc(tags.slice(4).join(', '))}">+${overflow}</span>` : ''}
                 </div>` : ''}
             </div>
+
             <div class="card-foot">
-                <span class="card-cat"><s></s>${window.esc(titleCase(p.category || 'other'))}</span>
+                <span class="card-cat"><s></s>${window.esc(categoryLabel(p.category))}</span>
                 <span class="card-gh">${p.year ? window.esc(p.year) : ''}</span>
+            </div>
+
+            <div class="card-actions">
+                ${link ? `<a class="card-act card-act--go" href="${window.esc(link)}" target="_blank" rel="noopener noreferrer"
+                    data-cursor="Visit" aria-label="Visit ${title} live">
+                    ${window.icon('external', { raw: true, size: 14 })}<span>Visit</span></a>` : ''}
+                ${repo ? `<a class="card-act" href="${window.esc(repo)}" target="_blank" rel="noopener noreferrer"
+                    data-cursor="Code" aria-label="View the code for ${title}">
+                    ${window.icon('github', { raw: true, size: 14 })}<span>Code</span></a>` : ''}
+                ${p.caseStudy ? `<a class="card-act" href="case.html?p=${encodeURIComponent(window.projectSlug(p))}"
+                    data-cursor="Read" aria-label="Read the ${title} case study">
+                    ${window.icon('doc', { raw: true, size: 14 })}<span>Case study</span></a>` : ''}
             </div>
         </article>`;
     }
@@ -238,14 +266,25 @@ window.safeUrl = (value) => {
         }
 
         if (window.Motion) {
-            window.Motion.reveal(grid);
+            if (firstPaint) {
+                // Only the very first grid earns a scroll-triggered entrance.
+                window.Motion.reveal(grid);
+            } else {
+                // Later paints are re-layouts — FLIP owns the motion, so the
+                // reveal state must already be settled or cards flash.
+                grid.querySelectorAll('[data-reveal]').forEach((el) => el.classList.add('is-in'));
+            }
             window.Motion.tilt(grid);
         }
+        firstPaint = false;
         hydrateCardStats();
     }
 
-    /* Wrap re-layouts in a View Transition where the browser supports it —
-       filtering then cross-fades and slides instead of snapping. */
+    let firstPaint = true;
+
+    /* Re-layouts run through FLIP: measure, mutate, then play every card from
+       where it was to where it now is. Filtering reads as the cards physically
+       rearranging rather than the grid blinking. */
     function render() {
         if (!loaded()) {
             grid.innerHTML = Array.from({ length: 8 }, () => '<div class="skeleton"></div>').join('');
@@ -256,11 +295,10 @@ window.safeUrl = (value) => {
         renderStack();
         syncUrl();
 
-        if (document.startViewTransition && !window.motionReduced()) {
-            document.startViewTransition(() => paint());
-        } else {
-            paint();
-        }
+        if (firstPaint || !window.Motion) paint();
+        else window.Motion.flipGrid(grid, paint);
+
+        if (movePill) movePill();
 
         if (!deepLinkDone) {
             deepLinkDone = true;
@@ -272,6 +310,10 @@ window.safeUrl = (value) => {
     /* =====================================================================
        Filters — derived from the categories actually in use
        ===================================================================== */
+
+    /* The travelling indicator behind the active filter chip, created lazily
+       once Motion is available. */
+    let movePill = null;
 
     function renderFilters() {
         if (!filterBox) return;
@@ -288,7 +330,10 @@ window.safeUrl = (value) => {
             </button>`;
 
         filterBox.innerHTML = chip('all', 'All', projects().length)
-            + cats.map((c) => chip(c, titleCase(c), counts[c])).join('');
+            + cats.map((c) => chip(c, categoryLabel(c), counts[c])).join('');
+
+        // Re-created markup means the pill's element is gone; rebuild it.
+        if (window.Motion) movePill = window.Motion.filterPill(filterBox);
     }
 
     if (filterBox) {
@@ -481,25 +526,50 @@ window.safeUrl = (value) => {
         const highlights = Array.isArray(p.highlights) ? p.highlights.filter((h) => String(h).trim()) : [];
         const tags = (p.tags || []).filter(Boolean);
 
+        /* The actions live in a sticky header, not at the bottom of the sheet.
+           Visiting the project is the single most likely thing anyone wants to
+           do here, and it should never require scrolling past a write-up. */
+        const actions = `
+            <div class="detail-actions">
+                ${p.caseStudy ? `<a href="case.html?p=${encodeURIComponent(window.projectSlug(p))}" class="btn btn--primary magnetic" data-cursor="Read">
+                    ${window.icon('doc', { raw: true, size: 17 })} Case study</a>` : ''}
+                ${link ? `<a href="${window.esc(link)}" target="_blank" rel="noopener noreferrer" class="btn ${p.caseStudy ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Visit">
+                    ${window.icon('external', { raw: true, size: 17 })} Visit live</a>` : ''}
+                ${repo ? `<a href="${window.esc(repo)}" target="_blank" rel="noopener noreferrer" class="btn btn--ghost magnetic" data-cursor="Code">
+                    ${window.icon('github', { raw: true, size: 17 })} View code</a>` : ''}
+                <button class="btn btn--quiet" data-share="${window.esc(p.id)}">
+                    ${window.icon('share', { raw: true, size: 16 })} Share</button>
+                ${window.isAdmin ? `<button class="btn btn--quiet" data-act="edit" data-id="${window.esc(p.id)}">
+                    ${window.icon('pencil', { raw: true, size: 16 })} Edit</button>` : ''}
+            </div>`;
+
         body.innerHTML = `
+            <header class="detail-top" style="${window.toneVars(p.color)}">
+                <div class="detail-ident">
+                    <div class="card-plaque">${window.icon(p.icon, { size: 24 })}</div>
+                    <div class="detail-names">
+                        <h2 class="detail-title">${window.esc(p.title)}</h2>
+                        <div class="detail-meta">
+                            ${p.category ? `<span>${window.esc(categoryLabel(p.category))}</span>` : ''}
+                            ${window.statusBadge(p.status)}
+                            ${deploy ? `<span>${window.icon(deploy.icon, { raw: true, size: 12 })} ${window.esc(deploy.name)}</span>` : ''}
+                            ${p.year ? `<span>${window.icon('calendar', { raw: true, size: 12 })} ${window.esc(p.year)}</span>` : ''}
+                            ${p.role ? `<span>${window.icon('sparkles', { raw: true, size: 12 })} ${window.esc(p.role)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${actions}
+            </header>
+
             <div class="detail-media" style="${window.toneVars(p.color)}">
                 <div class="fallback">
-                    <div class="card-plaque">${window.icon(p.icon, { size: 23 })}</div>
-                    <p>Preview can't be embedded — open the project to view it.</p>
+                    <div class="card-plaque">${window.icon(p.icon, { size: 24 })}</div>
+                    <p>Preview can't be embedded — use <strong>Visit live</strong> above to open it.</p>
                 </div>
                 ${media}
             </div>
 
             <div class="sheet-body">
-                <h2 class="detail-title">${window.esc(p.title)}</h2>
-                <div class="detail-meta">
-                    ${p.category ? `<span>${window.esc(String(p.category).toUpperCase())}</span>` : ''}
-                    ${window.statusBadge(p.status)}
-                    ${deploy ? `<span>${window.icon(deploy.icon, { raw: true, size: 12 })} ${window.esc(deploy.name)}</span>` : ''}
-                    ${p.year ? `<span>${window.icon('calendar', { raw: true, size: 12 })} ${window.esc(p.year)}</span>` : ''}
-                    ${p.role ? `<span>${window.icon('sparkles', { raw: true, size: 12 })} ${window.esc(p.role)}</span>` : ''}
-                </div>
-
                 <p class="detail-lead">${window.esc(p.desc)}</p>
                 ${p.longDesc ? `<div class="detail-prose">${window.esc(p.longDesc)}</div>` : ''}
 
@@ -517,19 +587,6 @@ window.safeUrl = (value) => {
 
                 <div id="ghStats" class="ghstats u-hidden" style="margin-top:24px"></div>
                 <div id="ghLangs"></div>
-
-                <div class="detail-actions">
-                    ${p.caseStudy ? `<a href="case.html?p=${encodeURIComponent(window.projectSlug(p))}" class="btn btn--primary magnetic" data-cursor="Read">
-                        ${window.icon('doc', { raw: true, size: 17 })} Read the case study</a>` : ''}
-                    ${link ? `<a href="${window.esc(link)}" target="_blank" rel="noopener noreferrer" class="btn ${p.caseStudy ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Visit">
-                        ${window.icon('external', { raw: true, size: 17 })} Visit live</a>` : ''}
-                    ${repo ? `<a href="${window.esc(repo)}" target="_blank" rel="noopener noreferrer" class="btn btn--ghost magnetic" data-cursor="Code">
-                        ${window.icon('github', { raw: true, size: 17 })} View code</a>` : ''}
-                    <button class="btn btn--quiet" data-share="${window.esc(p.id)}">
-                        ${window.icon('share', { raw: true, size: 16 })} Share</button>
-                    ${window.isAdmin ? `<button class="btn btn--quiet" data-act="edit" data-id="${window.esc(p.id)}">
-                        ${window.icon('pencil', { raw: true, size: 16 })} Edit</button>` : ''}
-                </div>
             </div>`;
 
         window.openSheet(sheet);
@@ -646,16 +703,54 @@ window.safeUrl = (value) => {
             if (actionBtn.dataset.act === 'del')  window.deleteProject && window.deleteProject(id);
             return;
         }
+        // Real links (Visit / Code / Case study) are left alone entirely.
+        if (e.target.closest('.card-act')) return;
+
+        const open = e.target.closest('[data-open]');
+        if (open) { window.openProject(open.dataset.open); return; }
+
+        // Clicking anywhere else on the card counts as opening it — the title
+        // button's stretched overlay handles most of this, but padding and the
+        // plaque sit outside it.
         const card = e.target.closest('.card');
         if (card) window.openProject(card.dataset.id);
     });
 
+    /* Arrow-key navigation across the grid. Columns are read from the computed
+       layout rather than assumed, so it works in grid and list view and at
+       every breakpoint. */
+    function columnsInGrid() {
+        const template = getComputedStyle(grid).gridTemplateColumns;
+        const n = template.split(' ').filter(Boolean).length;
+        return Math.max(1, n);
+    }
+
     grid.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        const card = e.target.closest('.card');
-        if (!card) return;
+        const openers = Array.from(grid.querySelectorAll('.card-open'));
+        if (!openers.length) return;
+
+        const current = e.target.closest('.card-open');
+        if (!current) return;
+
+        const i = openers.indexOf(current);
+        const cols = columnsInGrid();
+        let next = -1;
+
+        switch (e.key) {
+            case 'ArrowRight': next = i + 1; break;
+            case 'ArrowLeft':  next = i - 1; break;
+            case 'ArrowDown':  next = i + cols; break;
+            case 'ArrowUp':    next = i - cols; break;
+            case 'Home':       next = 0; break;
+            case 'End':        next = openers.length - 1; break;
+            default: return;
+        }
+
         e.preventDefault();
-        window.openProject(card.dataset.id);
+        // Clamp rather than wrap — wrapping across rows is disorienting.
+        next = Math.min(openers.length - 1, Math.max(0, next));
+        openers[next].focus();
+        openers[next].closest('.card').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
 
     if (body) {

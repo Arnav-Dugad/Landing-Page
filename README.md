@@ -1,6 +1,6 @@
 # Landing-Page
 
-**Live:** https://arnav-dugad.github.io/Landing-Page/
+**Live:** https://www.arnavdugad.in/  ·  mirror: https://arnav-dugad.github.io/Landing-Page/
 
 A light, editorial portfolio built as a single static site — warm paper, near-black
 ink, one vermillion accent. Every project is stored in **Firebase Firestore** and
@@ -53,9 +53,21 @@ so the page never flashes the wrong palette.
 - **Real GitHub data** — stars, forks, last push and language breakdown. The repo is
   either explicit or **derived** from a `<user>.github.io/<name>` link, so link-only
   projects still get stats. Cached in `localStorage` for 6h and deduped in flight.
+- **Automatic tech detection** — a project's tech list is *worked out*, not typed.
+  Three signals are merged: the repo's `/languages`, its `package.json`
+  dependencies (which is the only way to learn it uses Three.js or Next.js), and
+  its topics — plus the deploy platform inferred from the live URL. One admin
+  button backfills the whole collection.
+- **Auto-populate** — the same pass fills any blank description (from the repo),
+  year (from its creation date), status (GitHub's archived flag), repo link and
+  live URL, and guesses a category, colour and icon from the title and blurb.
+  It never overwrites something written by hand.
 - **Derived, not declared** — the category filters, the stats strip and the entire
   Stack section are all computed from the projects that actually exist. Nothing on
   this page is a hardcoded list.
+- **Actions where you need them** — every card carries **Visit** and **Code**
+  buttons directly, and the detail sheet keeps them in a sticky header rather than
+  below the write-up.
 - **Deep links** — `#project-slug` opens that project directly.
 
 **The craft**
@@ -67,14 +79,26 @@ so the page never flashes the wrong palette.
   roll digit by digit, a marquee whose speed and direction follow your scroll,
   spring-damped 3D card tilt with a pointer-tracked sheen, and a custom cursor that
   morphs into a verb over anything clickable.
-- **View Transitions API** for filter and sort re-layouts, where supported.
+- **FLIP re-layout** — filtering measures every card, changes the DOM, then plays
+  each card from where it *was* to where it now is, so the grid physically
+  rearranges instead of blinking.
+- **A travelling filter indicator** — one pill that moves between chips rather than
+  each chip painting its own background.
+- **Scroll-linked text illumination** — words in the About copy brighten as the
+  paragraph rises through the viewport. JS writes one number; every word derives
+  its own opacity from it in CSS.
+- **Real card depth** — the plaque, title and actions sit on separate Z planes, so
+  tilting a card parallaxes them instead of moving one flat face.
+- **Scroll-velocity skew** on the grid, and **cross-document View Transitions** so
+  navigating to a case study is one continuous move rather than a white flash.
 - **Reduced motion is a first-class path**, not an afterthought — ambience stops,
   the custom cursor and intro curtain disappear, state changes stay legible.
 - **Shareable views** — the filter, sort, search and layout live in the query
   string, so `/?cat=game&sort=stars` is a link you can send someone.
 - **Keyboard shortcuts** — <kbd>⌘K</kbd> palette, <kbd>/</kbd> search, <kbd>G</kbd>
   layout, <kbd>T</kbd> theme, <kbd>R</kbd> random, <kbd>←</kbd><kbd>→</kbd> between
-  projects, <kbd>?</kbd> for the full list.
+  projects, <kbd>?</kbd> for the full list. Arrow keys walk the grid itself,
+  reading the real column count from the layout so it works at every breakpoint.
 - **Prints cleanly** — a dedicated print stylesheet strips the chrome and expands
   link URLs, so the portfolio survives being turned into a PDF.
 
@@ -89,6 +113,11 @@ fix that:
 - **`/api/og?p=<slug>`** ([`api/og.js`](api/og.js)) renders a 1200×630 card at request
   time from the live Firestore record — the project's own duotone, tags and copy, set
   in Fraunces. Nothing is pre-built, so a card is correct the moment you edit a project.
+
+A third function, [`api/sitemap.js`](api/sitemap.js), generates `/sitemap.xml` from
+Firestore so every `/p/<slug>` route — and every case study — is independently
+indexable. It is regenerated per request, so a project added this afternoon is in
+the sitemap this afternoon.
 
 This is the only part of the site with a dependency (`@vercel/og`) and the only part
 that needs a server. Everything else still runs as plain static files — on GitHub
@@ -113,15 +142,18 @@ js/backdrop.js        The interactive dot lattice
 js/github.js          GitHub stats/languages, repo resolution, deploy detection
 js/render.js          Cards, filters, stats, stack band, detail sheet, deep links
 js/admin.js           Add / edit / duplicate / delete, drafts, admin sign-in
-js/reorder.js         Drag-to-reorder with FLIP
 js/palette.js         ⌘K command palette
 js/app.js             Sheets, toasts, dialogs, sound, contact, curtain, shortcuts
 js/case.js            Renders the case-study page from one project record
 js/firebase.js        Firebase init + the entire Firestore data layer (module)
 
+js/enrich.js          Automatic tech detection + project auto-population
+js/reorder.js         Drag-to-reorder with FLIP
+
 api/_project.js       Shared Firestore REST reader for the edge functions
 api/og.js             GET /api/og?p=<slug> → 1200x630 social card
 api/share.js          GET /p/<slug> → per-project Open Graph tags
+api/sitemap.js        GET /sitemap.xml → every project, generated live
 
 firestore.rules       Security rules — deploy from the Firebase console
 vercel.json           Rewrites, headers and caching for Vercel

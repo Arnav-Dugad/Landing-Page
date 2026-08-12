@@ -29,15 +29,44 @@
 
     window.isAdmin = false;   // the auth listener in firebase.js owns this
 
-    const CATEGORIES = [
-        ['web', 'Website'], ['app', 'App'], ['game', 'Game'], ['tool', 'Tool'],
-        ['ai', 'AI'], ['ml', 'Machine learning'], ['data', 'Data / systems'],
-        ['mobile', 'Mobile'], ['dashboard', 'Dashboard'], ['productivity', 'Productivity'],
-        ['ecommerce', 'E-commerce'], ['social', 'Social'], ['education', 'Education'],
-        ['finance', 'Finance'], ['cli', 'CLI'], ['extension', 'Extension'],
-        ['bot', 'Bot'], ['api', 'API'], ['design', 'Design'], ['web3', 'Web3'],
-        ['iot', 'IoT'], ['library', 'Library'], ['other', 'Other']
+    /* Grouped so a list this long stays navigable in the native select. */
+    const CATEGORY_GROUPS = [
+        ['Interfaces', [
+            ['web', 'Website'], ['app', 'Web app'], ['mobile', 'Mobile app'],
+            ['dashboard', 'Dashboard'], ['landing', 'Landing page'], ['portfolio', 'Portfolio']
+        ]],
+        ['Play', [
+            ['game', 'Game'], ['threed', '3D / WebGL'], ['creative', 'Creative coding'],
+            ['generative', 'Generative art'], ['simulation', 'Simulation'], ['puzzle', 'Puzzle']
+        ]],
+        ['Intelligence', [
+            ['ai', 'AI'], ['ml', 'Machine learning'], ['nlp', 'Language / NLP'],
+            ['vision', 'Computer vision'], ['bot', 'Bot / agent'], ['dataviz', 'Data visualisation']
+        ]],
+        ['Utility', [
+            ['tool', 'Tool'], ['productivity', 'Productivity'], ['cli', 'CLI'],
+            ['extension', 'Browser extension'], ['automation', 'Automation'],
+            ['converter', 'Converter'], ['generator', 'Generator']
+        ]],
+        ['Systems', [
+            ['api', 'API'], ['backend', 'Backend'], ['data', 'Data / systems'],
+            ['devtool', 'Developer tool'], ['library', 'Library'], ['infra', 'Infrastructure'],
+            ['security', 'Security']
+        ]],
+        ['Domains', [
+            ['education', 'Education'], ['finance', 'Finance'], ['ecommerce', 'E-commerce'],
+            ['social', 'Social'], ['health', 'Health & fitness'], ['music', 'Music & audio'],
+            ['media', 'Video & media'], ['maps', 'Maps & travel'], ['sports', 'Sports'],
+            ['news', 'News & reading'], ['food', 'Food'], ['weather', 'Weather']
+        ]],
+        ['Other', [
+            ['design', 'Design'], ['web3', 'Web3'], ['iot', 'IoT'],
+            ['hardware', 'Hardware'], ['experiment', 'Experiment'], ['other', 'Other']
+        ]]
     ];
+
+    const CATEGORIES = CATEGORY_GROUPS.flatMap(([, items]) => items);
+    window.CATEGORY_LABELS = Object.fromEntries(CATEGORIES);
 
     const TAG_GROUPS = {
         Languages: ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Python', 'C++', 'C', 'C#',
@@ -55,7 +84,9 @@
     function buildOptions() {
         const cat = F('fCategory');
         if (cat && !cat.options.length) {
-            cat.innerHTML = CATEGORIES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+            cat.innerHTML = CATEGORY_GROUPS.map(([group, items]) =>
+                `<optgroup label="${group}">${items.map(([v, l]) =>
+                    `<option value="${v}">${l}</option>`).join('')}</optgroup>`).join('');
         }
         const color = F('fColor');
         if (color && !color.options.length) {
@@ -170,6 +201,10 @@
         if (cs) cs.checked = !!p.caseStudy;
     }
 
+    /* js/enrich.js drives the form from outside when auto-filling from GitHub. */
+    window.readEditorForm = readForm;
+    window.writeEditorForm = writeForm;
+
     /* =====================================================================
        Draft autosave — a long write-up should survive a stray Esc, a reload
        or a closed tab. Keyed per project so drafts never cross-contaminate.
@@ -227,6 +262,8 @@
             </div>
         </article>`;
     }
+
+    window.refreshEditorPreview = () => { renderPreview(); syncTagStates(); dirty = true; };
 
     /* Any field edit refreshes the preview, marks the form dirty and (debounced)
        parks a draft in localStorage. */
@@ -419,6 +456,9 @@
             renderPreview();
         });
     }
+
+    const autofillBtn = F('autofill');
+    if (autofillBtn) autofillBtn.addEventListener('click', () => window.enrichEditorForm && window.enrichEditorForm());
 
     const testBtn = F('testLink');
     if (testBtn) {

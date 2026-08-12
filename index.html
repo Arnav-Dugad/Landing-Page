@@ -59,7 +59,7 @@
   "@context": "https://schema.org",
   "@type": "Person",
   "name": "Arnav Dugad",
-  "url": "https://arnav-dugad.github.io/Landing-Page/",
+  "url": "https://www.arnavdugad.in/",
   "jobTitle": "Web developer",
   "email": "mailto:arnavdugad@gmail.com",
   "sameAs": [
@@ -227,8 +227,13 @@
             <button class="btn btn--primary magnetic" data-new-project>
                 <span data-icon="plus" data-size="17"></span> Add a project
             </button>
-            <span style="font-size:var(--t-xs);color:var(--ink-35)">
-                Admin mode is on — hover a card to edit, duplicate or delete it.
+            <button class="btn btn--ghost magnetic" id="enrichAll"
+                    title="Read every repo and fill in tech, descriptions, years and links">
+                <span data-icon="wand" data-size="17"></span> Auto-fill everything
+            </button>
+            <span style="font-size:var(--t-xs);color:var(--ink-35);max-width:40ch">
+                Admin is on — hover a card to drag, edit, duplicate or delete it.
+                Auto-fill reads each project's GitHub repo and fills what's missing.
             </span>
         </div>
 
@@ -293,14 +298,14 @@
 
         <div class="about-grid">
             <div class="about-copy">
-                <p data-reveal="up">
+                <p data-reveal="up" data-lit>
                     I started building because I wanted things that didn't exist yet — a
                     game that played the way I imagined, a tool that removed a chore.
                     That instinct hasn't changed. Every project here began as a small
                     irritation with the way something worked, and ended as software
                     someone can actually open.
                 </p>
-                <p data-reveal="up" style="--delay:100ms">
+                <p data-reveal="up" data-lit style="--delay:100ms">
                     I care most about the <strong>middle 90%</strong> — the part after the
                     idea and before the launch, where the interface either earns trust or
                     quietly loses it. Loading states, empty states, the feel of a button
@@ -338,32 +343,6 @@
                     </div>
                 </div>
             </div>
-
-            <aside class="about-aside" data-reveal="left">
-                <h4>This site, in short</h4>
-                <div class="tl">
-                    <div class="tl-item">
-                        <b>Live data</b>
-                        <time>Firestore</time>
-                        <p>Projects stream in over a realtime subscription. Nothing on this page is hardcoded.</p>
-                    </div>
-                    <div class="tl-item">
-                        <b>Real GitHub stats</b>
-                        <time>GitHub API</time>
-                        <p>Stars, forks, last push and language breakdowns, cached locally for six hours.</p>
-                    </div>
-                    <div class="tl-item">
-                        <b>Zero dependencies</b>
-                        <time>Vanilla</time>
-                        <p>Hand-written CSS and JavaScript. No framework, no build step, no bundler.</p>
-                    </div>
-                    <div class="tl-item">
-                        <b>Keyboard first</b>
-                        <time>⌘K</time>
-                        <p>Every action on the site is reachable from the command palette.</p>
-                    </div>
-                </div>
-            </aside>
         </div>
     </div>
 </section>
@@ -545,6 +524,18 @@
                         <div class="field field--wide">
                             <label for="fRepo">GitHub repo <em>optional — auto-detected from github.io links</em></label>
                             <input class="input" id="fRepo" type="url" placeholder="https://github.com/user/repo">
+                        </div>
+
+                        <div class="field field--wide">
+                            <button class="btn btn--ghost" type="button" id="autofill" style="width:100%">
+                                <span data-icon="wand" data-size="17"></span>
+                                Auto-fill from GitHub
+                            </button>
+                            <p style="font-size:var(--t-2xs);color:var(--ink-35);line-height:1.5">
+                                Reads the repo's languages, <code>package.json</code> and topics to work out
+                                the tech, and fills any blank description, year or status. It never
+                                overwrites something you typed.
+                            </p>
                         </div>
 
                         <div class="field field--wide">
@@ -810,6 +801,7 @@
 <script src="js/motion.js"></script>
 <script src="js/backdrop.js"></script>
 <script src="js/github.js"></script>
+<script src="js/enrich.js"></script>
 <script src="js/render.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/reorder.js"></script>
