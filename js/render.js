@@ -644,12 +644,12 @@ window.safeUrl = (value) => {
         window.openProject(ids[(i + dir + ids.length) % ids.length]);
     };
 
-    /* On Vercel there is a real /p/<slug> route that serves per-project OG
-       tags to crawlers before bouncing a human to the site. Anywhere else
-       (GitHub Pages, localhost) fall back to the hash deep link, which works
-       for people but not for link previews. */
+    /* On Cloudflare and Vercel there is a real /p/<slug> route that serves
+       per-project OG tags to crawlers before bouncing a human to the site.
+       Anywhere else (GitHub Pages, localhost) fall back to the hash deep link,
+       which works for people but not for link previews. */
     const HAS_EDGE = /(^|\.)arnavdugad\.in$/i.test(location.hostname)
-        || /\.vercel\.app$/i.test(location.hostname);
+        || /\.(vercel\.app|workers\.dev)$/i.test(location.hostname);
 
     window.projectUrl = (p) => (HAS_EDGE
         ? `${location.origin}/p/${encodeURIComponent(window.projectSlug(p))}`

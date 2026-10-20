@@ -2,12 +2,20 @@
   "name": "arnav-dugad-portfolio",
   "version": "2.0.0",
   "private": true,
-  "description": "Portfolio site. The pages themselves are dependency-free static files; this manifest exists only for the Vercel edge functions under /api that generate per-project Open Graph cards.",
+  "description": "Portfolio site. The pages themselves are dependency-free static files; this manifest exists only for the edge code that serves share routes, the sitemap and per-project Open Graph cards (api/ on Vercel, worker/ on Cloudflare).",
   "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "@cf-wasm/og": "^0.5.0",
     "@vercel/og": "^0.6.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.3"
   }
 }

@@ -1,0 +1,18 @@
+{
+    // Cloudflare Workers + static assets. The repo root *is* the site; files
+    // that aren't part of it are listed in .assetsignore.
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "arnav-portfolio",
+    "main": "worker/index.js",
+    "compatibility_date": "2026-09-01",
+    "assets": {
+        "directory": ".",
+        "binding": "ASSETS",
+        // /case serves case.html, like Vercel's cleanUrls.
+        "html_handling": "auto-trailing-slash",
+        "not_found_handling": "none",
+        // Only these paths wake the worker; everything else is a static hit.
+        "run_worker_first": ["/api/*", "/p/*", "/sitemap.xml", "/_vercel/*"]
+    },
+    "observability": { "enabled": true }
+}

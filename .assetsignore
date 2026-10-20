@@ -1,0 +1,15 @@
+# Files in the repo root that are not part of the public site.
+.git
+.github
+.wrangler
+node_modules
+api
+worker
+README.md
+package.json
+package-lock.json
+vercel.json
+wrangler.jsonc
+firestore.rules
+.gitignore
+.assetsignore

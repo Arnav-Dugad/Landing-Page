@@ -119,8 +119,10 @@ Firestore so every `/p/<slug>` route — and every case study — is independent
 indexable. It is regenerated per request, so a project added this afternoon is in
 the sitemap this afternoon.
 
-This is the only part of the site with a dependency (`@vercel/og`) and the only part
-that needs a server. Everything else still runs as plain static files — on GitHub
+This is the only part of the site with a dependency and the only part that needs a
+server. The same three routes run on Cloudflare (`worker/index.js`, rendering with
+`@cf-wasm/og`) and on Vercel (`api/`, rendering with `@vercel/og`); the card layout is
+shared through `api/_card.js`. Everything else still runs as plain static files — on GitHub
 Pages the share button simply falls back to the hash deep link.
 
 ## Structure
@@ -151,13 +153,19 @@ js/enrich.js          Automatic tech detection + project auto-population
 js/reorder.js         Drag-to-reorder with FLIP
 
 api/_project.js       Shared Firestore REST reader for the edge functions
-api/og.js             GET /api/og?p=<slug> → 1200x630 social card
+api/_card.js          The social-card layout, shared by both hosts
+api/og.js             GET /api/og?p=<slug> → 1200x630 social card (Vercel)
 api/share.js          GET /p/<slug> → per-project Open Graph tags
 api/sitemap.js        GET /sitemap.xml → every project, generated live
 
+worker/index.js       Cloudflare entry: the same routes, plus OG caching
+
 firestore.rules       Security rules — deploy from the Firebase console
+wrangler.jsonc        Cloudflare Worker + static assets config
+.assetsignore         Repo files Cloudflare must not publish
+_headers              Security and cache headers for Cloudflare static files
 vercel.json           Rewrites, headers and caching for Vercel
-package.json          Exists only for @vercel/og; the pages have no dependencies
+package.json          Edge-code dependencies only; the pages have none
 ```
 
 Classic scripts run first and define the UI surface; `firebase.js` loads last as a
@@ -203,6 +211,21 @@ python -m http.server 8000
 ```
 
 ## Deploying
+
+**Cloudflare** — live at https://arnav-portfolio.arnavrival12.workers.dev. A Worker
+with static assets: the repo root is the site, `.assetsignore` keeps the source files
+out, and the worker only wakes for `/p/*`, `/api/*` and `/sitemap.xml`.
+
+```bash
+npm install
+npm run dev      # local, http://localhost:8787 — the real worker, not a mock
+npm run deploy   # ship it (wrangler login first)
+```
+
+Rendered OG cards are kept in Cloudflare's edge cache for an hour, since a render
+costs ~200 ms of CPU. To deploy on every push, connect the repo under **Workers &
+Pages → arnav-portfolio → Settings → Build** (build command empty, deploy command
+`npx wrangler deploy`).
 
 **GitHub Pages** — already wired. Pushing to `main` updates the live site.
 

@@ -15,3 +15,7 @@ firebase-debug.log
 # Editor
 .vscode/
 .idea/
+
+# Cloudflare local dev
+.wrangler/
+.dev.vars
