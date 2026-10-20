@@ -30,12 +30,14 @@
     // than 15 minutes, so a visit is what keeps it fresh.
     "triggers": { "crons": [] },
 
-    // Uncomment once arnavdugad.in is active on Cloudflare (nameservers
-    // switched), then `npm run deploy` attaches both hostnames to this worker.
-    // "routes": [
-    //     { "pattern": "www.arnavdugad.in", "custom_domain": true },
-    //     { "pattern": "arnavdugad.in", "custom_domain": true }
-    // ],
+    // arnavdugad.in is on Cloudflare's nameservers; deploying attaches both
+    // hostnames to this worker (DNS records + certificates are automatic).
+    // Keep the workers.dev address alive as a backup / preview URL.
+    "workers_dev": true,
+    "routes": [
+        { "pattern": "www.arnavdugad.in", "custom_domain": true },
+        { "pattern": "arnavdugad.in", "custom_domain": true }
+    ],
 
     "observability": { "enabled": true }
 }
