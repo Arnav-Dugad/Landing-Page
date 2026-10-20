@@ -29,44 +29,9 @@
 
     window.isAdmin = false;   // the auth listener in firebase.js owns this
 
-    /* Grouped so a list this long stays navigable in the native select. */
-    const CATEGORY_GROUPS = [
-        ['Interfaces', [
-            ['web', 'Website'], ['app', 'Web app'], ['mobile', 'Mobile app'],
-            ['dashboard', 'Dashboard'], ['landing', 'Landing page'], ['portfolio', 'Portfolio']
-        ]],
-        ['Play', [
-            ['game', 'Game'], ['threed', '3D / WebGL'], ['creative', 'Creative coding'],
-            ['generative', 'Generative art'], ['simulation', 'Simulation'], ['puzzle', 'Puzzle']
-        ]],
-        ['Intelligence', [
-            ['ai', 'AI'], ['ml', 'Machine learning'], ['nlp', 'Language / NLP'],
-            ['vision', 'Computer vision'], ['bot', 'Bot / agent'], ['dataviz', 'Data visualisation']
-        ]],
-        ['Utility', [
-            ['tool', 'Tool'], ['productivity', 'Productivity'], ['cli', 'CLI'],
-            ['extension', 'Browser extension'], ['automation', 'Automation'],
-            ['converter', 'Converter'], ['generator', 'Generator']
-        ]],
-        ['Systems', [
-            ['api', 'API'], ['backend', 'Backend'], ['data', 'Data / systems'],
-            ['devtool', 'Developer tool'], ['library', 'Library'], ['infra', 'Infrastructure'],
-            ['security', 'Security']
-        ]],
-        ['Domains', [
-            ['education', 'Education'], ['finance', 'Finance'], ['ecommerce', 'E-commerce'],
-            ['social', 'Social'], ['health', 'Health & fitness'], ['music', 'Music & audio'],
-            ['media', 'Video & media'], ['maps', 'Maps & travel'], ['sports', 'Sports'],
-            ['news', 'News & reading'], ['food', 'Food'], ['weather', 'Weather']
-        ]],
-        ['Other', [
-            ['design', 'Design'], ['web3', 'Web3'], ['iot', 'IoT'],
-            ['hardware', 'Hardware'], ['experiment', 'Experiment'], ['other', 'Other']
-        ]]
-    ];
-
-    const CATEGORIES = CATEGORY_GROUPS.flatMap(([, items]) => items);
-    window.CATEGORY_LABELS = Object.fromEntries(CATEGORIES);
+    /* Categories live in js/core.js so the case-study, résumé and Now pages
+       label them exactly the way the editor does. */
+    const CATEGORY_GROUPS = window.CATEGORY_GROUPS || [['Other', [['other', 'Other']]]];
 
     const TAG_GROUPS = {
         Languages: ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Python', 'C++', 'C', 'C#',
@@ -145,6 +110,8 @@
             link: val('fLink'),
             repo: val('fRepo'),
             demoVideo: val('fDemoVideo'),
+            previewVideo: val('fPreviewVideo'),
+            searchTerms: val('fSearchTerms').split(',').map((t) => t.trim().toLowerCase()).filter(Boolean),
             category: val('fCategory') || 'other',
             color: val('fColor') || 'indigo',
             icon: val('fIcon') || 'cube',
@@ -164,7 +131,8 @@
             challenges: lines('fChallenges'),
             outcome: val('fOutcome'),
             metrics: lines('fMetrics'),
-            gallery: lines('fGallery')
+            gallery: lines('fGallery'),
+            galleryAlt: lines('fGalleryAlt')
         };
     }
 
@@ -178,6 +146,8 @@
         set('fLink', p.link);
         set('fRepo', p.repo);
         set('fDemoVideo', p.demoVideo);
+        set('fPreviewVideo', p.previewVideo);
+        set('fSearchTerms', Array.isArray(p.searchTerms) ? p.searchTerms.join(', ') : (p.searchTerms || ''));
         set('fCategory', p.category || 'web');
         set('fColor', p.color || 'indigo');
         set('fIcon', window.normaliseIcon(p.icon || 'rocket'));
@@ -194,6 +164,7 @@
         set('fOutcome', p.outcome);
         set('fMetrics', join(p.metrics));
         set('fGallery', join(p.gallery));
+        set('fGalleryAlt', join(p.galleryAlt));
 
         const feat = F('fFeatured');
         if (feat) feat.checked = !!p.featured;
@@ -257,7 +228,7 @@
                 </div>
             </div>
             <div class="card-foot">
-                <span class="card-cat"><s></s>${window.esc((p.category || 'other').charAt(0).toUpperCase() + (p.category || 'other').slice(1))}</span>
+                <span class="card-cat"><s></s>${window.esc(window.categoryLabel(p.category))}</span>
                 <span class="card-gh">${window.esc(p.year || '')}</span>
             </div>
         </article>`;
@@ -395,7 +366,7 @@
         if (!data.desc)  { window.toast('A short description is required', 'error'); F('fDesc').focus(); return; }
 
         // Normalise bare domains typed without a scheme.
-        ['link', 'repo', 'demoVideo'].forEach((k) => {
+        ['link', 'repo', 'demoVideo', 'previewVideo'].forEach((k) => {
             if (data[k] && !/^https?:\/\//i.test(data[k])) data[k] = `https://${data[k]}`;
         });
         if (data.order === null || Number.isNaN(data.order)) delete data.order;

@@ -54,7 +54,7 @@
             el.style.transform = `translate(${dx}px, ${dy}px)`;
             // Force the inverted position to commit before transitioning it away.
             void el.offsetWidth;
-            el.style.transition = 'transform .34s cubic-bezier(.16,1,.3,1)';
+            el.style.transition = 'transform .52s var(--e-bounce)';
             el.style.transform = '';
         });
     }
@@ -137,12 +137,23 @@
         const dragged = card;
         const ids = cards().map((el) => el.dataset.id);
 
-        dragged.style.transition = 'transform .34s cubic-bezier(.16,1,.3,1)';
+        /* The drop is a spring, not an ease: the card overshoots its slot a
+           touch and settles, like something set down with a little weight.
+           --e-bounce is a linear() spring curve defined in tokens.css. */
+        dragged.style.transition = 'transform .62s var(--e-bounce)';
         dragged.style.transform = '';
         dragged.classList.remove('is-dragging');
         grid.classList.remove('is-reordering');
+        if (moved && dragged.animate && !(window.motionReduced && window.motionReduced())) {
+            dragged.querySelector('.card-plaque')?.animate([
+                { transform: 'translateZ(34px) scale(1)' },
+                { transform: 'translateZ(34px) scale(1.18) rotate(-6deg)' },
+                { transform: 'translateZ(34px) scale(.96) rotate(2deg)' },
+                { transform: 'translateZ(34px) scale(1)' }
+            ], { duration: 560, delay: 120, easing: 'ease-out' });
+        }
 
-        setTimeout(() => { dragged.style.transition = ''; clearFlip(); }, 360);
+        setTimeout(() => { dragged.style.transition = ''; clearFlip(); }, 640);
 
         try { handleEl.releasePointerCapture(pointerId); } catch { /* already gone */ }
 

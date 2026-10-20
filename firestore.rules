@@ -52,6 +52,19 @@ service cloud.firestore {
         && request.auth.token.get("email", "").lower() == adminEmail();
     }
 
+    // The Cloudflare Worker's own account. It is the only writer for
+    // reactions and link status, so visitors can't stuff counts directly —
+    // they go through the Worker, which rate-limits and dedupes them.
+    function isEdge() {
+      return request.auth != null
+        && request.auth.token.get("firebase", {}).get("sign_in_provider", "") == "password"
+        && request.auth.token.get("email", "").lower() == "edge-worker@arnavdugad.in";
+    }
+
+    function isCount(v) {
+      return v is int && v >= 0;
+    }
+
     match /artifacts/{appId}/public/data {
 
       // ---- Projects: world-readable, admin-only writes -------------------
@@ -84,6 +97,9 @@ service cloud.firestore {
             && (!('challenges' in request.resource.data) || (request.resource.data.challenges is list && request.resource.data.challenges.size() <= 20))
             && (!('metrics' in request.resource.data) || (request.resource.data.metrics is list && request.resource.data.metrics.size() <= 12))
             && (!('gallery' in request.resource.data) || (request.resource.data.gallery is list && request.resource.data.gallery.size() <= 20))
+            && (!('galleryAlt' in request.resource.data) || (request.resource.data.galleryAlt is list && request.resource.data.galleryAlt.size() <= 20))
+            && (!('searchTerms' in request.resource.data) || (request.resource.data.searchTerms is list && request.resource.data.searchTerms.size() <= 40))
+            && (!('previewVideo' in request.resource.data) || (request.resource.data.previewVideo is string && request.resource.data.previewVideo.size() <= 2000))
             && (!('tags' in request.resource.data) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 30));
         }
 
@@ -114,6 +130,42 @@ service cloud.firestore {
           && request.resource.data.message.size() <= 5000;
         allow update: if false;
         allow delete: if isAdmin();
+      }
+
+      // ---- Reactions: public counts, written only by the Worker ----------
+      match /reactions/{slug} {
+        allow read: if true;
+        allow write: if isEdge()
+          && request.resource.data.keys().hasOnly(['fire', 'clap', 'mind', 'heart', 'idea'])
+          && (!('fire' in request.resource.data) || isCount(request.resource.data.fire))
+          && (!('clap' in request.resource.data) || isCount(request.resource.data.clap))
+          && (!('mind' in request.resource.data) || isCount(request.resource.data.mind))
+          && (!('heart' in request.resource.data) || isCount(request.resource.data.heart))
+          && (!('idea' in request.resource.data) || isCount(request.resource.data.idea));
+      }
+
+      // One doc per (project, emoji, hashed visitor). Never public — the
+      // hash is derived from an IP, and even hashed that isn't anyone's
+      // business but the Worker's.
+      match /reactionVotes/{voteId} {
+        allow read, write: if isEdge();
+      }
+
+      // ---- Site documents ---------------------------------------------
+      // now    — the /now page, written by the admin
+      // status — live-link check results, written by the Worker's cron
+      match /site/now {
+        allow read: if true;
+        allow write: if isAdmin()
+          && request.resource.data.keys().hasOnly(['building', 'reading', 'learning', 'note', 'updatedAt'])
+          && request.resource.data.building is string && request.resource.data.building.size() <= 2000
+          && request.resource.data.reading is string && request.resource.data.reading.size() <= 2000
+          && request.resource.data.learning is string && request.resource.data.learning.size() <= 2000
+          && request.resource.data.note is string && request.resource.data.note.size() <= 2000;
+      }
+      match /site/status {
+        allow read: if true;
+        allow write: if isEdge();
       }
 
       // ---- Stats: public read, only the visit counter may change --------

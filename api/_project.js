@@ -10,9 +10,10 @@
    Files prefixed with `_` are not routed by Vercel, so this stays private.
    =========================================================================== */
 
-const PROJECT_ID = 'landing-page-cc574';
-const API_KEY = 'AIzaSyBVg4_5WjOjlA-xfoGAhjqNk75EyMG6sS8';
-const PATH = 'artifacts/arnav-portfolio-v1/public/data/projects';
+export const PROJECT_ID = 'landing-page-cc574';
+export const API_KEY = 'AIzaSyBVg4_5WjOjlA-xfoGAhjqNk75EyMG6sS8';
+export const DATA_PATH = 'artifacts/arnav-portfolio-v1/public/data';
+const PATH = `${DATA_PATH}/projects`;
 
 export const ENDPOINT =
     `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}` +
@@ -25,7 +26,7 @@ export const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
 
-function unwrap(value) {
+export function unwrap(value) {
     if (!value || typeof value !== 'object') return null;
     if ('stringValue' in value) return value.stringValue;
     if ('booleanValue' in value) return value.booleanValue;
@@ -37,7 +38,7 @@ function unwrap(value) {
     return null;
 }
 
-function unwrapFields(fields) {
+export function unwrapFields(fields) {
     const out = {};
     for (const [k, v] of Object.entries(fields)) out[k] = unwrap(v);
     return out;
@@ -82,4 +83,24 @@ export const TONES = {
     gray:    ['#3B4756', '#7C8BA0']
 };
 
-export const toneOf = (color) => TONES[color] || TONES.slate;
+/* The dark theme's duotones lift toward the light end, as in tokens.css. */
+export const TONES_DARK = {
+    indigo:  ['#6366F1', '#A5A0FF'],
+    blue:    ['#3B8FEA', '#79BDFF'],
+    sky:     ['#22A8CC', '#63D6F5'],
+    teal:    ['#17B3A2', '#6EEAD6'],
+    emerald: ['#1DA35F', '#63E08D'],
+    green:   ['#1DA35F', '#63E08D'],
+    yellow:  ['#D9A21C', '#F7D96B'],
+    orange:  ['#EF7C22', '#FFB067'],
+    red:     ['#E4553A', '#FF8A80'],
+    pink:    ['#E64C90', '#FBA3CD'],
+    purple:  ['#9366F0', '#C7B6FB'],
+    slate:   ['#67748A', '#A4B0C2'],
+    gray:    ['#67748A', '#A4B0C2']
+};
+
+export const toneOf = (color, theme = 'light') => {
+    const set = theme === 'dark' ? TONES_DARK : TONES;
+    return set[color] || set.slate;
+};

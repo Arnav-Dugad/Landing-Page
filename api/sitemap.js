@@ -45,7 +45,9 @@ export default async function handler() {
     }
 
     const urls = [
-        entry({ loc: `${SITE}/`, changefreq: 'weekly', priority: '1.0' })
+        entry({ loc: `${SITE}/`, changefreq: 'weekly', priority: '1.0' }),
+        entry({ loc: `${SITE}/now`, changefreq: 'weekly', priority: '0.6' }),
+        entry({ loc: `${SITE}/resume`, changefreq: 'monthly', priority: '0.6' })
     ];
 
     // Newest first, and skip anything without a usable slug.

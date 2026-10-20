@@ -8,6 +8,9 @@
      1. a slow diagonal wave              — ambient life
      2. a pointer field                   — dots swell, ink up and lean away
      3. click ripples                     — an expanding ring of displacement
+     4. sound                             — with sound on, every blip the UI
+                                            plays rings out from the pointer,
+                                            pitch setting the ring's speed
 
    Everything is one canvas, one rAF subscription (shared with motion.js),
    and it idles entirely when the tab is hidden or the user is off-pointer.
@@ -80,11 +83,13 @@
 
         const t = time * 0.0007;
 
-        for (let i = 0; i < ripples.length; i++) {
-            ripples[i].r += 9;
-            ripples[i].life -= 0.016;
+        for (let i = ripples.length - 1; i >= 0; i--) {
+            const rp = ripples[i];
+            if (rp.wait > 0) { rp.wait--; continue; }
+            rp.r += rp.speed || 9;
+            rp.life -= rp.decay || 0.016;
+            if (rp.life <= 0) ripples.splice(i, 1);
         }
-        while (ripples.length && ripples[0].life <= 0) ripples.shift();
 
         for (let cy = 0; cy < rows; cy++) {
             for (let cx = 0; cx < cols; cx++) {
@@ -121,10 +126,12 @@
                 // 3 — click ripples
                 for (let i = 0; i < ripples.length; i++) {
                     const rp = ripples[i];
+                    if (rp.wait > 0) continue;
                     const d = Math.hypot(bx - rp.x, by - rp.y);
                     const band = Math.abs(d - rp.r);
-                    if (band < 60) {
-                        const f = ease(1 - band / 60) * rp.life;
+                    const width = rp.width || 60;
+                    if (band < width) {
+                        const f = ease(1 - band / width) * rp.life * (rp.gain || 1);
                         scale += f * 2.2;
                         alpha += f * 0.4;
                         tint = Math.max(tint, f);
@@ -158,6 +165,11 @@
         readPalette();
         if (reduced()) draw(0);          // frozen lattice still needs repainting
     });
+    // An open project re-tints the lattice in its own colour (js/core.js).
+    window.addEventListener('accentchange', () => {
+        readPalette();
+        if (reduced()) draw(0);
+    });
 
     // A gentle parallax: the lattice drifts a fraction of the scroll distance.
     window.addEventListener('scroll', () => {
@@ -175,8 +187,27 @@
     window.addEventListener('pointerdown', (e) => {
         if (reduced()) return;
         ripples.push({ x: e.clientX, y: e.clientY, r: 0, life: 1 });
-        if (ripples.length > 4) ripples.shift();
+        if (ripples.length > 8) ripples.shift();
     }, { passive: true });
+
+    /* Sound made visible. A hover blip is a faint, quick ring; a click is a
+       chord — three rings, each a little later and a little wider, so the
+       lattice "sounds" the same note the speaker does. Higher pitch, faster
+       ring. Only fires when sound is on, because app.js only dispatches then. */
+    window.addEventListener('blip', (e) => {
+        if (reduced() || !pointer.live) return;
+        const { freq = 500, gain = 0.02 } = e.detail || {};
+        const speed = 5 + (freq / 700) * 7;
+        if (gain < 0.02) {
+            ripples.push({ x: pointer.tx, y: pointer.ty, r: 0, life: 0.55, speed, width: 34, gain: 0.7, decay: 0.028 });
+        } else {
+            [0, 7, 15].forEach((wait, i) => ripples.push({
+                x: pointer.tx, y: pointer.ty, r: 0, life: 1 - i * 0.22,
+                speed: speed + i * 1.5, width: 50 + i * 18, gain: 1.15, decay: 0.012, wait
+            }));
+        }
+        while (ripples.length > 10) ripples.shift();
+    });
 
     if (reduced()) {
         // Still render the lattice — just frozen, with no pointer response.

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://arnav-dugad.github.io/Landing-Page/sitemap.xml
+Sitemap: https://www.arnavdugad.in/sitemap.xml

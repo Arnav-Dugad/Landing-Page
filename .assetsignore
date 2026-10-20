@@ -1,7 +1,10 @@
 # Files in the repo root that are not part of the public site.
+# Anything secret or tooling-only MUST be listed here — the whole repo root
+# is the asset directory.
 .git
 .github
 .wrangler
+.playwright-mcp
 node_modules
 api
 worker
@@ -10,6 +13,14 @@ package.json
 package-lock.json
 vercel.json
 wrangler.jsonc
+wrangler.toml
 firestore.rules
+firebase.json
+.firebaserc
 .gitignore
 .assetsignore
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+*.log

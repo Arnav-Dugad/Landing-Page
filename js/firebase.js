@@ -22,7 +22,7 @@ import {
     signInWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-    getFirestore, collection, addDoc, deleteDoc, doc,
+    getFirestore, collection, addDoc, deleteDoc, doc, getDoc,
     onSnapshot, query, orderBy, setDoc, updateDoc, increment, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -144,6 +144,14 @@ window.adminSignOut = async () => {
 };
 
 window.adminEmail = () => (user && !user.isAnonymous ? user.email : null);
+
+/* A fresh ID token for calls to the Worker (the AI tools). The Worker
+   verifies it against Google's keys and the admin address itself, so this
+   proves identity rather than merely claiming it. */
+window.adminIdToken = async () => {
+    if (!user || user.isAnonymous) throw new Error('Sign in as admin first');
+    return user.getIdToken();
+};
 
 /* -------- Projects subscription ----------------------------------------- */
 
@@ -295,6 +303,40 @@ window.saveMessageToDb = async (msg) => {
         return false;
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
+};
+
+/* -------- The /now page -------------------------------------------------- */
+
+const nowDoc = () => doc(db, 'artifacts', APP_ID, 'public', 'data', 'site', 'now');
+
+window.loadNowFromDb = async () => {
+    try {
+        const snap = await getDoc(nowDoc());
+        return snap.exists() ? snap.data() : null;
+    } catch (e) {
+        console.error('Now load failed:', e);
+        return null;
+    }
+};
+
+window.saveNowToDb = async (data) => {
+    if (!user || user.isAnonymous) { window.toast('Sign in as admin first', 'error'); return false; }
+    try {
+        const clip = (v) => String(v || '').slice(0, 2000);
+        await setDoc(nowDoc(), {
+            building: clip(data.building), reading: clip(data.reading),
+            learning: clip(data.learning), note: clip(data.note),
+            updatedAt: Date.now()
+        });
+        window.toast('Now page published', 'success');
+        return true;
+    } catch (e) {
+        console.error('Now save failed:', e);
+        window.toast(e.code === 'permission-denied'
+            ? 'Firestore refused — publish the updated firestore.rules first'
+            : `Could not save: ${e.message}`, 'error');
+        return false;
     }
 };
 

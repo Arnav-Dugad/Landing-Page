@@ -220,6 +220,8 @@
         gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
         osc.start();
         osc.stop(ctx.currentTime + duration);
+        // The dot lattice listens for this and answers with a ripple.
+        window.dispatchEvent(new CustomEvent('blip', { detail: { freq: from, gain: gainValue } }));
     }
 
     window.playHover = () => blip(520, 700, 'sine', 0.014, 0.06);
@@ -430,6 +432,58 @@
     });
 
     /* =====================================================================
+       Detail sheet on phones: a bottom sheet you can drag down to dismiss,
+       and swipe sideways to move between projects.
+       ===================================================================== */
+
+    (function sheetGestures() {
+        if (!detailSheet) return;
+        const panel = detailSheet.querySelector('.sheet-panel');
+        const phone = window.matchMedia('(max-width: 640px)');
+        let start = null;
+
+        panel.addEventListener('pointerdown', (e) => {
+            if (!phone.matches || e.pointerType === 'mouse') return;
+            // Vertical drags only from the grab bar / sticky header, or from
+            // anywhere when the panel is already scrolled to the top.
+            const fromTop = e.target.closest('.sheet-grab, .detail-top') || panel.scrollTop <= 0;
+            if (e.target.closest('iframe, a, button, input, textarea')) return;
+            start = { x: e.clientX, y: e.clientY, t: performance.now(), fromTop, axis: null };
+        });
+
+        panel.addEventListener('pointermove', (e) => {
+            if (!start) return;
+            const dx = e.clientX - start.x;
+            const dy = e.clientY - start.y;
+            if (!start.axis && Math.hypot(dx, dy) > 10) start.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+            if (start.axis === 'y' && start.fromTop && dy > 0) {
+                panel.style.transition = 'none';
+                panel.style.transform = `translateY(${dy}px)`;
+                detailSheet.style.setProperty('--drag', String(Math.min(1, dy / 400)));
+            } else if (start.axis === 'x') {
+                panel.style.transition = 'none';
+                panel.style.transform = `translateX(${dx * 0.35}px)`;
+            }
+        });
+
+        const end = (e) => {
+            if (!start) return;
+            const dx = e.clientX - start.x;
+            const dy = e.clientY - start.y;
+            const v = dy / Math.max(1, performance.now() - start.t);
+            const axis = start.axis;
+            start = null;
+            panel.style.transition = '';
+            panel.style.transform = '';
+            detailSheet.style.removeProperty('--drag');
+            if (axis === 'y' && dy > 0 && (dy > 130 || v > 0.6)) window.closeProject();
+            else if (axis === 'x' && Math.abs(dx) > 80) window.detailNav(dx < 0 ? 1 : -1);
+        };
+        panel.addEventListener('pointerup', end);
+        panel.addEventListener('pointercancel', end);
+    })();
+
+    /* =====================================================================
        Live clock
        ===================================================================== */
 
@@ -487,7 +541,8 @@
         if (topSheet()) return;      // don't act behind an open sheet
 
         const k = e.key.toLowerCase();
-        if (k === 'g') { e.preventDefault(); window.setView(window.PState.view === 'grid' ? 'list' : 'grid'); }
+        if (k === 'g') { e.preventDefault(); window.cycleView(); }
+        else if (k === 'c') { e.preventDefault(); window.openCompare && window.openCompare(); }
         else if (k === 't') { e.preventDefault(); window.cycleTheme(); }
         else if (k === 'r') { e.preventDefault(); window.randomProject(); }
     });
@@ -503,7 +558,8 @@
         const skip = sessionStorage.getItem('intro') === '1'
             || (window.motionReduced && window.motionReduced());
 
-        if (skip) { el.remove(); document.body.classList.remove('is-loading'); return; }
+        if (skip) { el.remove(); document.body.classList.remove('is-loading'); window.introDelay = 0; return; }
+        window.introDelay = 1600;
 
         // Stagger the letters of the name.
         const word = el.querySelector('.curtain-word');
@@ -532,6 +588,18 @@
         if (!M) return;
 
         document.querySelectorAll('[data-split]').forEach((el) => M.splitText(el));
+
+        /* Load choreography: curtain lifts → the name is traced as a stroke
+           and fills → the lead, role and buttons follow → the cards cascade
+           in when they scroll into view. --choreo pushes the hero's reveal
+           delays back by however long the name takes. */
+        const hero = document.querySelector('.hero');
+        const name = document.querySelector('[data-draw]');
+        if (hero && name) {
+            const start = (window.introDelay || 0) + 120;
+            hero.style.setProperty('--choreo', `${M.drawName ? start + 900 : 0}ms`);
+            M.drawName(name, { delay: start });
+        }
         M.reveal(document);
         M.magnetic(document);
         M.tilt(document);
@@ -539,6 +607,8 @@
         M.scrollChrome();
         M.marquee(document.querySelector('.marquee'));
         M.scrollSkew(document.getElementById('grid'));
+        M.weightOnScroll();
+        M.trail();
         document.querySelectorAll('[data-lit]').forEach((el) => M.illuminate(el));
 
         const role = document.getElementById('heroRole');

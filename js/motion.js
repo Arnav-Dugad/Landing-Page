@@ -273,6 +273,188 @@
         });
     }
 
+    /* A number that rolls up only once it's actually on screen. Elements
+       that are already visible roll straight away; later value changes
+       (stars arriving from GitHub) re-roll in place. */
+    const tickerSeen = new WeakSet();
+    let tickerIO = null;
+
+    function tickerInView(el, value, { root = null } = {}) {
+        if (!el) return;
+        el.dataset.target = String(Math.max(0, Math.round(value)));
+        if (reduced() || tickerSeen.has(el)) { odometer(el, value); return; }
+
+        // Paint zeros at the final width so nothing shifts when it rolls —
+        // and so the roll is a transition, not a rebuild.
+        const len = el.dataset.target.length;
+        if (el.dataset.len !== String(len)) {
+            el.dataset.len = String(len);
+            el.innerHTML = Array.from({ length: len }, () =>
+                `<span class="odo"><u>${Array.from({ length: 10 }, (_, n) => `<i>${n}</i>`).join('')}</u></span>`).join('');
+        }
+        const make = (r) => new IntersectionObserver((entries, io) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                tickerSeen.add(entry.target);
+                io.unobserve(entry.target);
+                odometer(entry.target, Number(entry.target.dataset.target || 0));
+            });
+        }, { root: r, threshold: 0.6 });
+
+        const io = root ? make(root) : (tickerIO || (tickerIO = make(null)));
+        io.observe(el);
+    }
+
+    /* =======================================================================
+       Hero name — drawn as a stroke, then filled
+       The real <h1> text stays in the DOM for screen readers and search; an
+       SVG copy laid exactly over each line traces the outlines first.
+       ===================================================================== */
+
+    function drawName(el, { delay = 0 } = {}) {
+        if (!el || el.dataset.drawn === '1') return;
+        el.dataset.drawn = '1';
+        if (reduced()) { el.classList.add('is-drawn'); return; }
+
+        el.classList.add('is-drawing');
+
+        const run = () => {
+            const lines = Array.from(el.querySelectorAll('.ln'));
+            lines.forEach((ln, i) => {
+                const text = ln.textContent.trim();
+                const target = ln.querySelector('em') || ln;
+                const cs = getComputedStyle(target);
+                const r = ln.getBoundingClientRect();
+                const NS = 'http://www.w3.org/2000/svg';
+
+                // Find the real baseline: a zero-height inline-block sits on it.
+                const probe = document.createElement('i');
+                probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+                target.appendChild(probe);
+                const baseline = probe.getBoundingClientRect().top - r.top;
+                const startX = (target === ln ? r.left : target.getBoundingClientRect().left) - r.left;
+                probe.remove();
+
+                const svg = document.createElementNS(NS, 'svg');
+                svg.setAttribute('class', 'draw');
+                svg.setAttribute('aria-hidden', 'true');
+                svg.setAttribute('width', String(Math.ceil(r.width + 60)));
+                svg.setAttribute('height', String(Math.ceil(r.height + 40)));
+
+                const t = document.createElementNS(NS, 'text');
+                t.textContent = text;
+                t.setAttribute('x', String(startX));
+                t.setAttribute('y', String(baseline));
+                ['font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing', 'font-variation-settings']
+                    .forEach((prop) => t.style.setProperty(prop, cs.getPropertyValue(prop)));
+                t.style.setProperty('--draw-delay', `${delay + i * 260}ms`);
+                svg.appendChild(t);
+                ln.appendChild(svg);
+
+                // Long enough for the dash to cover every glyph outline once.
+                let len = 1800;
+                try { len = Math.ceil(t.getComputedTextLength() * 6); } catch { /* fallback */ }
+                t.setAttribute('stroke-dasharray', String(len));
+                t.setAttribute('stroke-dashoffset', String(len));
+                // Web Animations rather than a class + CSS transition: the
+                // trace must start from the hidden offset on the very first
+                // frame, with no dependence on when styles get flushed.
+                if (t.animate) {
+                    t.animate(
+                        [{ strokeDashoffset: `${len}px` }, { strokeDashoffset: '0px' }],
+                        { duration: 1500, delay: delay + i * 260, easing: 'cubic-bezier(.65, 0, .35, 1)', fill: 'forwards' }
+                    );
+                } else {
+                    t.setAttribute('stroke-dashoffset', '0');
+                }
+            });
+
+            el.classList.add('is-tracing');
+            const total = delay + (lines.length - 1) * 260 + 1500;
+            setTimeout(() => el.classList.add('is-drawn'), total);
+            setTimeout(() => {
+                el.classList.remove('is-drawing', 'is-tracing');
+                el.querySelectorAll('svg.draw').forEach((s) => s.remove());
+            }, total + 900);
+        };
+
+        // Measuring before the webfont lands would trace the fallback serif.
+        const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+        Promise.race([fonts, new Promise((r) => setTimeout(r, 1600))]).then(run);
+    }
+
+    /* =======================================================================
+       Display weight follows scroll speed — headings get heavier the faster
+       you move, then relax. One custom property; CSS adds it to the weight.
+       ===================================================================== */
+
+    function weightOnScroll() {
+        if (reduced()) return;
+        const root = document.documentElement;
+        let last = window.scrollY;
+        let target = 0, current = 0;
+
+        window.addEventListener('scroll', () => {
+            const now = window.scrollY;
+            target = clamp(Math.abs(now - last) * 4.2, 0, 220);
+            last = now;
+        }, { passive: true });
+
+        onFrame(() => {
+            target *= 0.9;
+            const next = lerp(current, target, 0.12);
+            if (Math.abs(next - current) < 0.4 && next < 1) {
+                if (current !== 0) { current = 0; root.style.setProperty('--vw', '0'); }
+                return;
+            }
+            current = next;
+            root.style.setProperty('--vw', current.toFixed(0));
+        });
+    }
+
+    /* =======================================================================
+       Cursor trail — a short ribbon of dots in the hovered project's colours
+       ===================================================================== */
+
+    function trail() {
+        if (reduced() || !FINE.matches) return;
+        const N = 9;
+        const box = document.createElement('div');
+        box.className = 'trail';
+        box.setAttribute('aria-hidden', 'true');
+        box.innerHTML = Array.from({ length: N }, (_, i) => `<i style="--i:${i}"></i>`).join('');
+        document.body.appendChild(box);
+        const dots = Array.from(box.children);
+        const pts = dots.map(() => ({ x: -100, y: -100 }));
+
+        let mx = -100, my = -100, active = false, idle = 0;
+
+        window.addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; idle = 0; }, { passive: true });
+
+        document.addEventListener('pointerover', (e) => {
+            const host = e.target.closest && e.target.closest('.card, .ix-row, .tl-item, .rel-card');
+            if (host) {
+                const cs = getComputedStyle(host);
+                box.style.setProperty('--ta', cs.getPropertyValue('--tone-a'));
+                box.style.setProperty('--tb', cs.getPropertyValue('--tone-b'));
+            }
+            active = !!host;
+            box.classList.toggle('is-on', active);
+        });
+
+        onFrame(() => {
+            if (!active && idle > 40) return;
+            idle++;
+            let x = mx, y = my;
+            pts.forEach((p, i) => {
+                p.x = lerp(p.x, x, 0.42 - i * 0.025);
+                p.y = lerp(p.y, y, 0.42 - i * 0.025);
+                dots[i].style.transform = `translate3d(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px, 0)`;
+                x = p.x; y = p.y;
+            });
+        });
+    }
+
     /* =======================================================================
        Marquee — seamless loop, speed and direction follow the scroll
        ===================================================================== */
@@ -614,8 +796,9 @@
 
     window.Motion = {
         reveal, stagger, splitText, magnetic, tilt, cursor,
-        odometer, marquee, scrollChrome, scramble,
+        odometer, tickerInView, marquee, scrollChrome, scramble,
         flipGrid, filterPill, scrollSkew, illuminate,
+        drawName, weightOnScroll, trail,
         onFrame, lerp, clamp
     };
 })();

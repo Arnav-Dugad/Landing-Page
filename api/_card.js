@@ -16,12 +16,20 @@ import { findProject, toneOf } from './_project.js';
 const W = 1200;
 const H = 630;
 
-const PAPER = '#F7F5F0';
-const INK = '#100E0C';
-const INK_50 = '#4F493F';
-const INK_35 = '#6E6759';
-const ACCENT = '#C43E1F';
-const LINE = 'rgba(16,14,12,0.14)';
+/* Both palettes restate css/tokens.css, so a card matches the theme it was
+   asked for — ?theme=dark gives the dark site's paper, ink and duotones. */
+const PALETTES = {
+    light: {
+        PAPER: '#F7F5F0', INK: '#100E0C', INK_50: '#4F493F', INK_35: '#6E6759',
+        ACCENT: '#C43E1F', LINE: 'rgba(16,14,12,0.14)', TAG_BG: '#EDEAE1', PLAQUE_INK: '#FFFFFF'
+    },
+    dark: {
+        PAPER: '#131110', INK: '#FAF7F1', INK_50: '#B2AA9A', INK_35: '#8B8373',
+        ACCENT: '#F2764E', LINE: 'rgba(250,247,241,0.13)', TAG_BG: 'rgba(250,247,241,0.07)', PLAQUE_INK: '#131110'
+    }
+};
+
+export const themeOf = (value) => (value === 'dark' ? 'dark' : 'light');
 
 /* Tiny hyperscript: h(type, style, ...children) */
 const h = (type, props, ...children) => ({
@@ -55,15 +63,22 @@ async function loadFont(family, weight) {
 }
 
 /* Everything an ImageResponse needs, minus the ImageResponse itself, so the
-   Vercel and Cloudflare entry points can each use their own renderer. */
-export async function buildCard(req) {
-    const slug = new URL(req.url).searchParams.get('p');
+   Vercel and Cloudflare entry points can each use their own renderer.
+   A caller that already holds the project (the worker does, to version its
+   cache key) passes it in to skip the second lookup. */
+export async function buildCard(req, opts = {}) {
+    const url = new URL(req.url);
+    const slug = url.searchParams.get('p');
+    const theme = themeOf(opts.theme || url.searchParams.get('theme'));
+    const { PAPER, INK, INK_50, INK_35, ACCENT, LINE, TAG_BG, PLAQUE_INK } = PALETTES[theme];
 
-    let project = null;
-    try {
-        if (slug) project = await findProject(slug);
-    } catch {
-        /* fall through to the generic card */
+    let project = opts.project !== undefined ? opts.project : null;
+    if (opts.project === undefined) {
+        try {
+            if (slug) project = await findProject(slug);
+        } catch {
+            /* fall through to the generic card */
+        }
     }
 
     const title = project?.title || 'Arnav Dugad';
@@ -71,7 +86,7 @@ export async function buildCard(req) {
     const category = (project?.category || 'portfolio').toUpperCase();
     const year = project?.year || '';
     const tags = (project?.tags || []).filter(Boolean).slice(0, 4);
-    const [toneA, toneB] = toneOf(project?.color);
+    const [toneA, toneB] = toneOf(project?.color, theme);
     const initial = String(title).trim().charAt(0).toUpperCase() || 'A';
 
     const [display, body] = await Promise.all([
@@ -112,7 +127,7 @@ export async function buildCard(req) {
                         width: '86px', height: '86px',
                         borderRadius: '24px',
                         background: `linear-gradient(140deg, ${toneA}, ${toneB})`,
-                        color: '#FFFFFF',
+                        color: PLAQUE_INK,
                         fontSize: '44px',
                         fontFamily: displayFamily,
                         marginRight: '26px'
@@ -168,7 +183,7 @@ export async function buildCard(req) {
                     ? tags.map((t) => text(
                         {
                             fontSize: '22px', color: INK_50,
-                            background: '#EDEAE1', border: `2px solid ${LINE}`,
+                            background: TAG_BG, border: `2px solid ${LINE}`,
                             borderRadius: '10px', padding: '10px 18px',
                             marginRight: '12px', display: 'flex'
                         },

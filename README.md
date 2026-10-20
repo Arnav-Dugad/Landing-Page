@@ -1,6 +1,6 @@
 # Landing-Page
 
-**Live:** https://www.arnavdugad.in/  ·  mirror: https://arnav-dugad.github.io/Landing-Page/
+**Live:** https://www.arnavdugad.in/ (Cloudflare)  ·  mirror: https://arnav-dugad.github.io/Landing-Page/
 
 A light, editorial portfolio built as a single static site — warm paper, near-black
 ink, one vermillion accent. Every project is stored in **Firebase Firestore** and
@@ -69,6 +69,24 @@ so the page never flashes the wrong palette.
   buttons directly, and the detail sheet keeps them in a sticky header rather than
   below the write-up.
 - **Deep links** — `#project-slug` opens that project directly.
+- **Four ways to browse** — grid, list, a typographic **index** (huge serif titles,
+  a preview floats beside the cursor) and a **timeline** by year whose spine inks
+  itself in as you scroll, with "firsts" marked (*First with Three.js*).
+- **Live status** — the Worker checks every live link (re-run whenever the last check is over 15 minutes old); cards show
+  *Up · 120 ms* or *Down*, broken ones fade, and "Live right now" counts real answers.
+- **Compare** — pick two or three projects for a side-by-side table: stars, forks,
+  last push, languages, and the tech they share highlighted. The picks live in the URL.
+- **Changelog, reactions, related** — each project shows its latest releases or
+  commits, five emoji reactions (deduped and rate-limited by the Worker) and the
+  three most similar projects.
+- **Share sheet** — the actual social card, light or dark, animated, with copy /
+  native share / X / LinkedIn / email / download.
+- **Search by idea** — every word must match, and AI-written search terms mean
+  "multiplayer" or "voice" find work whose title never says it. Empty results
+  suggest the smallest change that brings something back, with its count.
+- **[/now](now.html)**, a printable **[résumé](resume.html)** generated from the
+  projects, **RSS + JSON feeds**, and a 404 page whose dot lattice tears around
+  the cursor.
 
 **The craft**
 - **⌘K command palette** — fuzzy search across projects, navigation, filters,
@@ -101,6 +119,25 @@ so the page never flashes the wrong palette.
   reading the real column count from the layout so it works at every breakpoint.
 - **Prints cleanly** — a dedicated print stylesheet strips the chrome and expands
   link URLs, so the portfolio survives being turned into a PDF.
+- **Motion, again** — the hero name is traced as a stroke then filled; display
+  headings gain weight with scroll speed; the card border floods with the project's
+  colour from wherever the pointer entered; a short cursor trail takes the hovered
+  project's duotone; opening a project re-tints the whole page (accent, lattice,
+  wash) in its colour; cards morph into the detail sheet and into case studies via
+  View Transitions; reorder drops land on a spring; with sound on, every blip
+  ripples the lattice; the stack marks assemble out of dots as they scroll in.
+- **Phones** — the detail sheet docks to the bottom: drag down to dismiss, swipe
+  sideways for the next project.
+
+**Admin AI (Claude · Gemini · ChatGPT)** — admin only, keys never in the browser:
+- **Ask my portfolio** — a chat that sees every project and suggests what to fix.
+- **Improve with AI** — rewrites a project's copy and case study from its README;
+  every change is shown as a diff and applied only if you tick it.
+- **Search terms** and **screenshot alt text**, per project or for everything at once.
+
+Calls go to `/api/ai` with your Firebase ID token; the Worker verifies it against
+Google's keys and the admin address, then calls the provider with a key from Worker
+secrets. Models are chosen per call and can be overridden in *AI studio → Tools*.
 
 <h3 id="open-graph">Open Graph</h3>
 
@@ -130,14 +167,24 @@ Pages the share button simply falls back to the hash deep link.
 ```
 index.html            Semantic markup only — no app logic, no framework classes
 case.html             The long-form case-study page
+now.html, resume.html, 404.html   The /now page, printable résumé, not-found page
 
 css/tokens.css        Design tokens (both themes), reset, typography, utilities
 css/layout.css        Backdrop, nav, hero, section rhythm, marquee, footer, rail
 css/components.css    Buttons, cards, sheets, forms, palette, toasts, cursor
 css/motion.css        Reveal vocabulary + every keyframe
 css/case.css          Case-study layout
+css/widgets.css       Tech marks, status chips, reactions, changelog, related cards
+css/features.css      Views, compare, share, AI studio, peek, mobile sheet, motion extras
+css/pages.css         Now, résumé and 404 pages
 
 js/icons.js           Hand-drawn 24px SVG icon set + legacy `fa-*` mapping
+js/core.js            Shared helpers: escaping, tones, categories, edge fetch, theming
+js/widgets.js         Shared widgets used by the index and case pages
+js/views.js           Index + timeline views, compare, share, peek, health, Now editor
+js/ai.js              Admin AI studio and editor AI buttons
+js/rest.js            Firestore REST reader for the standalone pages
+js/now.js, js/resume.js, js/notfound.js   The standalone pages
 js/theme.js           Light / dark / system switching
 js/motion.js          Reveals, split text, magnetic, tilt, cursor, odometer, marquee
 js/backdrop.js        The interactive dot lattice
@@ -158,9 +205,12 @@ api/og.js             GET /api/og?p=<slug> → 1200x630 social card (Vercel)
 api/share.js          GET /p/<slug> → per-project Open Graph tags
 api/sitemap.js        GET /sitemap.xml → every project, generated live
 
-worker/index.js       Cloudflare entry: the same routes, plus OG caching
+worker/index.js       Cloudflare entry + cron; routes to the modules below
+worker/*.js           auth (Firebase token check), ai, status, reactions, now,
+                      feeds, og (incl. animated SVG), firestore (REST client)
 
-firestore.rules       Security rules — deploy from the Firebase console
+firestore.rules       Security rules — `firebase deploy --only firestore:rules`
+firebase.json         Points the Firebase CLI at firestore.rules
 wrangler.jsonc        Cloudflare Worker + static assets config
 .assetsignore         Repo files Cloudflare must not publish
 _headers              Security and cache headers for Cloudflare static files
@@ -212,54 +262,54 @@ python -m http.server 8000
 
 ## Deploying
 
-**Cloudflare** — live at https://arnav-portfolio.arnavrival12.workers.dev. A Worker
-with static assets: the repo root is the site, `.assetsignore` keeps the source files
-out, and the worker only wakes for `/p/*`, `/api/*` and `/sitemap.xml`.
+**Cloudflare** (primary) — a Worker with static assets. The repo root is the site,
+`.assetsignore` keeps source and secrets out, and the worker only wakes for `/api/*`,
+`/p/*`, `/sitemap.xml` and the feeds.
 
 ```bash
 npm install
-npm run dev      # local, http://localhost:8787 — the real worker, not a mock
-npm run deploy   # ship it (wrangler login first)
+npm run dev      # http://localhost:8787 — the real worker; secrets come from .dev.vars
+npm run deploy
 ```
 
-Rendered OG cards are kept in Cloudflare's edge cache for an hour, since a render
-costs ~200 ms of CPU. To deploy on every push, connect the repo under **Workers &
-Pages → arnav-portfolio → Settings → Build** (build command empty, deploy command
-`npx wrangler deploy`).
+Worker secrets (`npx wrangler secret put NAME`, or the dashboard → Settings →
+Variables and Secrets):
 
-**GitHub Pages** — already wired. Pushing to `main` updates the live site.
-
-**Vercel** — import `Arnav-Dugad/Landing-Page` at
-[vercel.com/new](https://vercel.com/new). It is a static site, so accept the
-defaults:
-
-| Setting | Value |
+| Secret | Needed for |
 |---|---|
-| Framework preset | **Other** |
-| Build command | *(leave empty)* |
-| Output directory | *(leave empty — repo root)* |
-| Install command | *(leave empty)* |
+| `EDGE_EMAIL`, `EDGE_PASSWORD` | The Worker's own Firebase account (reactions, status) — already set |
+| `ANTHROPIC_API_KEY` | Claude in the AI tools |
+| `GEMINI_API_KEY` | Gemini in the AI tools |
+| `OPENAI_API_KEY` | ChatGPT in the AI tools |
+| `GITHUB_TOKEN` *(optional)* | Higher GitHub rate limits when reading READMEs |
 
-`vercel.json` supplies the `/p/:slug` rewrite, security headers and cache policy.
-After the first deploy, every push to `main` ships automatically.
+The custom domain is attached in `wrangler.jsonc` (`routes`) once `arnavdugad.in`
+uses Cloudflare's nameservers. Add a Redirect Rule `arnavdugad.in/*` →
+`https://www.arnavdugad.in/${1}` (301) so the bare domain forwards.
 
-Two one-time steps:
+**GitHub Pages** — mirror; pushing to `main` updates it. The edge features (status,
+reactions, feeds, AI) need the Worker and quietly switch off there.
 
-- Add the deployed domain to **Firebase console → Authentication → Settings →
-  Authorized domains**, otherwise sign-in is blocked there and no projects load.
-- Turn on **Analytics** and **Speed Insights** in the Vercel project dashboard. The
-  script tags are already in the pages; until the features are enabled those paths
-  return 404 and nothing else is affected.
-
-**Analytics** is wired via `/_vercel/insights/script.js` and
-`/_vercel/speed-insights/script.js` — no npm package, no React provider.
+**Vercel** — the `api/` functions still work there, but the account is currently
+blocked; Cloudflare replaces it.
 
 ## Firebase
 
-Data lives under `artifacts/arnav-portfolio-v1/public/data/{projects,messages,stats}`.
-`firestore.rules` validates payload shape and size and keeps the contact inbox
-private — deploy it from **Firebase console → Firestore → Rules**. Editing the file
-alone does not change the live rules.
+Data lives under `artifacts/arnav-portfolio-v1/public/data/` —
+`projects`, `messages`, `stats`, `reactions`, `reactionVotes` and `site/{now,status}`.
+All data is in Firestore; Cloudflare stores nothing but a short-lived cache.
+
+`firestore.rules` validates payload shape and size, keeps the inbox and vote ledger
+private, and lets only the Worker's own account (`edge-worker@arnavdugad.in`) write
+reactions and status. Publish it with:
+
+```bash
+firebase login:add            # once, with the Google account that owns the project
+firebase deploy --only firestore:rules --account arnavrival12@gmail.com
+```
+
+(or paste it into **Firebase console → Firestore → Rules → Publish**). Editing the
+file alone does not change the live rules.
 
 ---
 

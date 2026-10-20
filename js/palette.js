@@ -40,7 +40,10 @@
             { group: 'Navigate', icon: 'grid',      label: 'Go to work',    keywords: 'projects portfolio grid', run: go('work') },
             { group: 'Navigate', icon: 'info',      label: 'Go to about',   keywords: 'bio story who', run: go('about') },
             { group: 'Navigate', icon: 'layers',    label: 'Go to stack',   keywords: 'tech tools skills', run: go('stack') },
-            { group: 'Navigate', icon: 'send',      label: 'Go to contact', keywords: 'email reach hire', run: go('contact') }
+            { group: 'Navigate', icon: 'send',      label: 'Go to contact', keywords: 'email reach hire', run: go('contact') },
+            { group: 'Navigate', icon: 'pulse',     label: 'What I’m doing now', keywords: 'now current reading learning building', run: () => { location.href = 'now.html'; } },
+            { group: 'Navigate', icon: 'doc',       label: 'Résumé', sub: 'Printable, generated from the projects', keywords: 'cv resume pdf hire print', run: () => { location.href = 'resume.html'; } },
+            { group: 'Navigate', icon: 'news',      label: 'RSS feed', keywords: 'rss atom subscribe feed json', run: () => { location.href = '/feed.xml'; } }
         );
 
         const cats = [...new Set(projects.map((p) => p.category || 'other'))].sort();
@@ -65,9 +68,15 @@
         });
 
         cmds.push(
-            { group: 'View', icon: 'grid', label: 'Grid view', keywords: 'cards tiles layout', run: () => window.setView('grid') },
-            { group: 'View', icon: 'list', label: 'List view', keywords: 'rows compact layout', run: () => window.setView('list') }
+            { group: 'View', icon: 'grid',    label: 'Grid view',     keywords: 'cards tiles layout', run: () => { window.setView('grid'); go('work')(); } },
+            { group: 'View', icon: 'list',    label: 'List view',     keywords: 'rows compact layout', run: () => { window.setView('list'); go('work')(); } },
+            { group: 'View', icon: 'type',    label: 'Index view',    keywords: 'typographic titles magazine list', run: () => { window.setView('index'); go('work')(); } },
+            { group: 'View', icon: 'history', label: 'Timeline view', keywords: 'years chronology history when', run: () => { window.setView('timeline'); go('work')(); } },
+            { group: 'View', icon: 'link',    label: 'Copy link to this view', keywords: 'share url filter saved', run: () => document.getElementById('copyView')?.click() }
         );
+        if ((window.PState.compare || []).length >= 2) {
+            cmds.push({ group: 'View', icon: 'scale', label: 'Compare picked projects', keywords: 'side by side diff', run: () => window.openCompare() });
+        }
 
         cmds.push(
             { group: 'Actions', icon: 'dice',    label: 'Surprise me',        sub: 'Open a random project', keywords: 'random lucky shuffle', run: () => window.randomProject() },
@@ -96,6 +105,9 @@
         });
         if (window.isAdmin) {
             cmds.push({ group: 'Admin', icon: 'plus', label: 'Add a new project', keywords: 'create new add', run: () => window.newProject() });
+            cmds.push({ group: 'Admin', icon: 'sparkles', label: 'AI studio', sub: 'Claude · Gemini · ChatGPT', keywords: 'ai chat ask claude gemini chatgpt openai improve', run: () => window.openAiStudio() });
+            cmds.push({ group: 'Admin', icon: 'pulse', label: 'Health check', sub: 'Dead repos and links that are down', keywords: 'broken dead links status repo', run: () => window.openHealth() });
+            cmds.push({ group: 'Admin', icon: 'pen', label: 'Edit the Now page', keywords: 'now update status', run: () => window.openNowEditor() });
             (window.getProjects ? window.getProjects() : []).forEach((p) => cmds.push({
                 group: 'Admin', icon: 'pencil', label: `Edit: ${p.title}`,
                 keywords: 'change update modify', hint: 'Edit',

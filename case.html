@@ -11,6 +11,7 @@
 
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="site.webmanifest">
+<link rel="alternate" type="application/rss+xml" title="Arnav Dugad — new work" href="/feed.xml">
 
 <script>
 (function () {
@@ -34,6 +35,7 @@
 <link rel="stylesheet" href="css/layout.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/widgets.css">
 <link rel="stylesheet" href="css/case.css">
 </head>
 
@@ -48,19 +50,24 @@
 </div>
 
 <div class="progress" aria-hidden="true"></div>
+<div class="case-progress" aria-hidden="true"><i></i></div>
 <div class="cur-dot" aria-hidden="true"></div>
 <div class="cur-ring" aria-hidden="true"><b></b></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
 <nav class="nav" aria-label="Primary">
     <a class="nav-mark" href="./" aria-label="Back to the portfolio"><i>AD</i> Arnav Dugad</a>
-    <div class="nav-links">
+    <div class="nav-links" id="navLinks">
         <a class="nav-link" href="./#work">All work</a>
-        <a class="nav-link" href="./#about">About</a>
+        <a class="nav-link" href="now.html">Now</a>
+        <a class="nav-link" href="resume.html">Résumé</a>
         <a class="nav-link" href="./#contact">Contact</a>
     </div>
     <div class="nav-actions">
         <button class="ibtn ibtn--solid" data-theme-toggle data-size="16" aria-label="Change theme"></button>
+        <button class="ibtn nav-burger" id="navBurger" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks">
+            <span data-icon="menu" data-size="18"></span>
+        </button>
     </div>
 </nav>
 
@@ -82,6 +89,10 @@
             <div class="footer-meta">
                 <a href="./#work">← Back to all work</a>
                 <span class="footer-sep"></span>
+                <a href="now.html">Now</a>
+                <span class="footer-sep"></span>
+                <a href="resume.html">Résumé</a>
+                <span class="footer-sep"></span>
                 <button data-theme-toggle data-theme-label data-size="12">Theme</button>
             </div>
         </div>
@@ -90,17 +101,15 @@
 
 <button class="totop" aria-label="Back to top"><span data-icon="arrow-up" data-size="17"></span></button>
 
-<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
-
 <script src="js/icons.js"></script>
+<script src="js/core.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/motion.js"></script>
 <script src="js/backdrop.js"></script>
 <script src="js/github.js"></script>
+<script src="js/rest.js"></script>
+<script src="js/widgets.js"></script>
 <script src="js/case.js"></script>
-
-<script defer src="/_vercel/insights/script.js"></script>
-<script defer src="/_vercel/speed-insights/script.js"></script>
 
 </body>
 </html>

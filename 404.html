@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F5F0">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+
+<!-- A 404 can be served at any depth (/a/b/c), so every asset path must be
+     anchored. Cloudflare serves the site at the root; the GitHub Pages
+     mirror lives under /Landing-Page/. One <base> covers both: it is static
+     (document.write'd bases are ignored by some engines) and retargeted
+     before any asset below it is parsed. -->
+<base href="/">
+<script>
+if (/\.github\.io$/i.test(location.hostname)) document.querySelector('base').href = '/Landing-Page/';
+</script>
+
+<title>Page not found — Arnav Dugad</title>
+<meta name="description" content="This page doesn't exist — but plenty of other things here do.">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+<script>
+(function () {
+    try {
+        var pref = localStorage.getItem('theme') || 'system';
+        var dark = pref === 'dark' ||
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.dataset.themePref = pref;
+    } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+    }
+})();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Inter+Tight:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+
+<body class="is-404">
+
+<div class="bd" aria-hidden="true">
+    <div class="bd-wash"><span></span><span></span><span></span></div>
+    <canvas id="tear"></canvas>
+    <div class="bd-grain"></div>
+</div>
+
+<div class="cur-dot" aria-hidden="true"></div>
+<div class="cur-ring" aria-hidden="true"><b></b></div>
+
+<nav class="nav" aria-label="Primary">
+    <a class="nav-mark" href="./" aria-label="Arnav Dugad — home"><i>AD</i> Arnav Dugad</a>
+    <div class="nav-actions" style="margin-left:auto">
+        <button class="ibtn ibtn--solid" data-theme-toggle data-size="16" aria-label="Change theme"></button>
+    </div>
+</nav>
+
+<main class="lost u-shell">
+    <p class="lost-code u-mono" data-reveal="fade">Error 404 · <span id="lostPath"></span></p>
+    <h1 class="lost-title" aria-label="404">
+        <span>4</span><span><em>0</em></span><span>4</span>
+    </h1>
+    <p class="lost-line" data-reveal="up" style="--delay:160ms">This page wandered off.</p>
+    <p class="lost-sub" data-reveal="up" style="--delay:220ms">
+        The link may be old, or the project renamed. Move your cursor — the page is
+        coming apart a little too.
+    </p>
+    <div class="lost-cta" data-reveal="up" style="--delay:300ms">
+        <a class="btn btn--primary magnetic" href="./" data-cursor="Home">
+            <span data-icon="arrow-left" data-size="17"></span> Back home
+        </a>
+        <button class="btn btn--ghost magnetic" id="lostRandom" data-cursor="Roll" hidden>
+            <span data-icon="dice" data-size="17"></span> Take me somewhere random
+        </button>
+    </div>
+</main>
+
+<script src="js/icons.js"></script>
+<script src="js/core.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/motion.js"></script>
+<script src="js/rest.js"></script>
+<script src="js/notfound.js"></script>
+
+</body>
+</html>

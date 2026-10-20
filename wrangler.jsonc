@@ -10,9 +10,32 @@
         "binding": "ASSETS",
         // /case serves case.html, like Vercel's cleanUrls.
         "html_handling": "auto-trailing-slash",
-        "not_found_handling": "none",
+        // Unknown paths get /404.html with a real 404 status.
+        "not_found_handling": "404-page",
         // Only these paths wake the worker; everything else is a static hit.
-        "run_worker_first": ["/api/*", "/p/*", "/sitemap.xml", "/_vercel/*"]
+        "run_worker_first": ["/api/*", "/p/*", "/sitemap.xml", "/feed.xml", "/feed.json", "/_vercel/*"]
     },
+
+    // Public, non-secret settings. Secrets (never in this file):
+    //   EDGE_EMAIL, EDGE_PASSWORD     the worker's own Firebase account
+    //   ANTHROPIC_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY   admin AI tools
+    //   VOTER_SALT (optional), GITHUB_TOKEN (optional, raises README rate limits)
+    // Set with `npx wrangler secret put NAME`, or locally in .dev.vars.
+    "vars": {
+        "ADMIN_EMAIL": "arnavrival12@gmail.com"
+    },
+
+    // No cron: the account's 5 free cron slots are used by other Workers.
+    // /api/status re-checks on demand whenever the stored result is older
+    // than 15 minutes, so a visit is what keeps it fresh.
+    "triggers": { "crons": [] },
+
+    // Uncomment once arnavdugad.in is active on Cloudflare (nameservers
+    // switched), then `npm run deploy` attaches both hostnames to this worker.
+    // "routes": [
+    //     { "pattern": "www.arnavdugad.in", "custom_domain": true },
+    //     { "pattern": "arnavdugad.in", "custom_domain": true }
+    // ],
+
     "observability": { "enabled": true }
 }

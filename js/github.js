@@ -140,6 +140,19 @@
 
     window.githubRateLimited = () => Date.now() < rateLimitedUntil;
 
+    /* True only when GitHub has positively answered 404 for the repo — a null
+       from a rate limit or a network blip must never be reported as "gone".
+       Undefined means "not checked yet". */
+    window.githubRepoMissing = (repoOrProject) => {
+        const repoUrl = (repoOrProject && typeof repoOrProject === 'object')
+            ? window.resolveRepoUrl(repoOrProject)
+            : repoOrProject;
+        const slug = parseRepo(repoUrl);
+        if (!slug) return undefined;
+        const cached = readCache(`https://api.github.com/repos/${slug}`);
+        return cached === undefined ? undefined : cached === null;
+    };
+
     /* Returns { stars, forks, updatedAt, url } or null. Never throws.
        Accepts a repo URL/slug OR a project object (auto-resolves). */
     window.fetchGitHubStats = async (repoOrProject) => {
@@ -180,6 +193,58 @@
         return Object.entries(data)
             .map(([name, bytes]) => ({ name, bytes, pct: (bytes / total) * 100 }))
             .sort((a, b) => b.bytes - a.bytes);
+    };
+
+    /* ---- Changelog: releases first, recent commits as the fallback ------
+       Both ride the same 6h cache, so opening a project twice costs nothing. */
+    window.fetchGitHubReleases = async (repoOrProject, n = 5) => {
+        const repoUrl = (repoOrProject && typeof repoOrProject === 'object')
+            ? window.resolveRepoUrl(repoOrProject)
+            : repoOrProject;
+        const slug = parseRepo(repoUrl);
+        if (!slug) return [];
+        const data = await cachedJson(`https://api.github.com/repos/${slug}/releases?per_page=${n}`);
+        if (!Array.isArray(data)) return [];
+        return data.filter((r) => !r.draft).map((r) => ({
+            name: r.name || r.tag_name || 'Release',
+            tag: r.tag_name || '',
+            url: r.html_url,
+            date: r.published_at || r.created_at || null,
+            body: String(r.body || '').slice(0, 600)
+        }));
+    };
+
+    window.fetchGitHubCommits = async (repoOrProject, n = 6) => {
+        const repoUrl = (repoOrProject && typeof repoOrProject === 'object')
+            ? window.resolveRepoUrl(repoOrProject)
+            : repoOrProject;
+        const slug = parseRepo(repoUrl);
+        if (!slug) return [];
+        const data = await cachedJson(`https://api.github.com/repos/${slug}/commits?per_page=${n}`);
+        if (!Array.isArray(data)) return [];
+        return data.map((c) => ({
+            sha: String(c.sha || '').slice(0, 7),
+            // First line only — the subject is the changelog entry.
+            message: String((c.commit && c.commit.message) || '').split('\n')[0].slice(0, 140),
+            url: c.html_url,
+            date: (c.commit && c.commit.author && c.commit.author.date) || null,
+            author: (c.author && c.author.login) || (c.commit && c.commit.author && c.commit.author.name) || ''
+        }));
+    };
+
+    /* Raw README text (default branch), for the admin AI tools. */
+    window.fetchGitHubReadme = async (repoOrProject) => {
+        const repoUrl = (repoOrProject && typeof repoOrProject === 'object')
+            ? window.resolveRepoUrl(repoOrProject)
+            : repoOrProject;
+        const slug = parseRepo(repoUrl);
+        if (!slug) return '';
+        const meta = await cachedJson(`https://api.github.com/repos/${slug}/readme`);
+        if (!meta || !meta.content) return '';
+        try {
+            const bytes = Uint8Array.from(atob(String(meta.content).replace(/\s/g, '')), (c) => c.charCodeAt(0));
+            return new TextDecoder().decode(bytes);
+        } catch { return ''; }
     };
 
     /* ---- Automatic tech detection --------------------------------------

@@ -15,6 +15,7 @@
         var dark = pref === 'dark' ||
             (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         var root = document.documentElement;
+        root.classList.add('js');
         root.dataset.theme = dark ? 'dark' : 'light';
         root.dataset.themePref = pref;
     } catch (e) {
@@ -43,6 +44,8 @@
 
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="site.webmanifest">
+<link rel="alternate" type="application/rss+xml" title="Arnav Dugad — new work" href="/feed.xml">
+<link rel="alternate" type="application/feed+json" title="Arnav Dugad — new work" href="/feed.json">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,6 +56,8 @@
 <link rel="stylesheet" href="css/layout.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/widgets.css">
+<link rel="stylesheet" href="css/features.css">
 
 <script type="application/ld+json">
 {
@@ -104,6 +109,7 @@
         <a class="nav-link" href="#work">Work</a>
         <a class="nav-link" href="#about">About</a>
         <a class="nav-link" href="#stack">Stack</a>
+        <a class="nav-link" href="now.html">Now</a>
         <a class="nav-link" href="#contact">Contact</a>
     </div>
 
@@ -142,7 +148,8 @@
             <span id="connStatus">Connecting</span>
         </div>
 
-        <h1 class="hero-name" data-split>
+        <!-- Not data-split: js/motion.js draws these as strokes, then fills them. -->
+        <h1 class="hero-name" data-draw>
             <span class="ln">Arnav</span>
             <span class="ln"><em>Dugad</em></span>
         </h1>
@@ -223,7 +230,7 @@
         </header>
 
         <!-- Admin bar -->
-        <div class="toolbar" data-admin-only style="margin-bottom:18px">
+        <div class="toolbar adminbar" data-admin-only>
             <button class="btn btn--primary magnetic" data-new-project>
                 <span data-icon="plus" data-size="17"></span> Add a project
             </button>
@@ -231,45 +238,74 @@
                     title="Read every repo and fill in tech, descriptions, years and links">
                 <span data-icon="wand" data-size="17"></span> Auto-fill everything
             </button>
-            <span style="font-size:var(--t-xs);color:var(--ink-35);max-width:40ch">
-                Admin is on — hover a card to drag, edit, duplicate or delete it.
-                Auto-fill reads each project's GitHub repo and fills what's missing.
-            </span>
-        </div>
-
-        <!-- Toolbar -->
-        <div class="toolbar" data-reveal="up">
-            <label class="search">
-                <span class="u-sr">Search projects</span>
-                <span data-icon="search" data-size="16"></span>
-                <input type="search" id="search" placeholder="Search projects, tech, years…" autocomplete="off">
-                <kbd>/</kbd>
-            </label>
-
-            <div class="selectwrap">
-                <select id="sortSelect" aria-label="Sort projects">
-                    <option value="newest">Newest first</option>
-                    <option value="oldest">Oldest first</option>
-                    <option value="stars">Most starred</option>
-                    <option value="az">A–Z</option>
-                    <option value="featured">Featured first</option>
-                    <option value="order">Custom order</option>
-                </select>
-                <span data-icon="chev-down" data-size="14"></span>
-            </div>
-
-            <div class="segment" role="group" aria-label="Layout">
-                <span class="thumb" aria-hidden="true"></span>
-                <button data-view="grid" class="is-active" aria-label="Grid view"><span data-icon="grid" data-size="16"></span></button>
-                <button data-view="list" aria-label="List view"><span data-icon="list" data-size="16"></span></button>
-            </div>
-
-            <button class="ibtn ibtn--solid" id="lucky" title="Open a random project" aria-label="Open a random project">
-                <span data-icon="dice" data-size="17"></span>
+            <button class="btn btn--ghost magnetic" id="aiOpen" title="Chat about the portfolio and run the AI tools">
+                <span data-icon="sparkles" data-size="17"></span> AI studio
+            </button>
+            <button class="btn btn--quiet" id="healthOpen" title="Find dead repos and live links that are down">
+                <span data-icon="pulse" data-size="16"></span> Health check
+            </button>
+            <button class="btn btn--quiet" id="nowOpen" title="Edit the /now page">
+                <span data-icon="pen" data-size="16"></span> Edit Now page
             </button>
         </div>
 
-        <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
+        <!-- The sentinel tells the bar when it has become stuck under the nav. -->
+        <div class="workbar-sentinel" id="workbarSentinel" aria-hidden="true"></div>
+        <div class="workbar" id="workbar">
+            <!-- Toolbar -->
+            <div class="toolbar" data-reveal="up">
+                <label class="search">
+                    <span class="u-sr">Search projects</span>
+                    <span data-icon="search" data-size="16"></span>
+                    <input type="search" id="search" placeholder="Search by name, tech, idea — try “multiplayer”" autocomplete="off">
+                    <kbd>/</kbd>
+                </label>
+
+                <div class="selectwrap">
+                    <select id="sortSelect" aria-label="Sort projects">
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="stars">Most starred</option>
+                        <option value="az">A–Z</option>
+                        <option value="featured">Featured first</option>
+                        <option value="order">Custom order</option>
+                    </select>
+                    <span data-icon="chev-down" data-size="14"></span>
+                </div>
+
+                <div class="segment" role="group" aria-label="Layout">
+                    <span class="thumb" aria-hidden="true"></span>
+                    <button data-view="grid" class="is-active" aria-label="Grid view" title="Grid"><span data-icon="grid" data-size="16"></span></button>
+                    <button data-view="list" aria-label="List view" title="List"><span data-icon="list" data-size="16"></span></button>
+                    <button data-view="index" aria-label="Index view" title="Index"><span data-icon="type" data-size="16"></span></button>
+                    <button data-view="timeline" aria-label="Timeline view" title="Timeline"><span data-icon="history" data-size="16"></span></button>
+                </div>
+
+                <button class="ibtn ibtn--solid" id="copyView" title="Copy a link to exactly this view" aria-label="Copy a link to this view">
+                    <span data-icon="link" data-size="16"></span>
+                </button>
+                <button class="ibtn ibtn--solid" id="lucky" title="Open a random project" aria-label="Open a random project">
+                    <span data-icon="dice" data-size="17"></span>
+                </button>
+            </div>
+
+            <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
+
+            <!-- Compact form of the bar, shown only while it is stuck. -->
+            <div class="workpill" id="workpill" aria-label="Current view">
+                <button type="button" class="workpill-go" data-workpill="top" title="Back to the full filters">
+                    <span data-icon="filter" data-size="14"></span>
+                    <span id="workpillLabel">All projects</span>
+                    <b id="workpillCount">0</b>
+                </button>
+                <button type="button" class="workpill-x u-hidden" data-workpill="clear" aria-label="Clear search and filters" title="Clear">
+                    <span data-icon="x" data-size="13"></span>
+                </button>
+                <button type="button" class="workpill-search" data-workpill="search" aria-label="Search" title="Search">
+                    <span data-icon="search" data-size="14"></span>
+                </button>
+            </div>
+        </div>
 
         <p class="u-mono" id="resultCount" style="color:var(--ink-35);margin:20px 0 18px"></p>
 
@@ -283,6 +319,17 @@
         <div class="grid" id="grid"></div>
     </div>
 </section>
+
+<!-- Compare tray: appears once a project is picked for comparison. -->
+<div class="ctray" id="ctray" aria-live="polite" aria-hidden="true">
+    <div class="ctray-slots" id="ctraySlots"></div>
+    <div class="ctray-acts">
+        <button type="button" class="btn btn--quiet" id="ctrayClear">Clear</button>
+        <button type="button" class="btn btn--primary" id="ctrayGo" disabled>
+            <span data-icon="scale" data-size="16"></span> Compare
+        </button>
+    </div>
+</div>
 
 <!-- ======================================================================
      About
@@ -414,6 +461,12 @@
                     <a href="#contact">Contact</a>
                 </div>
                 <div class="footer-col">
+                    <h5>More</h5>
+                    <a href="now.html"><span data-icon="pulse" data-size="14"></span> Now</a>
+                    <a href="resume.html"><span data-icon="doc" data-size="14"></span> Résumé</a>
+                    <a href="/feed.xml"><span data-icon="news" data-size="14"></span> RSS feed</a>
+                </div>
+                <div class="footer-col">
                     <h5>Elsewhere</h5>
                     <a href="https://github.com/Arnav-Dugad" target="_blank" rel="noopener noreferrer">
                         <span data-icon="github" data-size="14"></span> GitHub</a>
@@ -480,8 +533,133 @@
     </button>
 
     <div class="sheet-panel sheet-panel--md" role="dialog" aria-modal="true" aria-label="Project details">
+        <!-- Mobile: the sheet docks to the bottom; drag this down to dismiss. -->
+        <div class="sheet-grab" aria-hidden="true"><i></i></div>
         <button class="sheet-close" aria-label="Close"><span data-icon="x" data-size="16"></span></button>
         <div id="detailBody"></div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Compare (2–3 projects side by side)
+     ====================================================================== -->
+<div class="sheet" id="compareSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--lg" role="dialog" aria-modal="true" aria-label="Compare projects">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+        <div class="sheet-head">
+            <h2>Side by side</h2>
+            <p>Shared tech is highlighted. Stars, forks and languages come straight from GitHub.</p>
+        </div>
+        <div class="sheet-body" id="compareBody"></div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Share — the live card preview, in this theme
+     ====================================================================== -->
+<div class="sheet" id="shareSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--md" role="dialog" aria-modal="true" aria-label="Share project">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+        <div class="sheet-head">
+            <h2 id="shareTitle">Share</h2>
+            <p>This is the card people see when the link is posted.</p>
+        </div>
+        <div class="sheet-body" id="shareBody"></div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     AI studio — admin only. Keys live in Worker secrets, never here.
+     ====================================================================== -->
+<div class="sheet" id="aiSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--lg" role="dialog" aria-modal="true" aria-label="AI studio">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+        <div class="sheet-head">
+            <h2>AI studio</h2>
+            <p>Ask about the portfolio, or let a model tidy it up. Only you can see this — every call is checked against your admin sign-in.</p>
+        </div>
+        <div class="sheet-body ai-body">
+            <div class="ai-providers" id="aiProviders" role="radiogroup" aria-label="Model provider"></div>
+
+            <div class="ai-tabs" role="tablist">
+                <button role="tab" class="ai-tab is-active" data-ai-tab="chat" aria-selected="true">Ask my portfolio</button>
+                <button role="tab" class="ai-tab" data-ai-tab="tools" aria-selected="false">Tools</button>
+            </div>
+
+            <section class="ai-pane" data-ai-pane="chat">
+                <div class="ai-log" id="aiLog" aria-live="polite"></div>
+                <div class="ai-suggest" id="aiSuggest"></div>
+                <form class="ai-form" id="aiForm">
+                    <textarea class="textarea" id="aiInput" rows="2" placeholder="Which projects need a better description? What should I feature?"></textarea>
+                    <button class="btn btn--primary" type="submit" id="aiSend"><span data-icon="send" data-size="16"></span> Ask</button>
+                </form>
+            </section>
+
+            <section class="ai-pane u-hidden" data-ai-pane="tools">
+                <div class="ai-tool">
+                    <div>
+                        <h4>Index everything for search</h4>
+                        <p>Writes search terms for every project, so visitors can find work by idea — “multiplayer”, “voice”, “physics” — not just by name.</p>
+                    </div>
+                    <button class="btn btn--ghost" id="aiIndexAll"><span data-icon="search" data-size="16"></span> Run</button>
+                </div>
+                <div class="ai-tool">
+                    <div>
+                        <h4>Describe every screenshot</h4>
+                        <p>Fills in missing alt text for case-study screenshots, so they make sense to screen readers and search engines.</p>
+                    </div>
+                    <button class="btn btn--ghost" id="aiAltAll"><span data-icon="image" data-size="16"></span> Run</button>
+                </div>
+                <div class="ai-tool">
+                    <div>
+                        <h4>Models</h4>
+                        <p>Leave blank to use each provider's default. Saved in this browser only.</p>
+                        <div class="ai-models" id="aiModels"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Health check — dead repos and live links that are down
+     ====================================================================== -->
+<div class="sheet" id="healthSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--md" role="dialog" aria-modal="true" aria-label="Health check">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+        <div class="sheet-head">
+            <h2>Health check</h2>
+            <p>Live links are checked by the server (at most every 15 minutes); repos are checked against GitHub from this browser.</p>
+        </div>
+        <div class="sheet-body" id="healthBody"></div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     Now page editor
+     ====================================================================== -->
+<div class="sheet" id="nowSheet" aria-hidden="true">
+    <div class="sheet-panel sheet-panel--sm" role="dialog" aria-modal="true" aria-label="Edit the Now page">
+        <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+        <div class="sheet-head">
+            <h2>What's happening now</h2>
+            <p>Shown on <a href="now.html" style="text-decoration:underline">/now</a> and on the résumé. Plain text; links work.</p>
+        </div>
+        <form id="nowForm">
+            <div class="sheet-body">
+                <div class="form-grid">
+                    <div class="field field--wide"><label for="nBuilding">Building</label><textarea class="textarea" id="nBuilding" maxlength="2000"></textarea></div>
+                    <div class="field field--wide"><label for="nReading">Reading</label><textarea class="textarea" id="nReading" maxlength="2000"></textarea></div>
+                    <div class="field field--wide"><label for="nLearning">Learning</label><textarea class="textarea" id="nLearning" maxlength="2000"></textarea></div>
+                    <div class="field field--wide"><label for="nNote">A note <em>optional</em></label><textarea class="textarea" id="nNote" maxlength="2000"></textarea></div>
+                </div>
+            </div>
+            <div class="sheet-foot">
+                <button class="btn btn--quiet" type="button" data-close>Cancel</button>
+                <button class="btn btn--primary" type="submit" id="nowSave">Publish</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -527,14 +705,21 @@
                         </div>
 
                         <div class="field field--wide">
-                            <button class="btn btn--ghost" type="button" id="autofill" style="width:100%">
-                                <span data-icon="wand" data-size="17"></span>
-                                Auto-fill from GitHub
-                            </button>
+                            <div class="field-row">
+                                <button class="btn btn--ghost" type="button" id="autofill" style="flex:1">
+                                    <span data-icon="wand" data-size="17"></span>
+                                    Auto-fill from GitHub
+                                </button>
+                                <button class="btn btn--ghost" type="button" id="aiImprove" style="flex:1"
+                                        title="Write polished copy from the README with Claude, Gemini or ChatGPT">
+                                    <span data-icon="sparkles" data-size="17"></span>
+                                    Improve with AI
+                                </button>
+                            </div>
                             <p style="font-size:var(--t-2xs);color:var(--ink-35);line-height:1.5">
-                                Reads the repo's languages, <code>package.json</code> and topics to work out
-                                the tech, and fills any blank description, year or status. It never
-                                overwrites something you typed.
+                                Auto-fill reads the repo's languages, <code>package.json</code> and topics and
+                                only fills blanks. <b>Improve with AI</b> reads the README and rewrites the
+                                copy and case study — you review every change before saving.
                             </p>
                         </div>
 
@@ -551,6 +736,21 @@
                         <div class="field field--wide">
                             <label for="fDemoVideo">Demo video <em>optional — YouTube or Vimeo</em></label>
                             <input class="input" id="fDemoVideo" type="url" placeholder="https://youtube.com/watch?v=…">
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fPreviewVideo">Hover preview <em>optional — a short muted MP4/WebM loop, or a GIF/WebP</em></label>
+                            <input class="input" id="fPreviewVideo" type="url" placeholder="https://…/preview.mp4">
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fSearchTerms">Search terms <em>comma separated — what people might search for; AI can write these</em></label>
+                            <div class="field-row">
+                                <input class="input" id="fSearchTerms" placeholder="multiplayer, voice call, webrtc">
+                                <button class="btn btn--quiet" type="button" id="aiTerms" title="Generate with AI">
+                                    <span data-icon="sparkles" data-size="15"></span>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="field">
@@ -665,6 +865,14 @@
                                 <label for="fGallery">Screenshots <em>one image URL per line</em></label>
                                 <textarea class="textarea" id="fGallery" style="min-height:72px" placeholder="https://…/screen-1.png&#10;https://…/screen-2.png"></textarea>
                             </div>
+
+                            <div class="field field--wide">
+                                <label for="fGalleryAlt">Screenshot descriptions <em>alt text, one line per screenshot, same order</em></label>
+                                <textarea class="textarea" id="fGalleryAlt" style="min-height:72px" placeholder="The level editor with a grid of tiles and a palette on the left"></textarea>
+                                <button class="btn btn--quiet" type="button" id="aiAlt" style="justify-self:start">
+                                    <span data-icon="sparkles" data-size="15"></span> Describe screenshots with AI
+                                </button>
+                            </div>
                         </div>
                     </details>
                 </form>
@@ -743,7 +951,8 @@
             <dl class="keys">
                 <dt><kbd>⌘</kbd><kbd>K</kbd></dt><dd>Open the command palette</dd>
                 <dt><kbd>/</kbd></dt><dd>Jump to search</dd>
-                <dt><kbd>G</kbd></dt><dd>Toggle grid / list layout</dd>
+                <dt><kbd>G</kbd></dt><dd>Cycle grid / list / index / timeline</dd>
+                <dt><kbd>C</kbd></dt><dd>Compare the projects you picked</dd>
                 <dt><kbd>T</kbd></dt><dd>Cycle theme</dd>
                 <dt><kbd>R</kbd></dt><dd>Open a random project</dd>
                 <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Previous / next project</dd>
@@ -794,26 +1003,24 @@
 <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
 
 <!-- Classic scripts define the UI surface, then firebase.js (module, last)
-     pushes live data into it. Order matters: icons → motion → backdrop →
-     github → render → admin → palette → app. -->
+     pushes live data into it. Order matters: icons → core → motion →
+     backdrop → github → widgets → render → views → admin → ai → palette → app. -->
 <script src="js/icons.js"></script>
+<script src="js/core.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/motion.js"></script>
 <script src="js/backdrop.js"></script>
 <script src="js/github.js"></script>
+<script src="js/widgets.js"></script>
 <script src="js/enrich.js"></script>
 <script src="js/render.js"></script>
+<script src="js/views.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/reorder.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/app.js"></script>
 <script type="module" src="js/firebase.js"></script>
-
-<!-- Vercel Analytics + Speed Insights. These paths are served by Vercel only
-     once the features are switched on in the project dashboard; until then
-     they 404 harmlessly and nothing else is affected. -->
-<script defer src="/_vercel/insights/script.js"></script>
-<script defer src="/_vercel/speed-insights/script.js"></script>
 
 </body>
 </html>
