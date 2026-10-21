@@ -19,7 +19,7 @@
 (() => {
     const esc = window.esc;
     const state = () => window.PState;
-    const projects = () => (window.getProjects ? window.getProjects() : []);
+    const projects = () => (window.listProjects ? window.listProjects() : []);
     const byId = (id) => projects().find((p) => String(p.id) === String(id));
     const reduced = () => !!(window.motionReduced && window.motionReduced());
     const FINE = window.matchMedia('(hover: hover) and (pointer: fine)');
@@ -99,11 +99,13 @@
             }
             const tags = (p.tags || []).filter(Boolean).slice(0, 3);
             const marks = firsts[p.id] || [];
+            const kind = (window.PLATFORMS[window.platformsOf(p)[0]] || window.PLATFORMS.web).frame;
             html += `
                 <article class="tl-item ${side++ % 2 ? 'is-right' : 'is-left'}" data-id="${esc(p.id)}"
                          style="${window.toneVars(p.color)}--delay:${Math.min(i, 8) * 40}ms" data-reveal="up">
                     <span class="tl-dot" aria-hidden="true"></span>
-                    <div class="tl-card">
+                    <div class="tl-card tl-card--${kind}">
+                        <div class="tl-media" aria-hidden="true">${window.Widgets.frameHtml(p, { w: 480 })}</div>
                         <span class="tl-plaque" aria-hidden="true">${window.Widgets.appIconHtml(p, { size: 42 })}</span>
                         <div class="tl-text">
                             ${marks.length ? `<div class="tl-firsts">${marks.map((m) => `<span>${window.icon('sparkles', { raw: true, size: 11 })}${esc(m)}</span>`).join('')}</div>` : ''}
@@ -138,16 +140,14 @@
 
     function peekContent(p, el) {
         const preview = window.safeUrl(p.previewVideo);
-        const shot = window.safeUrl((p.gallery || [])[0]);
         if (preview && isVideo(preview)) {
             return `<video src="${esc(preview)}" muted loop playsinline autoplay preload="auto"></video>`;
         }
         if (preview) return `<img src="${esc(preview)}" alt="">`;
-        if (shot && el.classList.contains('ix-row')) return `<img src="${esc(shot)}" alt="">`;
-        if (el.classList.contains('ix-row')) {
-            return `<div class="peek-plaque" style="${window.toneVars(p.color)}">
-                <span class="card-plaque">${window.icon(p.icon, { size: 34 })}</span>
-                <b>${esc(p.title)}</b><small>${esc(window.categoryLabel(p.category))}</small></div>`;
+        // The index view peeks at the project on its own device.
+        if (el.classList.contains('ix-row') && window.Widgets) {
+            const kind = (window.PLATFORMS[window.platformsOf(p)[0]] || window.PLATFORMS.web).frame;
+            return `<div class="peek-stage peek-stage--${kind}" style="${window.toneVars(p.color)}">${window.Widgets.frameHtml(p, { w: 640, eager: true })}</div>`;
         }
         return '';
     }

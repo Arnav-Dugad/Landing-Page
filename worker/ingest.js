@@ -5,20 +5,76 @@
    repo, a live site, a store listing — this reads every free public source
    it can find and assembles a complete draft:
 
-     detect → github → releases → readme → website → lighthouse → store
-            → screenshots → ai → done
+     detect → dupes → github → releases → readme → build → website
+            → lighthouse → store → screenshots → ai → (dupes) → done
+
+   `dupes` warns when the project is already on the site (same repo, same
+   address, or — re-checked once the title is known — the same name).
+   `build` reads the build files for the real stack and system requirements.
+   The AI step writes the copy and, in a parallel vision call, picks the
+   cover and describes every screenshot.
 
    Progress streams back as NDJSON, one line per stage, so the importer can
    show each step land. Nothing is written to the database here — the admin
    reviews the draft and saves it.
    =========================================================================== */
 
+import { fetchProjects } from '../api/_project.js';
 import { requireAdmin } from './auth.js';
 import { readJson, HttpError } from './http.js';
-import { gh, GitHubLimit, repoSlugFrom, summariseReleases, commitWeeks, languagePercents } from './github.js';
+import { gh, GitHubLimit, repoSlugFrom, summariseReleases, commitWeeks, languagePercents, bulletsFromNotes } from './github.js';
 import { inspectSite, pageSpeed, cleanSiteTitle } from './web.js';
 import { storeOf, findStoreLinks, readStore, storeMeta, STORE_LABELS } from './stores.js';
 import { structured, SITE_VOICE_RULES, clip, str, strList } from './ai.js';
+import { analyseBuild } from './buildfiles.js';
+import { imageInfo, pickCover, visionPick } from './images.js';
+import { computeScore } from './meta.js';
+
+/* ---------------------------------------------------------------------------
+   Duplicates: is this already on the site? Same repo, same live address
+   (host + path), or a near-identical title.
+   --------------------------------------------------------------------------- */
+
+const normAddr = (u) => {
+    try {
+        const x = new URL(String(u || ''));
+        return `${x.hostname.replace(/^www\./, '')}${x.pathname.replace(/\/+$/, '')}`.toLowerCase();
+    } catch { return ''; }
+};
+const normTitle = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+function editDistance(a, b) {
+    if (Math.abs(a.length - b.length) > 2) return 3;
+    const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+        let diag = prev[0];
+        prev[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const tmp = prev[j];
+            prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+            diag = tmp;
+        }
+    }
+    return prev[b.length];
+}
+
+function findDupes(projects, { slug, urls, title, excludeId }) {
+    const out = new Map();
+    const addrs = new Set(urls.map(normAddr).filter(Boolean));
+    const t = normTitle(title);
+    for (const p of projects) {
+        if (excludeId && String(p.id) === String(excludeId)) continue;
+        const pSlug = repoSlugFrom(p.repo) || repoSlugFrom(p.link);
+        if (slug && pSlug && pSlug.toLowerCase() === slug.toLowerCase()) { out.set(p.id, { projectId: String(p.id), title: p.title || '', why: `same GitHub repo (${pSlug})` }); continue; }
+        const pa = normAddr(p.link);
+        if (pa && addrs.has(pa)) { out.set(p.id, { projectId: String(p.id), title: p.title || '', why: `same live address (${pa})` }); continue; }
+        const pt = normTitle(p.title);
+        if (t && pt && t.length >= 4 && (t === pt || (t.length >= 6 && editDistance(t, pt) <= 2))) {
+            out.set(p.id, { projectId: String(p.id), title: p.title || '', why: 'almost the same title' });
+        }
+    }
+    return [...out.values()];
+}
 
 /* Mirrors CATEGORY_GROUPS in js/core.js and PICKER_ICONS in js/icons.js —
    the model must pick from exactly these. */
@@ -143,8 +199,8 @@ function parseReadme(md, slug, branch) {
    as the fallback when no AI key is configured.
    --------------------------------------------------------------------------- */
 
-function inferPlatforms({ repo, languages, releases, stores, site, manifestIsExtension }) {
-    const set = new Set(releases ? releases.platforms : []);
+function inferPlatforms({ repo, languages, releases, stores, site, manifestIsExtension, buildPlatforms = [] }) {
+    const set = new Set([...(releases ? releases.platforms : []), ...buildPlatforms]);
     for (const s of stores) {
         if (s.platform && PLATFORMS.includes(s.platform)) set.add(s.platform);
         if (s.kind === 'npm' || s.kind === 'pypi') set.add('cli');
@@ -339,6 +395,17 @@ async function run(env, body, send) {
     stage('detect', 'ok', kinds.length ? `Found ${[...new Set(kinds)].join(' · ')}` : 'Nothing recognisable — trying as a website');
     if (!kinds.length && urls[0]) siteUrl = urls[0];
 
+    /* -- dupes ------------------------------------------------------------- */
+    // Same repo or same address is checked now; a matching title is checked
+    // again once the title is known (a second `dupes` line, if it adds any).
+    const excludeId = body.existing && body.existing.id ? String(body.existing.id) : '';
+    let allProjects = [];
+    try { allProjects = await fetchProjects(); } catch { /* can't check — say so */ }
+    let dupes = allProjects.length ? findDupes(allProjects, { slug, urls, title: '', excludeId }) : [];
+    if (!allProjects.length) send({ stage: 'dupes', status: 'skip', label: 'Couldn\'t check for duplicates right now', matches: [] });
+    else if (dupes.length) send({ stage: 'dupes', status: 'ok', label: `Already on the site: ${dupes.map((d) => d.title).join(', ')}`, matches: dupes });
+    else send({ stage: 'dupes', status: 'skip', label: 'Not on the site yet', matches: [] });
+
     // Start the website early: a repo-less import may find its repo there.
     let sitePromise = siteUrl ? inspectSite(siteUrl).catch((e) => ({ error: e })) : null;
     const storePromises = new Map(stores.map((s) => [s.kind, readStore(s).catch((e) => ({ error: e }))]));
@@ -431,6 +498,21 @@ async function run(env, body, send) {
         }
     }
 
+    /* -- build files ------------------------------------------------------- */
+    let build = null;
+    stage('build', 'run', 'Reading build files');
+    if (!repo) {
+        stage('build', 'skip', 'No repo to read build files from');
+    } else {
+        try {
+            build = await analyseBuild(env, slug, repo.default_branch || 'main');
+            if (build) stage('build', 'ok', build.label);
+            else stage('build', 'skip', 'No build files that say more than the languages');
+        } catch (e) {
+            stage('build', 'error', e instanceof GitHubLimit ? e.message : 'Could not read build files');
+        }
+    }
+
     /* -- website ----------------------------------------------------------- */
     let site = null;
     stage('website', 'run', siteUrl ? `Opening ${siteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}` : 'Looking for a live site');
@@ -456,7 +538,10 @@ async function run(env, body, send) {
     }
 
     const weeks = await weeksPromise;
-    const platforms = inferPlatforms({ repo, languages, releases, stores: Object.values(storeListings), site, manifestIsExtension });
+    const platforms = inferPlatforms({
+        repo, languages, releases, stores: Object.values(storeListings), site, manifestIsExtension,
+        buildPlatforms: build ? build.platforms : []
+    });
 
     // Gallery candidates: store screenshots, README images, the site's OG image.
     const candidates = [];
@@ -470,7 +555,12 @@ async function run(env, body, send) {
 
     /* -- lighthouse -------------------------------------------------------- */
     // Screenshot verification runs while Lighthouse does.
-    const galleryPromise = Promise.all(unique.slice(0, 12).map(async (u) => ((await isImage(u)) ? u : null)));
+    // Each candidate is checked to be a real image and measured (a 64 KB
+    // range read), so the cover can be chosen on real dimensions.
+    const galleryPromise = Promise.all(unique.slice(0, 12).map(async (u) => {
+        if (!(await isImage(u))) return null;
+        return { url: u, d: await imageInfo(u) };
+    }));
 
     stage('lighthouse', 'run', site && site.ok ? 'Running Lighthouse (PageSpeed Insights) — 10–40 s' : 'Lighthouse');
     let psi = null;
@@ -495,12 +585,24 @@ async function run(env, body, send) {
 
     /* -- screenshots ------------------------------------------------------- */
     stage('screenshots', 'run', 'Checking screenshots');
-    const gallery = (await galleryPromise).filter(Boolean).slice(0, 8);
+    const checked = (await galleryPromise).filter(Boolean);
+    // Tiny images (badges, icons that slipped through) don't belong in a gallery.
+    const galleryItems = checked.filter((x) => !x.d || (x.d.w >= 240 && x.d.h >= 160)).slice(0, 8);
+    const gallery = galleryItems.map((x) => x.url);
     const appIcon = (listingList.find((l) => l.icon) || {}).icon || (site && site.icon) || '';
-    const cover = (listingList.find((l) => l.cover) || {}).cover || (site && site.image) || gallery[0] || '';
+    const storeCover = (listingList.find((l) => l.cover) || {}).cover || '';
+    // The site's social image is just another candidate — it's often a logo.
+    const coverCandidates = [...new Set([storeCover, ...galleryItems.map((x) => x.url), site && site.image].filter(Boolean))];
+    const coverInfos = await Promise.all(coverCandidates.map((u) => {
+        const known = galleryItems.find((x) => x.url === u);
+        return known ? known.d : imageInfo(u);
+    }));
+    let cover = pickCover(coverCandidates, coverInfos);
+    const coverDims = coverInfos[coverCandidates.indexOf(cover)];
     stage('screenshots', gallery.length || appIcon ? 'ok' : 'skip',
         [gallery.length ? `${gallery.length} screenshot${gallery.length === 1 ? '' : 's'}` : 'No screenshots found',
-            appIcon ? 'app icon' : '', cover ? 'cover image' : '', platforms.includes('web') ? 'live captures added on the site' : ''].filter(Boolean).join(' · '));
+            appIcon ? 'app icon' : '', cover ? `cover ${coverDims ? `${coverDims.w}×${coverDims.h}` : 'image'}` : '',
+            platforms.includes('web') ? 'live captures added on the site' : ''].filter(Boolean).join(' · '));
 
     /* -- assemble the deterministic draft ------------------------------------ */
     const primaryStore = listingList[0] || null;
@@ -513,6 +615,8 @@ async function run(env, body, send) {
     languagePercents(languages).filter((l) => l.pct >= 3).forEach((l) => addTech(l.name));
     (repo && repo.topics || []).forEach((t) => TOPIC_TECH[t] && addTech(TOPIC_TECH[t]));
     (site && site.tech || []).forEach(addTech);
+    // Build files name the real frameworks (WPF, Jetpack Compose, SwiftUI…).
+    (build && build.stack.frameworks || []).forEach(addTech);
     const baseTags = [...techSet.values()].slice(0, 12);
 
     const hay = `${baseTitle} ${baseDesc} ${(repo && repo.topics || []).join(' ')} ${readme.slice(0, 1500)}`.toLowerCase();
@@ -556,12 +660,22 @@ async function run(env, body, send) {
         demoVideo: readmeInfo.video || '',
         problem: '', approach: '', challenges: [], outcome: '',
         caseStudy: false,
+        requirements: build ? build.requirements : [],
+        stack: build ? build.stack : null,
         sources: [...new Set([...urls, repo && repo.html_url, siteUrl, ...stores.map((s) => s.url)].filter(Boolean))].slice(0, 10),
         auto: true
     };
 
     /* -- ai ---------------------------------------------------------------- */
-    stage('ai', 'run', 'Writing the copy');
+    // Two calls side by side: the copy (text) and the pictures (vision —
+    // which image is the cover, and alt text for every screenshot).
+    const visionImages = [...new Set([storeCover, ...gallery].filter(Boolean))].slice(0, 8);
+    const visionPromise = body.ai === false || !visionImages.length
+        ? Promise.resolve(null)
+        : visionPick(env, { prefer: body.provider, model: body.model }, visionImages, { title: draft.title, desc: draft.desc }).catch(() => null);
+    let aiLabel = '';
+
+    stage('ai', 'run', 'Writing the copy and looking at the screenshots');
     if (body.ai === false) {
         stage('ai', 'skip', 'AI writing turned off — using the facts as written');
     } else {
@@ -579,6 +693,7 @@ async function run(env, body, send) {
                 files: releases.downloads.map((d) => ({ platform: d.platform, label: d.label, size: humanBytes(d.size), arch: d.arch }))
             } : null,
             website: site ? { url: site.finalUrl, title: site.title, description: site.description, tech: site.tech, hosting: site.hosting, pwa: !!site.manifest } : null,
+            build: build ? { frameworks: build.stack.frameworks, runtime: build.stack.runtime, requirements: build.requirements } : null,
             stores: listingList.map((l) => ({ store: STORE_LABELS[l.kind], name: l.name, description: String(l.description || '').slice(0, 2500), genres: l.genres || [] })),
             gallery: gallery.map((u) => decodeURIComponent(u.split('/').pop().split('?')[0]).slice(0, 80)),
             existing: body.existing && typeof body.existing === 'object' ? {
@@ -613,9 +728,35 @@ async function run(env, body, send) {
             }
             if (ai.galleryAlt.length < gallery.length) draft.galleryAlt = gallery.map((_, i) => ai.galleryAlt[i] || '');
             if (ai.category && !nearestTone(site && site.themeColor)) draft.color = CATEGORY_TONE[ai.category] || draft.color;
-            stage('ai', 'ok', `${label} (${model}) wrote the copy in ${Math.round((Date.now() - started) / 1000)} s`);
+            aiLabel = `${label} (${model}) wrote the copy in ${Math.round((Date.now() - started) / 1000)} s`;
         } catch (e) {
-            stage('ai', 'error', `${String((e && e.message) || 'AI failed').slice(0, 120)} — kept the facts-only draft`);
+            aiLabel = `Copy: ${String((e && e.message) || 'AI failed').slice(0, 100)} — kept the facts-only draft`;
+        }
+
+        // The vision answer beats filename-based alt text and the size heuristic.
+        const vision = await visionPromise;
+        const bits = [aiLabel];
+        if (vision) {
+            const altFor = (u) => vision.alts[visionImages.indexOf(u)] || '';
+            const alts = gallery.map((u, i) => altFor(u) || (draft.galleryAlt && draft.galleryAlt[i]) || '');
+            const described = gallery.filter((u) => altFor(u)).length;
+            draft.galleryAlt = alts;
+            if (vision.cover) draft.cover = vision.cover;
+            bits.push(`${vision.cover ? 'picked the cover' : 'kept the cover'}${described ? ` and described ${described} screenshot${described === 1 ? '' : 's'}` : ''}`);
+        } else if (visionImages.length) {
+            bits.push('screenshots kept as found');
+        }
+        const failed = aiLabel.startsWith('Copy:') && !vision;
+        stage('ai', failed ? 'error' : 'ok', bits.filter(Boolean).join(' · '));
+    }
+
+    /* -- dupes, by title ------------------------------------------------------ */
+    if (allProjects.length) {
+        const byTitle = findDupes(allProjects, { slug, urls, title: draft.title, excludeId });
+        const fresh = byTitle.filter((d) => !dupes.find((x) => x.projectId === d.projectId));
+        if (fresh.length) {
+            dupes = [...dupes, ...fresh];
+            send({ stage: 'dupes', status: 'ok', label: `Already on the site: ${dupes.map((d) => d.title).join(', ')}`, matches: dupes });
         }
     }
 
@@ -634,6 +775,17 @@ async function run(env, body, send) {
     }
 
     /* -- done -------------------------------------------------------------- */
+    // The latest release as meta stores it: no raw notes, a short summary.
+    let releaseOut = null;
+    if (releases && releases.latest) {
+        const { notes, ...rest } = releases.latest;
+        releaseOut = {
+            ...rest,
+            summary: bulletsFromNotes(notes),
+            summaryBy: 'notes',
+            isNew: !!(rest.date && Date.now() - rest.date < 14 * 24 * 60 * 60 * 1000)
+        };
+    }
     const storeMetaOut = {};
     for (const l of listingList) {
         const m = storeMeta(l);
@@ -647,13 +799,14 @@ async function run(env, body, send) {
             pushedAt: Date.parse(repo.pushed_at) || null, createdAt: Date.parse(repo.created_at) || null,
             license: (repo.license && repo.license.spdx_id !== 'NOASSERTION' ? repo.license.spdx_id : null) || null,
             languages: languagePercents(languages), commitWeeks: weeks,
-            release: releases ? releases.latest : null, downloads: releases ? releases.total : 0
+            release: releaseOut, downloads: releases ? releases.total : 0
         } : null,
         web: site ? { up: !!site.ok, code: site.code, ms: site.ms, checkedAt: Date.now(), psi } : null,
         store: Object.keys(storeMetaOut).length ? storeMetaOut : null
     };
+    meta.score = computeScore(draft, meta);
 
-    send({ stage: 'done', status: 'ok', label: `${draft.title} is ready to review`, project: draft, meta });
+    send({ stage: 'done', status: 'ok', label: `${draft.title} is ready to review`, project: draft, meta, dupes });
 }
 
 export async function handleIngest(req, env, ctx) {

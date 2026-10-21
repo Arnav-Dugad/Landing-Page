@@ -20,7 +20,7 @@
     const esc = window.esc;
     const W = () => window.Widgets;
     const M = () => window.Meta;
-    const projects = () => (window.getProjects ? window.getProjects() : []);
+    const projects = () => (window.listProjects ? window.listProjects() : []);
     const reduced = () => !!(window.motionReduced && window.motionReduced());
     const FINE = window.matchMedia('(hover: hover) and (pointer: fine)');
     const PL = () => window.PLATFORMS;
@@ -50,6 +50,7 @@
         lastKey = key;
         paintWall(list);
         paintSpotlight(list);
+        paintReleases();
     }
 
     /* =====================================================================
@@ -76,7 +77,7 @@
     }
 
     function tileHtml(p, i) {
-        return `<button type="button" class="wall-tile" data-open="${esc(p.id)}" tabindex="-1" style="--i:${i}" title="${esc(p.title)}">
+        return `<button type="button" class="wall-tile" data-open="${esc(p.id)}" data-platforms="${esc(window.platformsOf(p).join(' '))}" tabindex="-1" style="--i:${i}" title="${esc(p.title)}">
             ${W().frameHtml(p, { w: 640 })}
             <span class="wall-cap">${esc(p.title)}</span>
         </button>`;
@@ -107,6 +108,7 @@
                 </div>
             </div>`;
         wall.classList.add('is-ready');
+        reactWall(window.PState ? window.PState.platform : 'all', { instant: true });
 
         if (!wallBuilt) {
             wallBuilt = true;
@@ -114,10 +116,35 @@
         }
     }
 
+    /* The wall answers the platform switcher: matching devices step forward,
+       the rest sink back, and the columns give a little shuffle as if the
+       deck were being re-sorted. */
+    function reactWall(platform, { instant = false } = {}) {
+        if (!wall) return;
+        const all = platform === 'all';
+        wall.classList.toggle('is-filtered', !all);
+        wall.querySelectorAll('.wall-tile').forEach((t) => {
+            const match = all || String(t.dataset.platforms || '').split(' ').includes(platform);
+            t.classList.toggle('is-match', !all && match);
+            t.classList.toggle('is-dim', !all && !match);
+        });
+        if (instant || reduced()) return;
+        wall.querySelectorAll('.wall-col, .wall-row').forEach((col, i) => {
+            if (!col.animate) return;
+            col.animate([
+                { transform: 'translateY(0)' },
+                { transform: `translateY(${i % 2 ? 18 : -18}px)` },
+                { transform: 'translateY(0)' }
+            ], { duration: 720, easing: 'cubic-bezier(.34,1.42,.64,1)', delay: i * 60 });
+        });
+    }
+    window.addEventListener('platformchange', (e) => reactWall((e.detail && e.detail.platform) || 'all'));
+
     function wireWall() {
         wall.addEventListener('click', (e) => {
             const tile = e.target.closest('[data-open]');
-            if (tile) window.openProject(tile.dataset.open);
+            // The tile's device flies into the detail sheet (render.js).
+            if (tile) window.openProject(tile.dataset.open, { from: tile });
         });
 
         if (reduced() || !FINE.matches) return;
@@ -151,7 +178,7 @@
         try {
             const data = await window.edgeFetch('/api/activity');
             items = (data && data.items) || [];
-        } catch { return; }
+        } catch { items = []; }
 
         const byRepo = (repo) => {
             const name = String(repo || '').split('/').pop().toLowerCase();
@@ -161,16 +188,29 @@
             }) || null;
         };
 
-        const lines = items
+        // Releases lead: a shipped version says more than a push. Fresh
+        // releases from meta join in even if the event feed has rolled past.
+        let fresh = [];
+        try {
+            fresh = ((await (M() ? M().releases() : Promise.resolve([]))) || [])
+                .filter((r) => r.isNew)
+                .map((r) => ({ type: 'release', repo: '', title: `v${r.tag}`, url: r.url, at: r.date, projectId: r.projectId }));
+        } catch { fresh = []; }
+        const merged = [...fresh, ...items.filter((it) => it && it.type === 'release'), ...items.filter((it) => it && it.type !== 'release')];
+
+        const lines = merged
             .filter((it) => it && it.type !== 'star' && it.at)
-            .slice(0, 6)
             .map((it) => {
-                const p = byRepo(it.repo);
+                const p = it.projectId ? projects().find((x) => String(x.id) === String(it.projectId)) : byRepo(it.repo);
                 const name = p ? p.title : String(it.repo || '').split('/').pop();
                 const verb = { release: 'Released', push: 'Pushed to', create: 'Started' }[it.type] || 'Updated';
-                const what = it.type === 'release' && it.title ? `${name} ${it.title.replace(new RegExp(`^${name}\\s*`, 'i'), '')}` : name;
+                const title = String(it.title || '');
+                const tail = title.toLowerCase().startsWith(name.toLowerCase()) ? title.slice(name.length).trim() : title;
+                const what = it.type === 'release' && title ? `${name} ${tail}` : name;
                 return { text: `${verb} ${what}`, when: W().shortAgo(it.at), id: p ? p.id : null, url: window.safeUrl(it.url) };
-            });
+            })
+            .filter((l, n, a) => a.findIndex((x) => x.text === l.text) === n)
+            .slice(0, 6);
         if (!lines.length) return;
 
         let i = 0;
@@ -486,6 +526,53 @@
         });
     }
 
+    /* =====================================================================
+       Latest releases — editorial cards, newest first. Collapses entirely
+       when nothing has shipped in the last four months.
+       ===================================================================== */
+
+    const relBox = document.getElementById('releases');
+    const relList = document.getElementById('releasesList');
+    let relKey = '';
+
+    async function paintReleases() {
+        if (!relBox || !relList || !W() || !M()) return;
+        let items = [];
+        try { items = await M().releases(); } catch { items = []; }
+        const list = projects();
+        const rows = items
+            .map((it) => ({ it, p: list.find((x) => String(x.id) === String(it.projectId)) }))
+            .filter((x) => x.p)
+            .slice(0, 6);
+        const key = rows.map((x) => `${x.it.projectId}:${x.it.tag}`).join('|');
+        if (key === relKey) return;
+        relKey = key;
+        if (!rows.length) { relBox.hidden = true; return; }
+        relBox.hidden = false;
+        relList.innerHTML = rows.map(({ it, p }, i) => W().releaseCardHtml(it, p, i)).join('');
+        if (window.hydrateIcons) window.hydrateIcons(relList);
+        if (window.Motion) { window.Motion.reveal(relBox); window.Motion.magnetic(relList); }
+        if (W().mountFlaps) W().mountFlaps(relList);
+    }
+
+    if (relList) {
+        relList.addEventListener('click', (e) => {
+            const open = e.target.closest('[data-open]');
+            if (open) window.openProject(open.dataset.open, { from: open.closest('.relcard') });
+        });
+    }
+
     window.Showcase = { sync, moveBlob };
-    loadActivity();
+
+    // The ticker needs the project list (names, ids) and meta (fresh
+    // releases), so it starts with the first data, not at parse time.
+    let activityStarted = false;
+    const startActivity = () => {
+        if (activityStarted || !projects().length) return;
+        activityStarted = true;
+        loadActivity();
+    };
+    const syncOrig = sync;
+    window.Showcase.sync = (opts) => { syncOrig(opts); startActivity(); };
+    window.addEventListener('metaready', () => { startActivity(); paintReleases(); });
 })();

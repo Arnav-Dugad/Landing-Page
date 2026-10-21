@@ -11,6 +11,12 @@
    =========================================================================== */
 
 :root {
+    /* ---- Platforms (AA on paper and on raised surfaces) ---------------- */
+    --plat-web: #5B3CC4;       --plat-windows: #1559B8;
+    --plat-android: #1A7340;   --plat-ios: #3B434E;
+    --plat-macos: #A3305F;     --plat-linux: #80540A;
+    --plat-extension: #0B6A63; --plat-cli: #5A4636;
+
     color-scheme: light;
 
     /* ---- Paper & ink --------------------------------------------------- */
@@ -146,6 +152,11 @@
    =========================================================================== */
 
 [data-theme="dark"] {
+    --plat-web: #B6A2FF;       --plat-windows: #86B5FF;
+    --plat-android: #71D394;   --plat-ios: #C6CDD6;
+    --plat-macos: #F293BD;     --plat-linux: #EDBF63;
+    --plat-extension: #6FDCCF; --plat-cli: #D7C4AF;
+
     color-scheme: dark;
 
     --paper:        #131110;

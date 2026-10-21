@@ -349,20 +349,52 @@
             || (window.Meta && window.Meta.get && window.Meta.get(p.id) && window.Meta.get(p.id).web);
         const down = !!live && live.up === false;
         if (!src && kind !== 'phone' && link && window.EDGE && !down) {
-            src = `/api/shot?p=${encodeURIComponent(window.projectSlug(p))}&w=${Math.max(320, Math.min(1600, w))}`;
+            src = shotUrl(p, w);
             shot = true;
         }
         return { platform: pl, kind, src, shot, alt: (p.galleryAlt && p.galleryAlt[0]) || '' };
     }
 
+    /* Screenshots follow the site theme: a dark capture when the page is
+       dark (the Worker falls back to the light one when there isn't one). */
+    const siteTheme = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+    function shotUrl(p, w) {
+        const t = siteTheme();
+        return `/api/shot?p=${encodeURIComponent(window.projectSlug(p))}&w=${Math.max(320, Math.min(1600, w))}${t === 'dark' ? '&theme=dark' : ''}`;
+    }
+    window.addEventListener('themechange', () => {
+        const t = siteTheme();
+        const swap = (url) => {
+            try {
+                const u = new URL(url, location.href);
+                if (!u.pathname.startsWith('/api/shot')) return url;
+                if (t === 'dark') u.searchParams.set('theme', 'dark'); else u.searchParams.delete('theme');
+                u.searchParams.delete('r');
+                return u.pathname + u.search;
+            } catch { return url; }
+        };
+        document.querySelectorAll('img[data-shot]').forEach((img) => {
+            if (img.dataset.shotSrc) { img.dataset.shotSrc = swap(img.dataset.shotSrc); return; }
+            const cur = img.getAttribute('src');
+            if (!cur) return;
+            const next = swap(cur);
+            if (next === cur) return;
+            // Swap only once the new capture has arrived — no blank flash.
+            const pre = new Image();
+            pre.onload = () => { img.src = next; };
+            pre.src = next;
+        });
+    });
+
+    /* Three layers — ground, mark, gloss — that drift apart under the
+       pointer (the host's --nx/--ny, written by Motion.tilt). */
     function appIconHtml(p, { size = 40, cls = '' } = {}) {
         const src = window.safeUrl(p && p.appIcon);
+        const glyph = window.icon(p.icon, { size: Math.round(size * 0.48) });
         if (src) {
-            return `<span class="appicon ${cls}" style="--ai:${size}px;${window.toneVars(p.color)}">
-                <img src="${esc(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-                     data-appicon>${window.icon(p.icon, { size: Math.round(size * 0.48) })}</span>`;
+            return `<span class="appicon ${cls}" style="--ai:${size}px;${window.toneVars(p.color)}"><span class="ai-mark"><img src="${esc(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-appicon>${glyph}</span><i class="ai-gloss" aria-hidden="true"></i></span>`;
         }
-        return `<span class="appicon appicon--glyph ${cls}" style="--ai:${size}px;${window.toneVars(p.color)}">${window.icon(p.icon, { size: Math.round(size * 0.48) })}</span>`;
+        return `<span class="appicon appicon--glyph ${cls}" style="--ai:${size}px;${window.toneVars(p.color)}"><span class="ai-mark">${glyph}</span><i class="ai-gloss" aria-hidden="true"></i></span>`;
     }
 
     /* What the screen shows when there is no image (or it fails to load). */
@@ -463,14 +495,17 @@
         const tone = window.toneVars(p.color);
 
         if (kind === 'phone') {
+            // Android 15: punch-hole camera, status icons, gesture pill.
+            // iOS: Dynamic Island, the time on the left, home indicator.
             const ios = media.platform === 'ios';
-            return `<div class="dframe dframe--phone ${ios ? 'is-ios' : 'is-android'}" style="${tone}">
-                <div class="df-screen">${screen}</div>
+            return `<div class="dframe dframe--phone ${ios ? 'is-ios' : 'is-android'}" data-kind="phone" style="${tone}">
+                <div class="df-screen">${screen}<div class="df-status" aria-hidden="true"><span class="df-time">9:41</span><span class="df-sys"><i class="df-sig"></i><i class="df-wifi"></i><i class="df-batt"></i></span></div><i class="df-home" aria-hidden="true"></i></div>
                 <i class="df-cam" aria-hidden="true"></i>
             </div>`;
         }
         if (kind === 'windows') {
-            return `<div class="dframe dframe--windows" style="${tone}">
+            // Windows 11: a Mica title bar tinted by the app, caption buttons.
+            return `<div class="dframe dframe--windows" data-kind="windows" style="${tone}">
                 <div class="df-bar" aria-hidden="true">
                     <span class="df-app">${window.icon(p.icon, { size: 11 })}</span>
                     <span class="df-title">${esc(p.title || '')}</span>
@@ -479,11 +514,14 @@
                 <div class="df-screen">${screen}</div>
             </div>`;
         }
+        // macOS browser: traffic lights, back/forward, a centred address field.
         const host = hostOf(window.safeUrl(p.link)) || 'arnavdugad.in';
-        return `<div class="dframe dframe--web" style="${tone}">
+        return `<div class="dframe dframe--web" data-kind="web" style="${tone}">
             <div class="df-bar" aria-hidden="true">
                 <span class="df-dots"><i></i><i></i><i></i></span>
+                <span class="df-nav"><i></i><i></i></span>
                 <span class="df-url">${window.icon('lock', { raw: true, size: 9 })}${esc(host)}</span>
+                <span class="df-tools"><i></i><i></i></span>
             </div>
             <div class="df-screen">${screen}</div>
         </div>`;
@@ -501,6 +539,14 @@
                 frame.classList.add('has-img');
                 // A tall image in a landscape frame reads better as a phone.
                 if (frame.dataset.autoKind === '1' && img.naturalHeight > img.naturalWidth * 1.3) frame.classList.add('is-portrait-shot');
+                // A wide screenshot in a phone: the phone turns on its side.
+                if (frame.dataset.kind === 'phone' && img.naturalWidth > img.naturalHeight * 1.15 && !frame.classList.contains('is-landscape')) {
+                    frame.classList.add('is-landscape');
+                    if (!reduced()) {
+                        frame.classList.add('is-turning');
+                        setTimeout(() => frame.classList.remove('is-turning'), 1200);
+                    }
+                }
             }
         }
         if (img.hasAttribute('data-appicon')) img.closest('.appicon')?.classList.add('has-img');
@@ -537,7 +583,7 @@
         if (!list.length) return '';
         return `<span class="pglyphs">${list.map((k) => {
             const def = P()[k];
-            return `<span class="pglyph" title="${esc(def.label)}">${window.icon(def.icon, { raw: true, size })}${labels ? `<span>${esc(def.short)}</span>` : '<span class="u-sr">' + esc(def.label) + '</span>'}</span>`;
+            return `<span class="pglyph" data-plat="${esc(k)}" title="${esc(def.label)}">${window.icon(def.icon, { raw: true, size })}${labels ? `<span>${esc(def.short)}</span>` : '<span class="u-sr">' + esc(def.label) + '</span>'}</span>`;
         }).join('')}</span>`;
     }
 
@@ -557,7 +603,10 @@
             chips.push(`<span class="mchip mchip--perf ${scoreClass(ps.performance)}" title="Lighthouse performance (mobile)">${window.icon('bolt', { raw: true, size: 12 })}${ps.performance}</span>`);
         }
         const r = M().release(p);
-        if (r && r.version && !compact) {
+        if (r && r.version && r.isNew) {
+            // A fresh release earns the split-flap treatment, even on cards.
+            chips.unshift(`<span class="mchip mchip--new" title="Released ${r.date ? esc(shortAgo(r.date)) : 'recently'}"><b>New</b>${flapHtml(`v${r.version}`)}</span>`);
+        } else if (r && r.version && !compact) {
             chips.push(`<span class="mchip mchip--ver" title="Latest release${r.date ? ` · ${new Date(r.date).toLocaleDateString()}` : ''}">v${esc(r.version)}${r.date ? ` · ${esc(shortAgo(r.date))}` : ''}</span>`);
         }
         return chips.length ? `<span class="mchips">${chips.join('')}</span>` : '';
@@ -586,9 +635,9 @@
         const C = 2 * Math.PI * 20;
         return `<div class="rings" role="list">${items.map(([k, label], i) => {
             const v = Math.max(0, Math.min(100, Math.round(psi[k])));
-            return `<div class="ring ${scoreClass(v)}" role="listitem" style="--i:${i};--off:${(C * (1 - v / 100)).toFixed(2)};--c:${C.toFixed(2)}">
+            return `<div class="ring ${scoreClass(v)}" role="listitem" aria-label="${label} ${v} out of 100" style="--i:${i};--off:${(C * (1 - v / 100)).toFixed(2)};--c:${C.toFixed(2)}">
                 <svg viewBox="0 0 48 48" aria-hidden="true"><circle class="ring-track" cx="24" cy="24" r="20"/><circle class="ring-fill" cx="24" cy="24" r="20"/></svg>
-                <b>${v}</b><span>${label}</span>
+                <b data-count="${v}" aria-hidden="true">${v}</b><span aria-hidden="true">${label}</span>
             </div>`;
         }).join('')}</div>`;
     }
@@ -681,35 +730,43 @@
         const metaLine = (o) => [o.version && `v${String(o.version).replace(/^v/i, '')}`, o.arch, window.formatBytes(o.size), o.count ? `${window.formatCount(o.count)} downloads` : '']
             .filter(Boolean).join(' · ');
 
+        const dlAttrs = (o) => (o.type === 'download'
+            ? `download data-dl="${esc(p.id)}"`
+            : 'target="_blank" rel="noopener noreferrer"');
+
         const primaryBtn = primary ? `
-            <a class="getit-primary" href="${esc(primary.url)}" ${primary.type === 'download' ? 'download' : 'target="_blank" rel="noopener noreferrer"'}
-               data-cursor="${primary.type === 'download' ? 'Get' : 'Open'}" data-getit="${esc(primary.type)}">
+            <a class="getit-primary" href="${esc(primary.url)}" ${dlAttrs(primary)}
+               data-cursor="${primary.type === 'download' ? 'Get' : 'Open'}" data-getit="${esc(primary.type)}" data-getit-platform="${esc(primary.platform || '')}">
                 <span class="getit-glyph">${window.icon(primary.type === 'store' ? primary.icon : ((P()[primary.platform] || {}).icon || 'download'), { raw: true, size: 22 })}</span>
                 <span class="getit-text">
-                    <small>${primary.type === 'store' ? esc(primary.pre) : (primary.type === 'download' ? (vp === primary.platform ? 'For this device' : 'Download') : 'No install needed')}</small>
-                    <b>${esc(primary.type === 'store' ? primary.label : (primary.type === 'web' ? 'Open in your browser' : primary.title.replace(/^Download /, '')))}</b>
+                    <small>${primary.type === 'store' ? esc(primary.pre) : (primary.type === 'download' ? esc(vp === primary.platform ? `For this ${(P()[primary.platform] || {}).label || ''} device` : `Download for ${(P()[primary.platform] || {}).label || 'your device'}`) : 'No install needed')}</small>
+                    <b>${esc(primary.type === 'store' ? primary.label : (primary.type === 'web' ? 'Open in your browser' : dlName(primary)))}</b>
                     ${primary.type === 'download' && metaLine(primary) ? `<em>${esc(metaLine(primary))}</em>` : ''}
                 </span>
-                <span class="getit-go">${window.icon(primary.type === 'download' ? 'download' : 'external', { raw: true, size: 16 })}</span>
+                <span class="getit-go">${primary.type === 'download' ? dlRing() : ''}${window.icon(primary.type === 'download' ? 'download' : 'external', { raw: true, size: 16 })}</span>
             </a>` : '';
 
         const others = rest.length ? `<ul class="getit-list">${rest.map((o) => `
-            <li><a href="${esc(o.url)}" ${o.type === 'download' ? 'download' : 'target="_blank" rel="noopener noreferrer"'} class="getit-row">
+            <li><a href="${esc(o.url)}" ${dlAttrs(o)} class="getit-row" data-getit-platform="${esc(o.platform || '')}">
                 <span class="getit-row-ic">${window.icon(o.type === 'store' ? o.icon : ((P()[o.platform] || {}).icon || 'globe'), { raw: true, size: 15 })}</span>
-                <span class="getit-row-tx"><b>${esc(o.type === 'store' ? `${o.pre} ${o.label}` : o.title)}</b>${o.type === 'download' && metaLine(o) ? `<small>${esc(metaLine(o))}</small>` : (o.type === 'web' ? `<small>${esc(o.label)}</small>` : '')}</span>
-                ${window.icon(o.type === 'download' ? 'download' : 'external', { raw: true, size: 14 })}
+                <span class="getit-row-tx"><b>${esc(o.type === 'store' ? `${o.pre} ${o.label}` : (o.type === 'download' ? `${(P()[o.platform] || {}).label || 'Download'} · ${dlName(o)}` : o.title))}</b>${o.type === 'download' && metaLine(o) ? `<small>${esc(metaLine(o))}</small>` : (o.type === 'web' ? `<small>${esc(o.label)}</small>` : '')}</span>
+                <span class="getit-row-go">${o.type === 'download' ? dlRing() : ''}${window.icon(o.type === 'download' ? 'download' : 'external', { raw: true, size: 14 })}</span>
             </a></li>`).join('')}</ul>` : '';
 
-        // Hand an Android or iOS install to a phone when we're not on one.
+        // Hand an Android or iOS install to a phone when we're not on one. The
+        // code opens this site on the phone with the right download ready
+        // (?get=android) — better than a bare file link: the phone shows what
+        // it is installing first.
         let qr = '';
         const phoneTarget = (vp !== 'android' && (opts.find((o) => o.type === 'store' && o.key === 'play') || opts.find((o) => o.type === 'download' && o.platform === 'android')))
-            || (vp !== 'ios' && opts.find((o) => o.type === 'store' && o.key === 'appstore'));
+            || (vp !== 'ios' && (opts.find((o) => o.type === 'store' && o.key === 'appstore') || opts.find((o) => o.type === 'download' && o.platform === 'ios')));
         if (phoneTarget && window.QR) {
-            const code = window.QR.svg(phoneTarget.url, { label: `QR code to install ${p.title} on a phone` });
+            const target = getLink(p, phoneTarget.platform);
+            const code = window.QR.svg(target, { label: `QR code to get ${p.title} on a phone`, animated: !reduced() });
             if (code) {
                 qr = `<figure class="getit-qr">
-                    <div class="getit-qr-code">${code}</div>
-                    <figcaption><b>Scan to install</b><span>on your ${phoneTarget.platform === 'ios' ? 'iPhone' : 'Android phone'}</span></figcaption>
+                    <a class="getit-qr-code" href="${esc(target)}" target="_blank" rel="noopener noreferrer" aria-label="Open the ${esc(p.title)} download page">${code}</a>
+                    <figcaption><b>Scan with your ${phoneTarget.platform === 'ios' ? 'iPhone' : 'phone'}</b><span>opens the download, ready to install</span></figcaption>
                 </figure>`;
             }
         }
@@ -723,6 +780,246 @@
             </div>
             ${qr}
         </section>`;
+    }
+
+    /* A human name for a download: the importer's label ("Installer (x64)",
+       "Portable zip"), else the file type. */
+    function dlName(o) {
+        const pl = (P()[o.platform] || {}).label || '';
+        const label = String(o.label || '').trim();
+        if (label && label.toLowerCase() !== pl.toLowerCase() && label.toLowerCase() !== 'download') return label;
+        const ext = (String(o.file || '').match(/\.([a-z0-9]{2,8})$/i) || [])[1];
+        const kinds = { exe: 'Installer', msi: 'Installer', msix: 'App package', appx: 'App package', apk: 'APK', aab: 'App bundle', ipa: 'iOS app', dmg: 'Disk image', zip: 'Zip archive', appimage: 'AppImage', deb: 'Debian package', rpm: 'RPM package', crx: 'Extension', xpi: 'Add-on' };
+        return (ext && kinds[ext.toLowerCase()]) || `${pl} app`.trim();
+    }
+
+    /* The deep link a QR code carries: this project, with the install for
+       `platform` front and centre. /p/<slug> keeps its preview card for chat
+       apps and passes ?get= through to the page. */
+    function getLink(p, platform) {
+        const slug = encodeURIComponent(window.projectSlug(p));
+        const q = `get=${encodeURIComponent(platform || '')}`;
+        if (window.EDGE) {
+            const origin = /(^|\.)arnavdugad\.in$/i.test(location.hostname) ? 'https://www.arnavdugad.in' : location.origin;
+            return `${origin}/p/${slug}?${q}`;
+        }
+        return `${location.origin}${location.pathname}?${q}#${slug}`;
+    }
+
+    /* A progress ring that fills while a download starts (see the click
+       handler below). */
+    const dlRing = () => `<svg class="dl-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="16"/></svg>`;
+
+    /* Download feedback: ring fills → check → (first install on this
+       device) confetti. Never blocks the download itself. */
+    document.addEventListener('click', (e) => {
+        const a = e.target.closest && e.target.closest('a[data-dl]');
+        if (!a || a.classList.contains('is-dl')) return;
+        const id = a.dataset.dl;
+        a.classList.add('is-dl');
+        const reduce = reduced();
+        setTimeout(() => {
+            a.classList.add('is-done');
+            if (window.Micro && window.Micro.haptic) window.Micro.haptic('success');
+            let first = false;
+            try {
+                const key = `installed:${id}`;
+                first = !localStorage.getItem(key);
+                localStorage.setItem(key, String(Date.now()));
+            } catch { /* private mode */ }
+            if (first && !reduce && window.celebrate) window.celebrate();
+            if (first && window.toast) window.toast('Downloading — thanks for trying it', 'success');
+        }, reduce ? 0 : 1150);
+        setTimeout(() => a.classList.remove('is-dl', 'is-done'), reduce ? 1600 : 3200);
+    }, true);
+
+    /* A compact install bar for phones, pinned to the bottom of the detail
+       sheet — the Get button never scrolls out of reach. */
+    function getBarHtml(p) {
+        const opts = getItOptions(p);
+        if (!opts.some((o) => o.type !== 'web')) return '';
+        const vp = window.visitorPlatform ? window.visitorPlatform() : 'other';
+        const o = pickPrimary(opts, vp, window.platformsOf(p));
+        if (!o) return '';
+        const sub = o.type === 'download'
+            ? [P()[o.platform] && P()[o.platform].label, window.formatBytes(o.size)].filter(Boolean).join(' · ')
+            : (o.type === 'store' ? `${o.pre} ${o.label}` : hostOf(o.url));
+        return `<div class="getbar" role="region" aria-label="Get ${esc(p.title)}">
+            ${appIconHtml(p, { size: 36 })}
+            <span class="getbar-tx"><b>${esc(p.title)}</b><small>${esc(sub)}</small></span>
+            <a class="getbar-btn" href="${esc(o.url)}" ${o.type === 'download' ? `download data-dl="${esc(p.id)}"` : 'target="_blank" rel="noopener noreferrer"'}>
+                ${o.type === 'download' ? dlRing() : ''}<span>${o.type === 'download' ? 'Get' : 'Open'}</span>
+            </a>
+        </div>`;
+    }
+
+    /* =====================================================================
+       Split-flap text — for version numbers that just changed. Each glyph
+       rattles through a few characters before settling, like a departures
+       board. Triggered when it scrolls into view.
+       ===================================================================== */
+
+    function flapHtml(text) {
+        const t = String(text || '');
+        return `<span class="flap" data-flap aria-label="${esc(t)}">${t.split('').map((ch, i) =>
+            `<span class="flap-c" style="--i:${i}" aria-hidden="true">${esc(ch)}</span>`).join('')}</span>`;
+    }
+
+    const FLAP_SET = '0123456789.v';
+    function runFlap(el) {
+        if (el.dataset.flapped) return;
+        el.dataset.flapped = '1';
+        if (reduced()) { el.classList.add('is-in'); return; }
+        el.classList.add('is-in');
+        el.querySelectorAll('.flap-c').forEach((c, i) => {
+            const final = c.textContent;
+            let n = 3 + Math.floor(Math.random() * 3);
+            const step = () => {
+                if (n-- <= 0) { c.textContent = final; c.classList.remove('is-flipping'); return; }
+                c.textContent = FLAP_SET[Math.floor(Math.random() * FLAP_SET.length)];
+                c.classList.remove('is-flipping'); void c.offsetWidth; c.classList.add('is-flipping');
+                setTimeout(step, 70);
+            };
+            setTimeout(step, 120 + i * 60);
+        });
+    }
+    const flapIO = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) { flapIO.unobserve(e.target); runFlap(e.target); } });
+    }, { threshold: 0.6 }) : null;
+    function mountFlaps(root = document) {
+        root.querySelectorAll('[data-flap]:not([data-flap-on])').forEach((el) => {
+            el.dataset.flapOn = '1';
+            if (flapIO) flapIO.observe(el); else runFlap(el);
+        });
+    }
+
+    /* =====================================================================
+       Lighthouse rings count up as they fill — with a soft tick per ten
+       points when sound is on.
+       ===================================================================== */
+
+    function countRings(root) {
+        root.querySelectorAll('.rings:not([data-counted])').forEach((rings) => {
+            rings.dataset.counted = '1';
+            const nums = Array.from(rings.querySelectorAll('[data-count]'));
+            if (reduced() || !window.onFrame) return;
+            nums.forEach((b, i) => {
+                const target = Number(b.dataset.count) || 0;
+                const delay = i * 110;
+                const dur = 1300;
+                let t0 = null, lastTick = 0;
+                b.textContent = '0';
+                const stop = window.onFrame((now) => {
+                    if (t0 === null) t0 = now + delay;
+                    const k = Math.min(1, Math.max(0, (now - t0) / dur));
+                    const eased = 1 - Math.pow(1 - k, 4);
+                    const v = Math.round(target * eased);
+                    b.textContent = String(v);
+                    if (v - lastTick >= 10) { lastTick = v - (v % 10); if (window.playTick) window.playTick(v / 100); }
+                    if (k >= 1) stop();
+                });
+            });
+        });
+    }
+
+    /* =====================================================================
+       App-store pieces — the summary strip, "What's new", "Information".
+       ===================================================================== */
+
+    function primaryDownload(p) {
+        const vp = window.visitorPlatform ? window.visitorPlatform() : 'other';
+        const dls = getItOptions(p).filter((o) => o.type === 'download');
+        return dls.find((o) => o.platform === vp) || dls.find((o) => o.platform === primaryPlatform(p)) || dls[0] || null;
+    }
+
+    function storeRating(p) {
+        const m = M() && M().get(p.id);
+        const st = m && m.store;
+        if (!st) return null;
+        const src = st.play || st.appstore || st.microsoft;
+        if (!src || !Number(src.rating)) return null;
+        return { rating: Number(src.rating), ratings: Number(src.ratings) || 0, installs: src.installs || '' };
+    }
+
+    function appSummaryHtml(p) {
+        const cells = [];
+        const rate = storeRating(p);
+        if (rate) cells.push(`<div class="asum-cell"><b>${rate.rating.toFixed(1)} ${window.icon('star-fill', { raw: true, size: 13 })}</b><span>${rate.ratings ? `${window.formatCount(rate.ratings)} ratings` : 'rating'}</span></div>`);
+        const dl = M() ? M().downloads(p) : 0;
+        if (dl) cells.push(`<div class="asum-cell"><b>${window.formatCount(dl)}</b><span>downloads</span></div>`);
+        else if (rate && rate.installs) cells.push(`<div class="asum-cell"><b>${esc(rate.installs)}</b><span>installs</span></div>`);
+        const r = M() ? M().release(p) : null;
+        if (r && r.version) cells.push(`<div class="asum-cell"><b>v${esc(r.version)}</b><span>${r.date ? esc(shortAgo(r.date)) : 'latest'}</span></div>`);
+        const d = primaryDownload(p);
+        if (d && d.size) cells.push(`<div class="asum-cell"><b>${esc(window.formatBytes(d.size))}</b><span>size</span></div>`);
+        cells.push(`<div class="asum-cell"><b class="asum-ic">${window.icon((P()[primaryPlatform(p)] || {}).icon || 'globe', { raw: true, size: 18 })}</b><span>${esc((P()[primaryPlatform(p)] || {}).label || 'App')}</span></div>`);
+        if (p.category) cells.push(`<div class="asum-cell"><b class="asum-ic">${window.icon(p.icon, { raw: true, size: 18 })}</b><span>${esc(window.categoryLabel(p.category))}</span></div>`);
+        return `<div class="asum" role="list">${cells.map((c) => c.replace('class="asum-cell"', 'class="asum-cell" role="listitem"')).join('')}</div>`;
+    }
+
+    function whatsNewHtml(p) {
+        const r = M() ? M().release(p) : null;
+        if (!r || !r.version) return '';
+        const notes = (r.summary || []).slice(0, 5);
+        return `<section class="whatsnew ${r.isNew ? 'is-new' : ''}">
+            <div class="detail-sub">What's new</div>
+            <div class="whatsnew-head">
+                <span class="whatsnew-ver">${r.isNew ? flapHtml(`v${r.version}`) : `v${esc(r.version)}`}</span>
+                ${r.date ? `<time>${esc(new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }))}</time>` : ''}
+                ${r.isNew ? '<span class="whatsnew-tag">New</span>' : ''}
+            </div>
+            ${notes.length ? `<ul class="whatsnew-list">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+            ${r.url ? `<a class="whatsnew-more" href="${esc(window.safeUrl(r.url))}" target="_blank" rel="noopener noreferrer">Full release notes ${window.icon('external', { raw: true, size: 12 })}</a>` : ''}
+        </section>`;
+    }
+
+    function appInfoHtml(p) {
+        const m = M() && M().get(p.id);
+        const r = M() ? M().release(p) : null;
+        const d = primaryDownload(p);
+        const reqs = (Array.isArray(p.requirements) ? p.requirements : []).filter(Boolean);
+        const rows = [
+            ['Developer', 'Arnav Dugad'],
+            r && r.version ? ['Version', `v${r.version}`] : null,
+            r && r.date ? ['Updated', new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })] : null,
+            d && d.size ? ['Size', window.formatBytes(d.size)] : null,
+            ['Category', window.categoryLabel(p.category)],
+            ['Runs on', window.platformsOf(p).map((k) => (P()[k] || {}).label).filter(Boolean).join(', ')],
+            reqs.length ? ['Requires', reqs.join(' · ')] : null,
+            p.stack && p.stack.frameworks && p.stack.frameworks.length ? ['Built with', p.stack.frameworks.slice(0, 4).join(', ')] : null,
+            m && m.github && m.github.license ? ['License', m.github.license] : null,
+            p.year ? ['Released', String(p.year)] : null
+        ].filter((row) => row && row[1]);
+        return `<section class="appinfo">
+            <div class="detail-sub">Information</div>
+            <dl>${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+        </section>`;
+    }
+
+    /* =====================================================================
+       Release cards — the editorial "Latest releases" strip.
+       ===================================================================== */
+
+    function releaseCardHtml(it, p, i = 0) {
+        const notes = (it.summary || []).slice(0, 3);
+        const tone = window.toneVars((p && p.color) || 'slate');
+        const plats = Array.isArray(it.platforms) && it.platforms.length ? it.platforms : (p ? window.platformsOf(p) : []);
+        return `<article class="relcard ${it.isNew ? 'is-new' : ''}" data-id="${esc(it.projectId)}" style="${tone}--i:${i}" data-reveal="up">
+            <header class="relcard-top">
+                ${p ? appIconHtml(p, { size: 34 }) : ''}
+                <span class="relcard-name"><b>${esc(it.title || (p && p.title) || '')}</b>
+                    <span class="relcard-plats">${plats.map((k) => P()[k] ? `<span class="pchip" data-plat="${esc(k)}">${window.icon(P()[k].icon, { raw: true, size: 11 })}${esc(P()[k].short)}</span>` : '').join('')}</span>
+                </span>
+                ${it.isNew ? '<span class="relcard-new">New</span>' : ''}
+            </header>
+            <div class="relcard-ver">${it.isNew ? flapHtml(`v${it.tag}`) : `<span class="flap is-static">v${esc(it.tag)}</span>`}</div>
+            <p class="relcard-when">${it.date ? `${esc(new Date(it.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }))} · ${esc(shortAgo(it.date))}` : ''}</p>
+            ${notes.length ? `<ul class="relcard-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : `<p class="relcard-notes is-empty">${esc(it.name || 'A new version is out.')}</p>`}
+            <footer class="relcard-foot">
+                ${p ? `<button type="button" class="relcard-go" data-open="${esc(p.id)}" data-cursor="Open">What's new ${window.icon('arrow-right', { raw: true, size: 14 })}</button>` : ''}
+                ${it.url ? `<a class="relcard-link" href="${esc(window.safeUrl(it.url))}" target="_blank" rel="noopener noreferrer" aria-label="Release notes on GitHub">${window.icon('github', { raw: true, size: 14 })}</a>` : ''}
+            </footer>
+        </article>`;
     }
 
     function storeBadgesHtml(p) {
@@ -850,6 +1147,19 @@
         // v2 showcase
         mediaFor, frameHtml, appIconHtml, platformGlyphs, metricsHtml,
         ringsHtml, commitStripHtml, getItHtml, getItOptions, primaryOption, storeBadgesHtml,
-        galleryHtml, mountGallery, shortAgo, scoreClass, primaryPlatform
+        galleryHtml, mountGallery, shortAgo, scoreClass, primaryPlatform,
+        // v3
+        getBarHtml, getLink, flapHtml, mountFlaps, countRings,
+        appSummaryHtml, whatsNewHtml, appInfoHtml, releaseCardHtml, shotUrl
     };
+
+    // Flaps can appear anywhere (cards repaint often) — keep them wired.
+    if ('MutationObserver' in window) {
+        let queued = false;
+        new MutationObserver(() => {
+            if (queued) return;
+            queued = true;
+            requestAnimationFrame(() => { queued = false; mountFlaps(document); });
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
 })();

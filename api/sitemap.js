@@ -50,9 +50,9 @@ export default async function handler() {
         entry({ loc: `${SITE}/resume`, changefreq: 'monthly', priority: '0.6' })
     ];
 
-    // Newest first, and skip anything without a usable slug.
+    // Newest first, and skip anything without a usable slug or hidden by the admin.
     const ordered = projects
-        .filter((p) => p.slug)
+        .filter((p) => p.slug && !p.hidden)
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     const seen = new Set();

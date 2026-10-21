@@ -22,6 +22,10 @@
      /api/shot          a screenshot of a project's live site
      /api/activity      latest public GitHub activity
      /api/contributions the year's contribution calendar (needs GITHUB_TOKEN)
+     /api/projects      every visible project, edge-cached (visitors' only read)
+     /api/media/<id>    an image the admin uploaded (immutable, edge-cached)
+     /api/releases      the release radar — recent releases across projects
+     /api/rehost        rebuild a project on Cloudflare Pages from its repo (admin)
 
    All data lives in Firestore (see worker/firestore.js); the Cache API is
    used only as a cache.
@@ -43,6 +47,9 @@ import { handleMeta, handleMetaRefresh } from './meta.js';
 import { handleShot } from './shot.js';
 import { handleDiscover } from './discover.js';
 import { handleActivity, handleContributions } from './activity.js';
+import { handleMedia } from './media.js';
+import { handleReleases } from './releases.js';
+import { handleRehost } from './rehost.js';
 
 const CANONICAL_HOST = 'www.arnavdugad.in';
 
@@ -61,6 +68,9 @@ async function handleProjects(req, env) {
         if (!snap.ok) throw e;
         projects = (await snap.json()).projects || [];
     }
+    // Hidden projects are included on purpose: the admin's tools read this
+    // list too, and the client filters them out for visitors
+    // (window.listProjects). Sitemap, feeds, releases and /p/ exclude them.
     return new Response(JSON.stringify({ projects }), {
         headers: {
             'content-type': 'application/json; charset=utf-8',
@@ -95,11 +105,14 @@ async function route(req, env, ctx) {
     if (pathname === '/api/shot') return handleShot(req, env, ctx);
     if (pathname === '/api/activity') return handleActivity(req, env, ctx);
     if (pathname === '/api/contributions') return handleContributions(req, env, ctx);
+    if (pathname.startsWith('/api/media/')) return handleMedia(req, env, ctx);
+    if (pathname === '/api/releases') return handleReleases(req, env, ctx);
+    if (pathname === '/api/rehost') return handleRehost(req, env);
 
     if (pathname.startsWith('/p/')) return share(req);
     if (pathname === '/sitemap.xml') return sitemap(req);
-    if (pathname === '/feed.xml') return handleRss();
-    if (pathname === '/feed.json') return handleJsonFeed();
+    if (pathname === '/feed.xml') return handleRss(ctx);
+    if (pathname === '/feed.json') return handleJsonFeed(ctx);
 
     // The pages load Vercel's analytics scripts, which only exist on
     // Vercel. Answer with an empty script instead of a console 404.

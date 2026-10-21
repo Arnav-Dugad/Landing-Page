@@ -3,7 +3,8 @@ rules_version = '2';
 // ===========================================================================
 // Firestore security rules for the portfolio.
 //
-// Data lives under:  artifacts/{appId}/public/data/{projects|messages|stats}
+// Data lives under:  artifacts/{appId}/public/data/{projects|messages|stats|
+//                    reactions|reactionVotes|site|meta|shots|media|history}
 //
 // Two identities exist:
 //
@@ -112,7 +113,12 @@ service cloud.firestore {
             && (!('releasedAt' in request.resource.data) || request.resource.data.releasedAt is number || request.resource.data.releasedAt == null)
             && (!('sources' in request.resource.data) || (request.resource.data.sources is list && request.resource.data.sources.size() <= 10))
             && (!('auto' in request.resource.data) || request.resource.data.auto is bool)
-            && (!('locked' in request.resource.data) || (request.resource.data.locked is list && request.resource.data.locked.size() <= 60));
+            && (!('locked' in request.resource.data) || (request.resource.data.locked is list && request.resource.data.locked.size() <= 60))
+            // v3: build-file facts, dark cover, and hide-without-deleting
+            && (!('requirements' in request.resource.data) || (request.resource.data.requirements is list && request.resource.data.requirements.size() <= 6))
+            && (!('stack' in request.resource.data) || request.resource.data.stack is map)
+            && (!('coverDark' in request.resource.data) || (request.resource.data.coverDark is string && request.resource.data.coverDark.size() <= 2000))
+            && (!('hidden' in request.resource.data) || request.resource.data.hidden is bool);
         }
 
         allow create: if isAdmin() && validProject();
@@ -191,6 +197,47 @@ service cloud.firestore {
       match /shots/{shotId} {
         allow read: if true;
         allow write: if isEdge();
+      }
+
+      // ---- Uploaded images ----------------------------------------------
+      // media/{id} — an image the admin dropped into the editor, compressed
+      // in the browser and stored as base64. The id is the start of the
+      // image's SHA-256, so documents are write-once: no updates, ever.
+      // Served to visitors by the Worker (/api/media/<id>) with an
+      // immutable cache, so each is read about once per data centre.
+      match /media/{mediaId} {
+        allow read: if true;
+        allow create: if isAdmin()
+          && mediaId.matches('^[a-f0-9]{24}$')
+          && request.resource.data.keys().hasOnly(['data', 'type', 'w', 'h', 'bytes', 'name', 'createdAt'])
+          && request.resource.data.data is string
+          && request.resource.data.data.size() > 0
+          && request.resource.data.data.size() <= 1000000
+          && request.resource.data.type in ['image/webp', 'image/jpeg', 'image/png']
+          && (!('w' in request.resource.data) || (request.resource.data.w is int && request.resource.data.w > 0 && request.resource.data.w <= 4096))
+          && (!('h' in request.resource.data) || (request.resource.data.h is int && request.resource.data.h > 0 && request.resource.data.h <= 4096))
+          && (!('bytes' in request.resource.data) || request.resource.data.bytes is int)
+          && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 200))
+          && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is number);
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+
+      // ---- What changed, when ------------------------------------------
+      // history/{autoId} — import/edit entries from the admin's browser,
+      // refresh/release/rehost entries from the Worker. Private to both.
+      match /history/{entryId} {
+        allow read: if isAdmin() || isEdge();
+        allow create: if (isAdmin() || isEdge())
+          && request.resource.data.keys().hasOnly(['projectId', 'at', 'kind', 'summary', 'changes', 'by'])
+          && request.resource.data.projectId is string && request.resource.data.projectId.size() <= 128
+          && request.resource.data.at is number
+          && request.resource.data.kind in ['import', 'refresh', 'edit', 'rehost', 'release']
+          && request.resource.data.summary is string && request.resource.data.summary.size() <= 200
+          && request.resource.data.changes is list && request.resource.data.changes.size() <= 20
+          && request.resource.data.by in ['admin', 'worker'];
+        allow update: if false;
+        allow delete: if isAdmin();
       }
 
       // ---- Stats: public read, only the visit counter may change --------

@@ -10,6 +10,8 @@
      Meta.downloads(p)    → total downloads for a project
      Meta.stars(p)        → stars, or null when unknown
      Meta.totals()        → { stars, downloads, perf, perfCount }
+     Meta.score(p)        → 0–100 "how much is worth showing" (smart sort)
+     Meta.releases()      → Promise<[{ projectId, tag, date, summary[], isNew, … }]>
 
    Visitors never call GitHub from their own browser when the Worker is
    there — one cached request replaces thirty, and nobody hits the 60/hour
@@ -85,16 +87,72 @@
         return (m && m.web && m.web.psi) || null;
     };
 
+    const NEW_MS = 14 * 864e5;
+
+    /* The latest release, whichever source knows it. isNew = shipped in the
+       last two weeks (the Worker says so; otherwise worked out from the date). */
     const release = (p) => {
         const m = get(p && p.id);
         const r = m && m.github && m.github.release;
-        if (r && r.tag) return { version: String(r.tag).replace(/^v/i, ''), date: r.date || null, url: r.url || null };
-        if (p && p.version) return { version: String(p.version).replace(/^v/i, ''), date: p.releasedAt || null, url: null };
+        const mk = (version, date, url, name, summary, isNew) => ({
+            version: String(version).replace(/^v/i, ''),
+            date: date || null, url: url || null, name: name || '',
+            summary: Array.isArray(summary) ? summary.filter(Boolean).slice(0, 5) : [],
+            isNew: typeof isNew === 'boolean' ? isNew : !!(date && Date.now() - date < NEW_MS)
+        });
+        if (r && r.tag) return mk(r.tag, r.date, r.url, r.name, r.summary, r.isNew);
+        if (p && p.version) return mk(p.version, p.releasedAt, null, '', [], undefined);
         return null;
     };
 
+    /* Smart ordering. The Worker computes `score`; until it has, a local
+       estimate from the same ingredients keeps the order sensible. */
+    function score(p) {
+        const m = get(p && p.id);
+        if (m && Number.isFinite(m.score)) return m.score;
+        const g = m && m.github;
+        const now = Date.now();
+        const fresh = (t) => (t ? Math.max(0, 1 - (now - t) / (365 * 864e5)) : 0);
+        const rel = release(p);
+        const recency = Math.max(fresh(g && g.pushedAt), fresh(rel && rel.date), fresh(p.updatedAt) * 0.6, fresh(p.createdAt) * 0.5);
+        const reach = Math.min(1, Math.log10(1 + downloads(p) + ((g && g.stars) || 0) * 3) / 3);
+        const up = m && m.web ? (m.web.up === false ? 0 : 1) : 0.6;
+        const ps = psi(p);
+        const quality = ps ? ((ps.performance || 0) + (ps.accessibility || 0)) / 200 : 0.5;
+        const complete = [p.tagline || p.desc, p.longDesc, (p.gallery || []).length || p.cover, p.appIcon,
+            (p.highlights || []).length, p.caseStudy].filter(Boolean).length / 6;
+        let s = recency * 35 + reach * 25 + up * 15 + quality * 10 + complete * 15;
+        if (p.featured) s += 8;
+        return Math.round(Math.min(100, s));
+    }
+
+    /* Recent releases across every project, newest first. The Worker's list
+       when it has one; otherwise assembled from meta. */
+    let relPromise = null;
+    function releases() {
+        if (relPromise) return relPromise;
+        const fromMeta = () => {
+            const all = window.listProjects ? window.listProjects() : [];
+            return all.map((p) => ({ p, r: release(p) }))
+                .filter((x) => x.r && x.r.date && Date.now() - x.r.date < 120 * 864e5)
+                .sort((a, b) => b.r.date - a.r.date)
+                .map(({ p, r }) => ({
+                    projectId: String(p.id), slug: window.projectSlug(p), title: p.title,
+                    platforms: window.platformsOf(p), tag: r.version, name: r.name,
+                    date: r.date, url: r.url, summary: r.summary, isNew: r.isNew
+                }));
+        };
+        relPromise = (window.EDGE ? window.edgeFetch('/api/releases') : Promise.reject(new Error('off edge')))
+            .then((d) => {
+                const items = (d && Array.isArray(d.items)) ? d.items : [];
+                return items.length ? items.map((it) => ({ ...it, tag: String(it.tag || '').replace(/^v/i, '') })) : load().then(fromMeta);
+            })
+            .catch(() => load().then(fromMeta));
+        return relPromise;
+    }
+
     function totals(list) {
-        const all = list || (window.getProjects ? window.getProjects() : []);
+        const all = list || (window.listProjects ? window.listProjects() : []);
         let starSum = 0, dl = 0, perf = 0, perfCount = 0, known = 0;
         all.forEach((p) => {
             const s = stars(p);
@@ -112,7 +170,7 @@
     }
 
     window.Meta = {
-        load, get, github, stars, downloads, psi, release, totals,
+        load, get, github, stars, downloads, psi, release, totals, score, releases,
         isReady: () => ready
     };
 

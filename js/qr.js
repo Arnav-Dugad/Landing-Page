@@ -263,18 +263,36 @@
         return build(version, codewords(bytes, version), mask);
     }
 
-    function svg(text, { label = 'QR code' } = {}) {
+    /* animated: modules are grouped into diagonal bands (one <path> each,
+       tagged --d), so CSS can draw the code in as a sweep from the top-left
+       corner — ~2·size paths, not one element per module. */
+    function svg(text, { label = 'QR code', animated = false } = {}) {
         const m = matrix(text);
         if (!m) return '';
         const q = 4;                                      // quiet zone, in modules
-        let d = '';
-        for (let y = 0; y < m.size; y++) {
-            for (let x = 0; x < m.size; x++) if (m.dark[y][x]) d += `M${x + q} ${y + q}h1v1h-1z`;
-        }
         const span = m.size + q * 2;
         const safeLabel = String(label).replace(/[&<>"']/g, '');
-        return `<svg class="qr" viewBox="0 0 ${span} ${span}" role="img" aria-label="${safeLabel}" `
-             + `shape-rendering="crispEdges"><path d="${d}" fill="currentColor"/></svg>`;
+        let body = '';
+        if (animated) {
+            const bands = [];
+            for (let y = 0; y < m.size; y++) {
+                for (let x = 0; x < m.size; x++) {
+                    if (!m.dark[y][x]) continue;
+                    const k = x + y;
+                    bands[k] = (bands[k] || '') + `M${x + q} ${y + q}h1v1h-1z`;
+                }
+            }
+            body = bands.map((d, k) => (d ? `<path d="${d}" style="--d:${k}"/>` : '')).join('');
+            body = `<g fill="currentColor">${body}</g>`;
+        } else {
+            let d = '';
+            for (let y = 0; y < m.size; y++) {
+                for (let x = 0; x < m.size; x++) if (m.dark[y][x]) d += `M${x + q} ${y + q}h1v1h-1z`;
+            }
+            body = `<path d="${d}" fill="currentColor"/>`;
+        }
+        return `<svg class="qr${animated ? ' qr--anim' : ''}" viewBox="0 0 ${span} ${span}" role="img" aria-label="${safeLabel}" `
+             + `shape-rendering="crispEdges">${body}</svg>`;
     }
 
     window.QR = { matrix, svg };

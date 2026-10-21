@@ -15,9 +15,11 @@ import { fetchProjects } from '../api/_project.js';
 import { getDoc, setDoc, listDocs, edgeToken } from './firestore.js';
 import { requireAdmin } from './auth.js';
 import { json, readJson, HttpError } from './http.js';
-import { githubMeta, repoSlugFrom, GitHubLimit } from './github.js';
+import { githubMeta, repoSlugFrom, GitHubLimit, bulletsFromNotes } from './github.js';
 import { pageSpeed } from './web.js';
 import { storeOf, readStore, storeMeta } from './stores.js';
+import { structured, availableProvider, strList, clip } from './ai.js';
+import { writeHistory, change } from './history.js';
 
 const STALE_MS = 12 * 60 * 60 * 1000;
 const BACKGROUND_BATCH = 3;
@@ -61,16 +63,168 @@ async function frameable(link) {
     }
 }
 
+const NEW_RELEASE_MS = 14 * 24 * 60 * 60 * 1000;
+const DAY = 24 * 60 * 60 * 1000;
+
+/* Release notes → up to five plain-English bullets. Only ever called for a
+   recent release, and only in a foreground (admin) refresh — never for a
+   visitor and never in the background, where the 30 s waitUntil budget
+   could cut it off mid-call. */
+const SUMMARY_SCHEMA = {
+    type: 'object',
+    properties: { bullets: { type: 'array', items: { type: 'string' }, description: 'Two to five short bullets, each under 110 characters.' } },
+    required: ['bullets'],
+    additionalProperties: false
+};
+async function summariseRelease(env, project, rel, notes) {
+    if (!notes || notes.trim().length < 40 || !availableProvider(env)) return null;
+    try {
+        const { data } = await structured(env, {
+            system: 'You summarise one software release for the "What\'s new" panel of a portfolio. Plain, specific, user-facing language; British spelling; no hype; no invented changes; skip contributor credits, links and checksums. Return only the JSON object.',
+            user: `Project: ${project.title || ''}\nRelease: ${rel.name || rel.tag}\n\nRelease notes:\n"""\n${notes.slice(0, 6000)}\n"""`,
+            schema: SUMMARY_SCHEMA,
+            maxTokens: 1500
+        });
+        const bullets = strList(data.bullets, 5, 200).map((b) => clip(b, 110));
+        return bullets.length ? bullets : null;
+    } catch (e) {
+        console.error('release summary', project.id, e && e.message);
+        return null;
+    }
+}
+
+/* 0–100, used for the default "Smart" sort. Recency 35, popularity 25,
+   uptime 15, Lighthouse 10, completeness of the entry 15. */
+export function computeScore(project, meta, now = Date.now()) {
+    const g = meta && meta.github;
+    const w = meta && meta.web;
+    const last = Math.max(
+        (g && g.pushedAt) || 0,
+        (g && g.release && g.release.date) || 0,
+        Number(project.releasedAt) || 0,
+        Number(project.updatedAt) || 0,
+        Number(project.createdAt) || 0
+    );
+    const recency = last ? 35 * Math.exp(-Math.max(0, now - last) / (120 * DAY)) : 0;
+
+    const downloads = (g && g.downloads)
+        || (Array.isArray(project.downloads) ? project.downloads.reduce((a, d) => a + (Number(d && d.count) || 0), 0) : 0);
+    const stars = (g && g.stars) || 0;
+    // log scale: ~10k downloads-or-equivalent saturates.
+    const popularity = Math.min(25, 25 * Math.log10(1 + downloads + stars * 5) / 4);
+
+    let uptime = 7.5;                                   // unknown
+    if (w && w.up === true) uptime = 15;
+    else if (w && w.up === false) uptime = 0;
+    else if (!project.link && downloads > 0) uptime = 15; // an app, not a site
+
+    const psi = w && w.psi;
+    const lh = psi ? 10 * (((psi.performance || 0) + (psi.accessibility || 0) + (psi.bestPractices || 0) + (psi.seo || 0)) / 400) : 5;
+
+    const filled = [
+        !!(project.desc && String(project.desc).trim()),
+        !!(project.tagline && String(project.tagline).trim()),
+        !!(project.longDesc && String(project.longDesc).trim()),
+        Array.isArray(project.highlights) && project.highlights.length >= 3,
+        !!(project.cover || (Array.isArray(project.gallery) && project.gallery.length)),
+        !!project.appIcon || !!project.caseStudy
+    ].filter(Boolean).length;
+    const completeness = 15 * filled / 6;
+
+    return Math.max(0, Math.min(100, Math.round(recency + popularity + uptime + lh + completeness)));
+}
+
+/* Which committed screenshots exist (shots/<slug>.jpg, shots/<slug>.dark.jpg):
+   two asset-store lookups, no Firestore. */
+async function shotFlags(env, project) {
+    if (!env.ASSETS || !project.slug) return null;
+    const has = async (name) => {
+        try {
+            const res = await env.ASSETS.fetch(new Request(`https://assets.local/shots/${name}`));
+            res.body?.cancel().catch(() => {});
+            return res.ok && (res.headers.get('content-type') || '').startsWith('image/');
+        } catch { return false; }
+    };
+    const [light, dark] = await Promise.all([has(`${project.slug}.jpg`), has(`${project.slug}.dark.jpg`)]);
+    return { light, dark };
+}
+
+/* The changes worth a line in the history log — movement a person would
+   notice, not every recomputed field. */
+function meaningfulChanges(prev, next) {
+    if (!prev) return [];
+    const out = [];
+    const pg = prev.github || {}, ng = next.github || {};
+    if (prev.github && next.github) {
+        if ((ng.stars || 0) !== (pg.stars || 0)) out.push(change('stars', pg.stars || 0, ng.stars || 0));
+        if ((ng.downloads || 0) !== (pg.downloads || 0)) out.push(change('downloads', pg.downloads || 0, ng.downloads || 0));
+        if ((ng.forks || 0) !== (pg.forks || 0)) out.push(change('forks', pg.forks || 0, ng.forks || 0));
+    }
+    if (prev.github && next.github === null) out.push(change('repo', pg.repo || 'repo', 'gone'));
+    const pu = prev.web && prev.web.up, nu = next.web && next.web.up;
+    if (typeof pu === 'boolean' && typeof nu === 'boolean' && pu !== nu) out.push(change('live', pu ? 'up' : 'down', nu ? 'up' : 'down'));
+    return out;
+}
+
+async function logEvents(env, project, prev, next, events) {
+    const writes = [];
+    if (events.newRelease) {
+        const { rel, prevTag } = events.newRelease;
+        writes.push(writeHistory(env, {
+            projectId: project.id,
+            kind: 'release',
+            summary: `${project.title || 'Project'} released ${rel.name || rel.tag}`,
+            changes: [change('version', prevTag, rel.tag), ...(rel.summary || []).slice(0, 5).map((b, i) => change(`note ${i + 1}`, '', b))]
+        }));
+    }
+    const diff = meaningfulChanges(prev, next);
+    if (diff.length) {
+        const bits = diff.map((d) => (d.field === 'live' ? `now ${d.after}` : `${d.field} ${d.before} → ${d.after}`));
+        writes.push(writeHistory(env, {
+            projectId: project.id,
+            kind: 'refresh',
+            summary: `${project.title || 'Project'}: ${bits.join(', ')}`.slice(0, 200),
+            changes: diff
+        }));
+    }
+    await Promise.all(writes);
+}
+
 /* One project's metadata. `prev` is carried forward wherever a source
-   fails, so a hiccup never wipes good numbers. */
-async function buildMeta(env, project, prev, status, { psi = false } = {}) {
+   fails, so a hiccup never wipes good numbers. Returns the meta plus what
+   happened (for the history log). `ai` allows an AI release summary. */
+async function buildMeta(env, project, prev, status, { psi = false, ai = false } = {}) {
     const out = { updatedAt: Date.now(), github: prev?.github || null, web: prev?.web || null, store: prev?.store || null };
+    const events = { newRelease: null };
     let limited = false;
 
     const slug = repoOf(project);
     if (slug) {
         try {
             const g = await githubMeta(env, slug);
+            if (g && g.release) {
+                const rel = g.release;
+                const notes = rel.notes || '';
+                delete rel.notes;                              // never stored
+                const prevRel = prev?.github?.release || null;
+                const sameTag = !!(prevRel && prevRel.tag === rel.tag);
+                if (sameTag && Array.isArray(prevRel.summary) && prevRel.summary.length) {
+                    rel.summary = prevRel.summary;
+                    rel.summaryBy = prevRel.summaryBy || 'notes';
+                } else {
+                    rel.summary = bulletsFromNotes(notes);
+                    rel.summaryBy = 'notes';
+                }
+                // A recent release gets an AI summary — foreground only.
+                const recent = !!(rel.date && Date.now() - rel.date < 120 * DAY);
+                if (ai && recent && rel.summaryBy !== 'ai') {
+                    const better = await summariseRelease(env, project, rel, notes);
+                    if (better) { rel.summary = better; rel.summaryBy = 'ai'; }
+                }
+                rel.isNew = !!(rel.date && Date.now() - rel.date < NEW_RELEASE_MS);
+                // A tag we haven't seen before, on a project we already tracked.
+                if (prev?.github && !sameTag && rel.tag) events.newRelease = { rel, prevTag: prevRel ? prevRel.tag : '' };
+            }
             out.github = g;                                   // null = repo gone
         } catch (e) {
             if (e instanceof GitHubLimit) limited = true;
@@ -114,10 +268,13 @@ async function buildMeta(env, project, prev, status, { psi = false } = {}) {
     }
     out.store = Object.keys(storeOut).length ? storeOut : null;
 
+    out.shots = (await shotFlags(env, project)) || prev?.shots || null;
+    out.score = computeScore(project, out);
+
     // Rate-limited: keep the old GitHub numbers and try again in an hour
     // rather than in twelve.
     if (limited) out.updatedAt = Date.now() - STALE_MS + 60 * 60 * 1000;
-    return out;
+    return { meta: out, events };
 }
 
 async function refreshSome(env, projects, docs, ids, opts = {}) {
@@ -129,10 +286,12 @@ async function refreshSome(env, projects, docs, ids, opts = {}) {
         const p = byId.get(String(id));
         if (!p) return;
         try {
-            const meta = await buildMeta(env, p, docs[id] || null, status, opts);
+            const prev = docs[id] || null;
+            const { meta, events } = await buildMeta(env, p, prev, status, opts);
             await setDoc(`meta/${id}`, meta, token);
             docs[id] = meta;
             done.push(String(id));
+            await logEvents(env, p, prev, meta, events);
         } catch (e) {
             console.error('meta refresh', id, e && e.message);
         }
@@ -152,7 +311,7 @@ const staleIds = (projects, docs, now = Date.now()) => projects
    serves yesterday's numbers instead of an error. */
 const META_LAST_GOOD = 'https://meta-cache.internal/v1/last-good';
 
-async function snapshot() {
+export async function snapshot() {
     if (memo.data && Date.now() - memo.at < MEMO_MS) return memo.data;
     const projects = await fetchProjects();
     let docs, degraded = false;
@@ -249,6 +408,6 @@ export async function handleMetaRefresh(req, env) {
     }
 
     const now = pending.slice(0, batch);
-    const refreshed = now.length ? await refreshSome(env, projects, { ...docs }, now, { psi }) : [];
+    const refreshed = now.length ? await refreshSome(env, projects, { ...docs }, now, { psi, ai: true }) : [];
     return json({ refreshed, remaining: Math.max(0, pending.length - refreshed.length) });
 }

@@ -181,18 +181,121 @@
         root.classList.add('has-project-theme');
     }
 
-    window.applyProjectTheme = (color) => {
+    /* -------- Accent from a real colour -------------------------------------
+       An app's own icon colour beats the nearest tone. The colour is pushed
+       until it clears 4.5:1 against the page in the current theme, so a pale
+       icon never produces unreadable links. */
+    let activeRgb = null;
+
+    const lum = ([r, g, b]) => {
+        const c = [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+
+    /* Moves `rgb` toward black (light theme) or white (dark theme) until it
+       reads on `ground`. Returns the adjusted colour. */
+    function readable(rgb, ground, dark) {
+        const target = dark ? [255, 255, 255] : [0, 0, 0];
+        let out = rgb;
+        for (let t = 0; t <= 1 && contrast(out, ground) < 4.5; t += 0.05) out = mix(rgb, target, t);
+        return out;
+    }
+
+    function paintRgb() {
+        const root = document.documentElement;
+        const dark = root.dataset.theme === 'dark';
+        const ground = dark ? [19, 17, 16] : [247, 245, 240];
+        const base = activeRgb;
+        const ink = readable(base, ground, dark);
+        const deep = dark ? mix(base, [0, 0, 0], 0.35) : mix(base, [0, 0, 0], 0.25);
+        const lift = mix(base, [255, 255, 255], dark ? 0.25 : 0.18);
+        const css = (c) => `rgb(${c.join(' ')})`;
+        const s = root.style;
+        s.setProperty('--accent', css(ink));
+        s.setProperty('--accent-lift', css(lift));
+        s.setProperty('--accent-deep', css(deep));
+        s.setProperty('--accent-soft', `rgb(${base.join(' ')} / ${dark ? 0.16 : 0.12})`);
+        s.setProperty('--accent-veil', `rgb(${base.join(' ')} / .2)`);
+        s.setProperty('--shadow-accent', `0 10px 30px -10px rgb(${base.join(' ')} / .5)`);
+        s.setProperty('--wash-a', `radial-gradient(circle at 30% 30%, rgb(${base.join(' ')} / .26), transparent 68%)`);
+        s.setProperty('--field-accent', base.join(', '));
+        root.classList.add('has-project-theme');
+    }
+
+    /* color: a tone key, or null to reset. opts.rgb: [r,g,b] from the real
+       icon — wins over the tone when given. */
+    window.applyProjectTheme = (color, { rgb = null } = {}) => {
         activeTone = color ? toneKey(color) : null;
-        paintTone();
-        window.dispatchEvent(new CustomEvent('accentchange', { detail: { tone: activeTone } }));
+        activeRgb = color && Array.isArray(rgb) && rgb.length === 3 ? rgb : null;
+        if (activeRgb) paintRgb(); else paintTone();
+        window.dispatchEvent(new CustomEvent('accentchange', { detail: { tone: activeTone, rgb: activeRgb } }));
     };
 
     // Dark tokens restate every tone, so the resolved RGB has to follow.
     window.addEventListener('themechange', () => {
-        if (!activeTone) return;
-        paintTone();
-        window.dispatchEvent(new CustomEvent('accentchange', { detail: { tone: activeTone } }));
+        if (!activeTone && !activeRgb) return;
+        if (activeRgb) paintRgb(); else paintTone();
+        window.dispatchEvent(new CustomEvent('accentchange', { detail: { tone: activeTone, rgb: activeRgb } }));
     });
+
+    /* The dominant, saturated colour of an image (an app icon). Resolves to
+       [r,g,b] or null — never throws: a cross-origin image without CORS
+       taints the canvas, and that simply means "no colour". Cached per URL. */
+    const sampled = new Map();
+    window.sampleImageColor = (url) => {
+        const src = window.safeUrl(url);
+        if (!src) return Promise.resolve(null);
+        if (sampled.has(src)) return sampled.get(src);
+        const job = new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.referrerPolicy = 'no-referrer';
+            const timer = setTimeout(() => resolve(null), 4000);
+            img.onerror = () => { clearTimeout(timer); resolve(null); };
+            img.onload = () => {
+                clearTimeout(timer);
+                try {
+                    const N = 24;
+                    const c = document.createElement('canvas');
+                    c.width = N; c.height = N;
+                    const ctx = c.getContext('2d', { willReadFrequently: true });
+                    ctx.drawImage(img, 0, 0, N, N);
+                    const px = ctx.getImageData(0, 0, N, N).data;
+                    // Bucket by hue, weight by saturation — the logo, not the
+                    // white tile it sits on.
+                    const buckets = new Map();
+                    for (let i = 0; i < px.length; i += 4) {
+                        const [r, g, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
+                        if (a < 160) continue;
+                        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                        const sat = max ? (max - min) / max : 0;
+                        if (sat < 0.25 || max < 40) continue;
+                        const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
+                        const e = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+                        const w = sat;
+                        e.n += w; e.r += r * w; e.g += g * w; e.b += b * w;
+                        buckets.set(key, e);
+                    }
+                    let best = null;
+                    buckets.forEach((e) => { if (!best || e.n > best.n) best = e; });
+                    resolve(best && best.n > 4 ? [Math.round(best.r / best.n), Math.round(best.g / best.n), Math.round(best.b / best.n)] : null);
+                } catch {
+                    resolve(null);                     // tainted canvas
+                }
+            };
+            img.src = src;
+        });
+        sampled.set(src, job);
+        return job;
+    };
+
+    /* Projects as a visitor should see them: hidden ones only for the admin. */
+    window.listProjects = () => {
+        const all = window.getProjects ? window.getProjects() : [];
+        return window.isAdmin ? all : all.filter((p) => !p.hidden);
+    };
 
     /* -------- Platforms -------------------------------------------------------
        What a project runs on. Ordered by how a visitor would scan them; `icon`

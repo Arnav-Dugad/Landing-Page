@@ -23,10 +23,14 @@
     //   GITHUB_TOKEN (fine-grained, public read-only — 5,000 GitHub requests
     //                 an hour instead of 60, and the contribution calendar)
     //   PSI_API_KEY  (optional Google API key for PageSpeed Insights quota)
+    //   CF_API_TOKEN (optional — "Cloudflare Pages: Edit"; enables one-click
+    //                 rehosting of a project on Pages from its GitHub repo)
     // Set with `npx wrangler secret put NAME`, or locally in .dev.vars.
     "vars": {
         "ADMIN_EMAIL": "arnavrival12@gmail.com",
-        "GITHUB_USER": "Arnav-Dugad"
+        "GITHUB_USER": "Arnav-Dugad",
+        // The Cloudflare account Pages projects are created in (not a secret).
+        "CF_ACCOUNT_ID": "d4aa89c49b6ea701c27e4a9711dce381"
     },
 
     // Cloudflare Browser Rendering — headless Chrome for /api/shot. The

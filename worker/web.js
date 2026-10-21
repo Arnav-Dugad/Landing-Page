@@ -34,6 +34,9 @@ function tags(html, name) {
 }
 
 const abs = (href, base) => {
+    // An empty href would resolve to the page itself — that's "no image",
+    // not an image.
+    if (!href || !String(href).trim()) return '';
     try {
         const u = new URL(href, base);
         return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : '';

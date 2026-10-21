@@ -155,8 +155,17 @@
             // Sheen position is cheap and worth having even without tilt.
             el.addEventListener('pointermove', (e) => {
                 const r = el.getBoundingClientRect();
-                el.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`);
-                el.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`);
+                const fx = (e.clientX - r.left) / r.width;
+                const fy = (e.clientY - r.top) / r.height;
+                el.style.setProperty('--mx', `${fx * 100}%`);
+                el.style.setProperty('--my', `${fy * 100}%`);
+                // Unitless −1…1, for layered parallax inside the card (app icons).
+                el.style.setProperty('--nx', ((fx - 0.5) * 2).toFixed(3));
+                el.style.setProperty('--ny', ((fy - 0.5) * 2).toFixed(3));
+            });
+            el.addEventListener('pointerleave', () => {
+                el.style.setProperty('--nx', '0');
+                el.style.setProperty('--ny', '0');
             });
 
             if (reduced() || !FINE.matches) return;

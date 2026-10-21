@@ -66,6 +66,8 @@ export default async function handler(req) {
     } catch {
         /* fall through to the generic card below */
     }
+    // Hidden projects are the admin's drafts — to everyone else they don't exist.
+    if (project && project.hidden) project = null;
 
     const found = Boolean(project);
     const title = found ? `${project.title} — Arnav Dugad` : 'Arnav Dugad — Interactive web work';
@@ -73,10 +75,26 @@ export default async function handler(req) {
         ? (project.tagline || project.desc)
         : 'Interactive web experiences, games and tools — every project live, with real GitHub data.';
 
-    // A case study is a real page; everything else deep-links into the grid.
-    const redirect = found
-        ? (project.caseStudy ? `${SITE}/case.html?p=${encodeURIComponent(slug)}` : `${SITE}/#${encodeURIComponent(slug)}`)
-        : `${SITE}/`;
+    // Whatever query the link carried travels on to the site (e.g. the QR
+    // code's ?get=android, campaign tags). `slug` is only Vercel's rewrite.
+    const carried = new URLSearchParams(url.search);
+    carried.delete('slug');
+    const qs = carried.toString();
+    const wantsDownload = carried.has('get');
+
+    // A case study is a real page; everything else deep-links into the grid
+    // as /?<query>#<slug>. A download intent always goes to the grid, where
+    // the Get-it panel lives.
+    let redirect = `${SITE}/${qs ? `?${qs}` : ''}`;
+    if (found) {
+        if (project.caseStudy && !wantsDownload) {
+            const cq = new URLSearchParams(carried);
+            cq.set('p', slug);
+            redirect = `${SITE}/case.html?${cq.toString()}`;
+        } else {
+            redirect = `${SITE}/${qs ? `?${qs}` : ''}#${encodeURIComponent(slug)}`;
+        }
+    }
 
     const image = found ? `${SITE}/api/og?p=${encodeURIComponent(slug)}` : `${SITE}/api/og`;
 

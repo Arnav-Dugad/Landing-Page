@@ -7,11 +7,41 @@
    =========================================================================== */
 
 import { fetchProjects } from '../api/_project.js';
+import { releaseItems } from './releases.js';
 
 const SITE = 'https://www.arnavdugad.in';
 const TITLE = 'Arnav Dugad — Interactive web work';
-const DESCRIPTION = 'New projects from Arnav Dugad: interactive web experiences, games and tools.';
-const CACHE = 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400';
+const DESCRIPTION = 'New projects and releases from Arnav Dugad: websites, Windows and Android apps, games and tools.';
+const CACHE = 'public, max-age=600, stale-while-revalidate=86400';
+
+/* Feeds are polled by readers on a timer; one rendered copy per data
+   centre for ten minutes keeps that off Firestore entirely. */
+async function cached(key, ctx, build) {
+    const cacheKey = new Request(`https://feed-cache.internal/v2/${key}`);
+    try {
+        const hit = await caches.default.match(cacheKey);
+        if (hit) return new Response(hit.body, hit);
+    } catch { /* no cache */ }
+    const res = await build();
+    if (ctx) ctx.waitUntil(caches.default.put(cacheKey, res.clone()).catch(() => {}));
+    return res;
+}
+
+/* Release items, shaped like project items so both feeds can mix them. */
+async function releaseEntries() {
+    const list = await releaseItems().catch(() => []);
+    return list.slice(0, 15).map((r) => ({
+        kind: 'release',
+        slug: r.slug,
+        title: `${r.title} ${r.name || r.tag}`.trim(),
+        url: `${SITE}/p/${encodeURIComponent(r.slug)}`,
+        id: `${SITE}/p/${encodeURIComponent(r.slug)}#release-${encodeURIComponent(r.tag)}`,
+        releaseUrl: r.url,
+        summary: r.summary,
+        platforms: r.platforms,
+        date: validDate(r.date)
+    }));
+}
 
 const xml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
@@ -34,7 +64,7 @@ async function items() {
     }
     const seen = new Set();
     return projects
-        .filter((p) => p.slug && p.title)
+        .filter((p) => p.slug && p.title && !p.hidden)
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
         .filter((p) => (seen.has(p.slug) ? false : (seen.add(p.slug), true)))
         .slice(0, 30)
@@ -46,11 +76,31 @@ async function items() {
         }));
 }
 
-export async function handleRss() {
-    const list = await items();
-    const latest = list.find((p) => p.date)?.date || new Date();
+export function handleRss(ctx) {
+    return cached('rss', ctx, buildRss);
+}
 
-    const entries = list.map((p) => {
+const releaseRss = (r) => {
+    const body = [
+        `<p><strong>New release:</strong> ${xml(r.title)}</p>`,
+        r.summary && r.summary.length ? `<ul>${r.summary.map((b) => `<li>${xml(b)}</li>`).join('')}</ul>` : '',
+        r.releaseUrl ? `<p><a href="${xml(r.releaseUrl)}">Release notes and downloads</a></p>` : ''
+    ].join('');
+    return `    <item>
+      <title>${xml(r.title)}</title>
+      <link>${xml(r.url)}</link>
+      <guid isPermaLink="false">${xml(r.id)}</guid>${r.date ? `
+      <pubDate>${r.date.toUTCString()}</pubDate>` : ''}
+      <category>release</category>
+      <description>${cdata(body)}</description>
+    </item>`;
+};
+
+async function buildRss() {
+    const [list, releases] = await Promise.all([items(), releaseEntries()]);
+    const latest = [...list, ...releases].map((x) => x.date).filter(Boolean).sort((a, b) => b - a)[0] || new Date();
+
+    const projectEntries = list.map((p) => {
         const body = [
             p.cover ? `<p><img src="${xml(p.cover)}" alt="${xml(p.title)}"></p>` : '',
             p.tagline ? `<p><strong>${xml(p.tagline)}</strong></p>` : '',
@@ -69,7 +119,14 @@ export async function handleRss() {
       <comments>${xml(p.caseUrl)}</comments>` : ''}
       <description>${cdata(body)}</description>
     </item>`;
-    }).join('\n');
+    });
+
+    // Newest first across projects and releases.
+    const dated = [
+        ...list.map((p, i) => ({ date: p.date, xml: projectEntries[i] })),
+        ...releases.map((r) => ({ date: r.date, xml: releaseRss(r) }))
+    ].sort((a, b) => (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
+    const entries = dated.slice(0, 45).map((x) => x.xml).join('\n');
 
     const body = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -89,8 +146,22 @@ ${entries}
     });
 }
 
-export async function handleJsonFeed() {
-    const list = await items();
+export function handleJsonFeed(ctx) {
+    return cached('json', ctx, buildJsonFeed);
+}
+
+async function buildJsonFeed() {
+    const [list, releases] = await Promise.all([items(), releaseEntries()]);
+    const releaseJson = releases.map((r) => ({
+        id: r.id,
+        url: r.url,
+        ...(r.releaseUrl ? { external_url: r.releaseUrl } : {}),
+        title: r.title,
+        summary: (r.summary || [])[0] || `New release: ${r.title}`,
+        content_text: (r.summary || []).map((b) => `• ${b}`).join('\n') || r.title,
+        ...(r.date ? { date_published: r.date.toISOString() } : {}),
+        tags: ['release', ...(r.platforms || [])]
+    }));
     const feed = {
         version: 'https://jsonfeed.org/version/1.1',
         title: TITLE,
@@ -111,7 +182,9 @@ export async function handleJsonFeed() {
             ...(p.date ? { date_published: p.date.toISOString() } : {}),
             ...(p.updatedAt && validDate(p.updatedAt) ? { date_modified: validDate(p.updatedAt).toISOString() } : {}),
             tags: [p.category, ...(p.platforms || []), ...(p.tags || [])].filter(Boolean)
-        }))
+        })).concat(releaseJson)
+            .sort((a, b) => Date.parse(b.date_published || 0) - Date.parse(a.date_published || 0))
+            .slice(0, 45)
     };
     return new Response(JSON.stringify(feed, null, 2), {
         headers: { 'content-type': 'application/feed+json; charset=utf-8', 'cache-control': CACHE }

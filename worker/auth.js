@@ -86,9 +86,13 @@ export async function verifyIdToken(token, {
 export async function requireAdmin(req, env) {
     // Local testing only: DEV_ADMIN_BYPASS exists solely in a developer's
     // .dev.vars. It is never a deployed var or secret, so in production this
-    // branch is unreachable.
-    if (env.DEV_ADMIN_BYPASS === '1' && req.headers.get('x-dev-admin') === '1'
-        && /^(localhost|127\.0\.0\.1)$/.test(new URL(req.url).hostname)) {
+    // branch is unreachable. As a second guard the request must come from
+    // the loopback address — `wrangler dev` rewrites the Host to the
+    // production domain, but in production Cloudflare sets CF-Connecting-IP
+    // to the real client, which is never loopback.
+    const loopback = /^(127\.0\.0\.1|::1)$/.test(req.headers.get('cf-connecting-ip') || '')
+        || /^(localhost|127\.0\.0\.1)$/.test(new URL(req.url).hostname);
+    if (env.DEV_ADMIN_BYPASS === '1' && req.headers.get('x-dev-admin') === '1' && loopback) {
         return { token: '', claims: { email: env.ADMIN_EMAIL, dev: true } };
     }
     const token = bearer(req);

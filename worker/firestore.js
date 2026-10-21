@@ -78,6 +78,13 @@ export async function setDoc(rel, data, token) {
     return unwrapFields(doc.fields || {});
 }
 
+/* New document with a Firestore-generated id in a collection under
+   DATA_PATH (history entries). Returns the new id. */
+export async function createDoc(collection, data, token) {
+    const doc = await call(`${BASE}/${DATA_PATH}/${collection}`, { method: 'POST', token, body: { fields: wrapFields(data) } });
+    return String(doc.name || '').split('/').pop();
+}
+
 /* Atomic multi-write. Each write is a raw REST Write object. */
 export const commit = (writes, token) =>
     call(`${BASE}:commit`, { method: 'POST', token, body: { writes } });

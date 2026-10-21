@@ -10,6 +10,9 @@
        window.updateProjectInDb(id,d) → Promise<boolean>
        window.deleteProjectFromDb(id) → Promise<boolean>
        window.saveMessageToDb(msg)    → Promise<boolean>
+       window.uploadMedia(file, opts) → Promise<{ id, url, w, h, bytes }>
+       window.writeHistory(entry)     → Promise<boolean>   (admin)
+       window.loadHistory(opts)       → Promise<entry[]>   (admin)
 
    The classic scripts run before this module, so window.renderProjects and
    window.toast already exist by the time the first snapshot lands.
@@ -22,8 +25,8 @@ import {
     signInWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-    getFirestore, collection, addDoc, deleteDoc, doc, getDoc,
-    onSnapshot, query, orderBy, setDoc, updateDoc, increment, writeBatch
+    getFirestore, collection, addDoc, deleteDoc, doc, getDoc, getDocs,
+    onSnapshot, query, orderBy, limit, setDoc, updateDoc, increment, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -402,6 +405,167 @@ window.saveNowToDb = async (data) => {
             : `Could not save: ${e.message}`, 'error');
         return false;
     }
+};
+
+/* -------- Uploaded media ----------------------------------------------- */
+
+/* Screenshots dropped in from the admin's computer. There is no file storage
+   on the free plan, so each image is compressed in the browser (WebP, longest
+   edge ≤ 1920px) until its base64 fits comfortably in one Firestore document,
+   then stored at media/{id}. The id is a content hash, so dropping the same
+   file twice costs nothing. The Worker serves /api/media/<id> with an
+   immutable edge cache, so visitors almost never cause a read. */
+
+const mediaDoc = (id) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'media', id);
+const MAX_B64 = 900_000;
+const MAX_EDGE = 1920;
+const UNSUPPORTED = /\.(heic|heif|tiff?|psd|raw|cr2|nef|dng)$/i;
+
+function unreadable(file) {
+    const n = String((file && file.name) || '').toLowerCase();
+    if (/\.(heic|heif)$/.test(n) || /heic|heif/.test((file && file.type) || '')) {
+        return new Error('HEIC photos can’t be read by browsers — export it as JPEG or PNG first');
+    }
+    return new Error('That file isn’t an image the browser can read — try PNG, JPEG, WebP or GIF');
+}
+
+async function decodeImage(file) {
+    if (UNSUPPORTED.test(file.name || '') || (file.type && !/^image\//.test(file.type))) throw unreadable(file);
+    try {
+        return await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch {
+        // Some engines can't createImageBitmap every format — fall back to <img>.
+        const url = URL.createObjectURL(file);
+        try {
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = url;
+            await img.decode();
+            return img;
+        } catch {
+            throw unreadable(file);
+        } finally {
+            URL.revokeObjectURL(url);
+        }
+    }
+}
+
+async function encodeImage(source, w, h, quality) {
+    let canvas;
+    if (typeof OffscreenCanvas !== 'undefined') {
+        canvas = new OffscreenCanvas(w, h);
+    } else {
+        canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, 0, 0, w, h);
+    const toBlob = (type, q) => (canvas.convertToBlob
+        ? canvas.convertToBlob({ type, quality: q })
+        : new Promise((res) => canvas.toBlob(res, type, q)));
+    let blob = await toBlob('image/webp', quality);
+    // Browsers that can't encode WebP hand back PNG — use JPEG instead.
+    if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg', quality);
+    return blob;
+}
+
+const bytesToBase64 = (bytes) => {
+    let bin = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    return btoa(bin);
+};
+
+/* Compress only — no network. Exposed so the UI can show the final size
+   before (or without) uploading. */
+window.compressImage = async (file, { onStage = () => {} } = {}) => {
+    onStage('decode');
+    const src = await decodeImage(file);
+    const sw = src.width || src.naturalWidth;
+    const sh = src.height || src.naturalHeight;
+    if (!sw || !sh) throw unreadable(file);
+
+    onStage('encode');
+    let scale = Math.min(1, MAX_EDGE / Math.max(sw, sh));
+    let quality = 0.84;
+    try {
+        for (let tries = 0; tries < 10; tries++) {
+            const w = Math.max(1, Math.round(sw * scale));
+            const h = Math.max(1, Math.round(sh * scale));
+            const blob = await encodeImage(src, w, h, quality);
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            const b64 = bytesToBase64(bytes);
+            if (b64.length <= MAX_B64) {
+                const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+                const id = Array.from(digest).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+                return { id, b64, type: blob.type, w, h, bytes: bytes.length, original: file.size || 0 };
+            }
+            // Too big: give up quality first, then pixels.
+            if (quality > 0.62) quality -= 0.08;
+            else scale *= 0.82;
+        }
+    } finally {
+        if (src.close) src.close();
+    }
+    throw new Error('That image is too detailed to fit even after compressing — try a smaller one');
+};
+
+window.uploadMedia = async (file, { name = '', onStage = () => {} } = {}) => {
+    if (!user || user.isAnonymous) throw new Error('Sign in as admin first');
+    const c = await window.compressImage(file, { onStage });
+    onStage('upload', c);
+    try {
+        await setDoc(mediaDoc(c.id), {
+            data: c.b64, type: c.type, w: c.w, h: c.h, bytes: c.bytes,
+            name: String(name || file.name || '').slice(0, 120), createdAt: Date.now()
+        });
+    } catch (e) {
+        throw new Error(e.code === 'permission-denied'
+            ? 'Firestore refused the upload — publish the latest firestore.rules'
+            : e.code === 'resource-exhausted' ? 'Firestore’s free daily quota is used up — try again after it resets'
+                : `Upload failed: ${e.message}`);
+    }
+    onStage('done', c);
+    return { id: c.id, url: `/api/media/${c.id}`, w: c.w, h: c.h, bytes: c.bytes };
+};
+
+/* -------- History ------------------------------------------------------ */
+
+const historyCol = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'history');
+const clip300 = (v) => {
+    const s = v === undefined || v === null ? '' : (typeof v === 'string' ? v : JSON.stringify(v));
+    return s.length > 300 ? `${s.slice(0, 299)}…` : s;
+};
+
+/* One line in the admin's history. Best effort: a failed history write must
+   never make a successful save look like it failed. */
+window.writeHistory = async ({ projectId, kind = 'edit', summary = '', changes = [] } = {}) => {
+    if (!user || user.isAnonymous || !projectId) return false;
+    try {
+        await addDoc(historyCol(), {
+            projectId: String(projectId), kind, by: 'admin', at: Date.now(),
+            summary: String(summary).slice(0, 200),
+            changes: (changes || []).slice(0, 20).map((c) => ({
+                field: String(c.field).slice(0, 60), before: clip300(c.before), after: clip300(c.after)
+            }))
+        });
+        return true;
+    } catch (e) {
+        console.warn('History write skipped:', e.code || e.message);
+        return false;
+    }
+};
+
+/* Newest first. Filtering by project happens on the client, so no composite
+   index is needed. */
+window.loadHistory = async ({ max = 120 } = {}) => {
+    if (!user || user.isAnonymous) throw new Error('Sign in as admin first');
+    const snap = await getDocs(query(historyCol(), orderBy('at', 'desc'), limit(max)));
+    const out = [];
+    snap.forEach((d) => out.push({ id: d.id, ...d.data() }));
+    return out;
 };
 
 /* -------- Accessors ------------------------------------------------------ */

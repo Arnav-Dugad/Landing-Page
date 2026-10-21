@@ -112,6 +112,7 @@
         share:    '<circle cx="17.5" cy="5.5" r="2.8"/><circle cx="6" cy="12" r="2.8"/><circle cx="17.5" cy="18.5" r="2.8"/><path d="m8.5 10.6 6.6-3.7M8.5 13.4l6.6 3.7"/>',
         play:     '<path d="M8 5.4 19 12 8 18.6Z"/>',
         menu:     '<path d="M3.5 7h17M3.5 12h17M3.5 17h17"/>',
+        more:     '<circle cx="5.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
         refresh:  '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.8 4.2v5h-5"/>',
         folder:   '<path d="M3 6.6A2.1 2.1 0 0 1 5.1 4.5h3.6l2.1 2.6h8.1A2.1 2.1 0 0 1 21 9.2v8.2a2.1 2.1 0 0 1-2.1 2.1H5.1A2.1 2.1 0 0 1 3 17.4Z"/>',
         info:     '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/>',

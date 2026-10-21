@@ -11,7 +11,9 @@
                       platform guesses; tick some and they are imported,
                       written up and published one after another.
      · Refresh        re-reads live metrics for every project.
-     · Drop a link    drag a URL onto the page to start an import.
+     · Extras         screenshots dropped in the Add sheet ride along and
+                      lead the gallery; the server's duplicate check and
+                      cover pick are shown before you publish.
 
    Nothing here holds a key. Every call carries the admin's Firebase ID
    token, which the Worker verifies before doing anything.
@@ -23,6 +25,7 @@
 
     const STAGES = [
         ['detect', 'Reading the links'],
+        ['dupes', 'Already on the site?'],
         ['github', 'GitHub repository'],
         ['releases', 'Releases & downloads'],
         ['readme', 'README'],
@@ -113,7 +116,7 @@
         return final;
     }
 
-    window.Importer = { ingest, sourceOf };
+    window.Importer = { ingest, sourceOf, findExisting: (d) => findExisting(d) };
 
     /* Same project already on the site? Match by repo, then by live link. */
     const normUrl = (u) => String(u || '').toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, '');
@@ -165,6 +168,8 @@
     let impAbort = null;
     let impDraft = null;
     let impMeta = null;
+    let impDupes = [];              // server-side matches from the 'dupes' stage
+    let impExtra = [];              // [{ url, alt }] screenshots from the Add sheet
 
     function stageList() {
         return STAGES.map(([key, label]) => `
@@ -228,6 +233,8 @@
                 paintProviders(prov.dataset.impProv);
                 return;
             }
+            const pick = e.target.closest('[data-imp-cover]');
+            if (pick && impDraft) { impDraft.cover = pick.dataset.impCover; paintResult(); return; }
             const act = e.target.closest('[data-imp]');
             if (act) onResultAction(act.dataset.imp, act);
         });
@@ -313,9 +320,13 @@
         const model = modelNow(provider);
         if (model) body.model = model;
 
+        impDupes = [];
         try {
-            const final = await ingest(body, setStage, impAbort.signal);
-            impDraft = { ...(final.project || {}), auto: true };
+            const final = await ingest(body, (ev) => {
+                if (ev.stage === 'dupes' && Array.isArray(ev.matches)) impDupes = ev.matches;
+                setStage(ev);
+            }, impAbort.signal);
+            impDraft = withExtras({ ...(final.project || {}), auto: true });
             impMeta = final.meta || null;
             setStage({ stage: 'done', status: 'ok', label: 'Ready' });
             busy.done(true);
@@ -343,10 +354,43 @@
     const platformIcon = (k) => (window.PLATFORMS && window.PLATFORMS[k] && window.PLATFORMS[k].icon)
         || ({ web: 'globe', windows: 'desktop', android: 'mobile', ios: 'mobile', macos: 'monitor', linux: 'terminal', extension: 'puzzle', cli: 'terminal' })[k] || 'cube';
 
+    /* Screenshots the admin dropped in lead the gallery, and the first one
+       becomes the cover — they chose them on purpose. */
+    function withExtras(draft) {
+        if (!impExtra.length) return draft;
+        const urls = impExtra.map((m) => m.url);
+        const alts = impExtra.map((m) => m.alt || '');
+        const g = Array.isArray(draft.gallery) ? draft.gallery : [];
+        const ga = Array.isArray(draft.galleryAlt) ? draft.galleryAlt : [];
+        g.forEach((u, i) => { if (!urls.includes(u)) { urls.push(u); alts.push(ga[i] || ''); } });
+        return { ...draft, gallery: urls.slice(0, 20), galleryAlt: alts.slice(0, 20), cover: impExtra[0].url };
+    }
+
+    /* Everything that could be the same project: the server's matches plus a
+       local check by repo and live link. */
+    function duplicates(d) {
+        const all = window.getProjects ? window.getProjects() : [];
+        const out = [];
+        const seen = new Set();
+        impDupes.forEach((m) => {
+            const id = String(m.projectId);
+            if (seen.has(id)) return;
+            seen.add(id);
+            const p = all.find((x) => String(x.id) === id);
+            out.push({ id, title: (p && p.title) || m.title || 'A project', why: m.why || 'looks the same' });
+        });
+        const local = findExisting(d);
+        if (local && !seen.has(String(local.id))) out.push({ id: String(local.id), title: local.title, why: 'same repo or live link' });
+        return out;
+    }
+
     function paintResult() {
         const d = impDraft;
         const box = impSheet.querySelector('#impResult');
-        const existing = findExisting(d);
+        const dupes = duplicates(d);
+        const existing = dupes.length
+            ? (window.getProjects ? window.getProjects() : []).find((p) => String(p.id) === dupes[0].id) || null
+            : null;
         let card = '';
         try {
             card = window.projectCardHtml ? window.projectCardHtml({ ...d, id: 'import-preview' }, 0) : '';
@@ -361,11 +405,20 @@
             psi ? `${icon('eye', 12)} Accessibility ${psi.accessibility}` : ''
         ].filter(Boolean);
 
+        const coverChoices = Array.from(new Set([d.cover, ...(d.gallery || [])].filter(Boolean))).slice(0, 8);
         box.innerHTML = `
-            ${existing ? `<div class="imp-dupe">${icon('info', 15)}
-                <span><b>${esc(existing.title)}</b> is already on the site.</span>
-                <button type="button" class="btn btn--quiet" data-imp="update">Update it instead</button></div>` : ''}
+            ${dupes.length ? `<div class="imp-dupe">${icon('info', 15)}
+                <span>${dupes.length === 1
+                    ? `<b>${esc(dupes[0].title)}</b> looks like the same project <em>(${esc(dupes[0].why)})</em>.`
+                    : `This looks like ${dupes.map((x) => `<b>${esc(x.title)}</b>`).join(', ')}.`}</span>
+                ${existing ? '<button type="button" class="btn btn--quiet" data-imp="update">Update it instead</button>' : ''}</div>` : ''}
             <div class="imp-preview">${card}</div>
+            ${coverChoices.length > 1 ? `<div class="imp-cover" role="radiogroup" aria-label="Cover image">
+                <span class="imp-cover-l">Cover <em>${d.cover ? 'picked for you — tap to change' : 'tap one'}</em></span>
+                <div class="imp-cover-row">${coverChoices.map((src) => `
+                    <button type="button" role="radio" aria-checked="${src === d.cover}" class="imp-cover-pick ${src === d.cover ? 'is-on' : ''}" data-imp-cover="${esc(src)}" aria-label="Use this image as the cover">
+                        <img src="${esc(window.safeUrl ? window.safeUrl(src) || src : src)}" alt="" loading="lazy"></button>`).join('')}</div>
+            </div>` : ''}
             ${d.tagline ? `<p class="imp-tagline">“${esc(d.tagline)}”</p>` : ''}
             <dl class="imp-sum">
                 ${(d.platforms || []).length ? `<div><dt>Runs on</dt><dd>${d.platforms.map((k) => `<span class="imp-chip">${icon(platformIcon(k), 12)}${esc(platformLabel(k))}</span>`).join('')}</dd></div>` : ''}
@@ -379,11 +432,16 @@
                 ${d.caseStudy ? `<div><dt>Case study</dt><dd>${icon('doc', 12)} Drafted from the README</dd></div>` : ''}
             </dl>`;
         box.querySelectorAll('[data-reveal]').forEach((el) => el.classList.add('is-in'));
+        // A preview isn't a real project yet — no admin controls on it.
+        box.querySelectorAll('.imp-preview .card-admin, .imp-preview [data-card-menu], .imp-preview [data-drag]').forEach((el) => el.remove());
         if (window.Motion) window.Motion.tilt(box);
         const foot = impSheet.querySelector('#impFoot');
         foot.classList.remove('u-hidden');
         impSheet.querySelector('#impPublish').innerHTML = `${icon('check', 16)} ${existing ? 'Publish as new' : 'Publish'}`;
-        if (window.Micro && !window.motionReduced?.()) window.Micro.burst(box.querySelector('.imp-preview'), { count: 14, spread: 90 });
+        if (window.Micro && !window.motionReduced?.() && !box.dataset.burst) {
+            box.dataset.burst = '1';
+            window.Micro.burst(box.querySelector('.imp-preview'), { count: 14, spread: 90 });
+        }
     }
 
     async function onResultAction(act, btn) {
@@ -399,24 +457,39 @@
             const busy = window.Micro ? window.Micro.busy(btn) : { done() {} };
             let ok;
             if (act === 'update') {
-                const existing = findExisting(impDraft);
+                const dupes = duplicates(impDraft);
+                const all = window.getProjects ? window.getProjects() : [];
+                const existing = (dupes[0] && all.find((p) => String(p.id) === dupes[0].id)) || findExisting(impDraft);
+                if (!existing) { busy.done(false); window.toast('That project isn’t loaded — publish as new instead', 'error'); return; }
                 const { id, ...rest } = mergeInto(existing, impDraft);
                 ok = await window.updateProjectInDb(id, rest);
+                if (ok && window.writeHistory) {
+                    const changes = window.diffProjects ? window.diffProjects(existing, rest) : [];
+                    window.writeHistory({ projectId: id, kind: 'import', summary: `Re-imported — ${changes.length} field${changes.length === 1 ? '' : 's'} updated`, changes });
+                }
             } else {
                 ok = await window.saveProjectToDb(impDraft);
+                const n = (impDraft.sources || []).length || 1;
+                if (ok && typeof ok === 'string' && window.writeHistory) {
+                    window.writeHistory({ projectId: ok, kind: 'import', summary: `Imported from ${n} source${n === 1 ? '' : 's'}`, changes: [] });
+                }
             }
             busy.done(!!ok);
             if (!ok) return;
             if (window.Micro) window.Micro.burst(btn, { count: 26, spread: 120 });
             if (window.celebrate) window.celebrate();
             impDraft = null;
+            impExtra = [];
             setTimeout(() => closeImporter(true), 650);
         }
     }
 
-    function openImporter(prefill = '') {
+    function openImporter(prefill = '', { gallery = [] } = {}) {
         if (!window.isAdmin) { window.toast('Sign in as admin first', 'error'); return; }
         if (!impSheet) buildImporter();
+        impExtra = Array.isArray(gallery) ? gallery.filter((m) => m && m.url) : [];
+        const resultBox = impSheet.querySelector('#impResult');
+        if (resultBox) delete resultBox.dataset.burst;
         const urls = impSheet.querySelector('#impUrls');
         if (prefill) urls.value = Array.isArray(prefill) ? prefill.join('\n') : String(prefill);
         paintProviders();
@@ -607,6 +680,9 @@
                 const final = await ingest(body, (ev) => { if (ev.status === 'run' && ev.label) setRow(full, 'run', ev.label); }, discAbort.signal);
                 const id = await window.saveProjectToDb({ ...(final.project || {}), auto: true }, { quiet: true });
                 if (!id) throw new Error('Saving was refused');
+                if (typeof id === 'string' && window.writeHistory) {
+                    window.writeHistory({ projectId: id, kind: 'import', summary: `Imported from GitHub (${repo.name})`, changes: [] });
+                }
                 repo.inPortfolio = true;
                 setRow(full, 'ok', 'Published');
                 ok++;
@@ -670,11 +746,8 @@
     window.openDiscover = openDiscover;
 
     /* =====================================================================
-       Wiring — buttons, Shift+I, and dropping a link on the page
+       Wiring — Shift+I (the admin dock owns the buttons and page drops)
        ===================================================================== */
-
-    document.getElementById('importOpen')?.addEventListener('click', () => openImporter());
-    document.getElementById('discoverOpen')?.addEventListener('click', () => openDiscover());
 
     document.addEventListener('keydown', (e) => {
         if (!window.isAdmin || !e.shiftKey || e.metaKey || e.ctrlKey || e.altKey || e.key.toLowerCase() !== 'i') return;
@@ -685,43 +758,4 @@
         openImporter();
     });
 
-    /* Drag a link from the address bar or another tab onto the page. */
-    const drop = document.createElement('div');
-    drop.className = 'imp-drop';
-    drop.setAttribute('aria-hidden', 'true');
-    drop.innerHTML = `<div>${icon('wand', 28)}<b>Drop to import</b><span>GitHub, a website, a store page…</span></div>`;
-    document.body.appendChild(drop);
-    let dragDepth = 0;
-
-    const linkDrag = (e) => {
-        if (!window.isAdmin || !e.dataTransfer) return false;
-        const types = Array.from(e.dataTransfer.types || []);
-        return types.includes('text/uri-list') || (types.includes('text/plain') && !types.includes('Files'));
-    };
-
-    document.addEventListener('dragenter', (e) => {
-        if (!linkDrag(e)) return;
-        dragDepth++;
-        drop.classList.add('is-on');
-    });
-    document.addEventListener('dragover', (e) => {
-        if (!linkDrag(e)) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-    });
-    document.addEventListener('dragleave', (e) => {
-        if (!drop.classList.contains('is-on')) return;
-        dragDepth = Math.max(0, dragDepth - 1);
-        if (!dragDepth) drop.classList.remove('is-on');
-    });
-    document.addEventListener('drop', (e) => {
-        if (!drop.classList.contains('is-on')) return;
-        e.preventDefault();
-        dragDepth = 0;
-        drop.classList.remove('is-on');
-        const text = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '';
-        const urls = text.split(/\r?\n/).filter((l) => l && !l.startsWith('#'));
-        if (urls.length && parseUrls(urls.join('\n')).length) openImporter(urls.slice(0, 5));
-        else window.toast('That doesn’t look like a link', 'info');
-    });
 })();

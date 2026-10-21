@@ -134,14 +134,35 @@ export function summariseReleases(releases) {
     }
 
     const newest = list.find((r) => !r.prerelease) || list[0] || null;
+    // `notes` (the raw release body) is for summarising only — callers strip
+    // it before storing anything.
     const latest = newest ? {
         tag: newest.tag_name || '',
         name: newest.name || newest.tag_name || '',
         date: Date.parse(newest.published_at || newest.created_at) || null,
-        url: newest.html_url || ''
+        url: newest.html_url || '',
+        notes: String(newest.body || '').slice(0, 6000)
     } : null;
 
     return { downloads: downloads.slice(0, 12), total, latest, platforms: [...done] };
+}
+
+/* Release notes → up to five plain bullet lines, without AI: list items
+   first, else the first sentences. Markdown links, images, headings and
+   "Full Changelog" boilerplate are dropped. */
+export function bulletsFromNotes(notes, max = 5) {
+    const text = String(notes || '')
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/\*\*|__|`/g, '');
+    const clean = (l) => l.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').replace(/\s+/g, ' ').trim();
+    const skip = (l) => !l || /^#/.test(l) || /full changelog|^\*?\*?what's changed|^contributors?:|^sha-?256|^checksums?/i.test(l)
+        || /^https?:\/\//.test(l) || l.length < 6;
+    const lines = text.split(/\r?\n/);
+    const items = lines.filter((l) => /^\s*(?:[-*+]|\d+[.)])\s+/.test(l)).map(clean).filter((l) => !skip(l));
+    const pick = items.length ? items : text.replace(/^#.*$/gm, '').split(/(?<=[.!?])\s+/).map(clean).filter((l) => !skip(l));
+    return pick.slice(0, max).map((l) => (l.length > 160 ? `${l.slice(0, 157).replace(/\s+\S*$/, '')}…` : l));
 }
 
 /* /stats/commit_activity answers 202 while GitHub computes it. One retry. */

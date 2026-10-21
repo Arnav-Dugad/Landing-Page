@@ -49,11 +49,16 @@
         filter: params.get('cat') || 'all',
         platform: (window.PLATFORMS && window.PLATFORMS[params.get('on')]) ? params.get('on') : 'all',
         search: params.get('q') || '',
-        sort: params.get('sort') || 'newest',
+        sort: params.get('sort') || 'smart',
         view: VIEWS.includes(params.get('view')) ? params.get('view')
             : (VIEWS.includes(storedView) ? storedView : 'grid'),
         compare: (params.get('compare') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3)
     };
+
+    /* ?get=<platform> arrives from a scanned QR code (via /p/<slug>): open
+       the project with that install front and centre. Read once, here —
+       syncUrl() rewrites the query string on the first render. */
+    const getParam = (window.PLATFORMS && window.PLATFORMS[params.get('get')]) ? params.get('get') : null;
 
     /* Mirror the query back into the URL, omitting anything at its default so
        the common case stays a clean link. The hash (an open project) is left
@@ -63,7 +68,7 @@
         if (state.search.trim()) next.set('q', state.search.trim());
         if (state.platform !== 'all') next.set('on', state.platform);
         if (state.filter !== 'all') next.set('cat', state.filter);
-        if (state.sort !== 'newest') next.set('sort', state.sort);
+        if (state.sort !== 'smart') next.set('sort', state.sort);
         if (state.view !== 'grid') next.set('view', state.view);
         if (state.compare.length) next.set('compare', state.compare.join(','));
         const qs = next.toString();
@@ -72,7 +77,8 @@
     }
     window.syncUrl = syncUrl;
 
-    const projects = () => (window.getProjects ? window.getProjects() : []);
+    // Hidden projects exist only for the admin (core.js decides).
+    const projects = () => (window.listProjects ? window.listProjects() : []);
     const loaded = () => (window.projectsLoaded ? window.projectsLoaded() : false);
 
     /* -------- Status badges --------------------------------------------- */
@@ -149,7 +155,12 @@
                 case 'stars':  return (starsOf(b) ?? -1) - (starsOf(a) ?? -1);
                 case 'oldest': return (a.createdAt || 0) - (b.createdAt || 0);
                 case 'order':  return (a.order ?? 9999) - (b.order ?? 9999);
-                default:       return (b.createdAt || 0) - (a.createdAt || 0);
+                case 'newest': return (b.createdAt || 0) - (a.createdAt || 0);
+                default: {
+                    // Smart: what's alive, used and well-presented first.
+                    const sa = M() ? M().score(a) : 0, sb = M() ? M().score(b) : 0;
+                    return sb - sa || (b.createdAt || 0) - (a.createdAt || 0);
+                }
             }
         });
 
@@ -174,12 +185,11 @@
         const overflow = tags.length - shown.length;
         const picked = state.compare.includes(String(p.id));
 
+        // Admin: a drag handle and one menu (js/admin-dock.js owns the menu).
         const admin = window.isAdmin ? `
-            <div class="card-admin">
+            <div class="card-admin" data-admin-slot>
                 <button type="button" data-drag title="Drag to reorder" aria-label="Drag ${esc(p.title)} to reorder" class="is-handle">${window.icon('drag', { raw: true, size: 13 })}</button>
-                <button type="button" data-act="edit" data-id="${id}" title="Edit project" aria-label="Edit ${esc(p.title)}">${window.icon('pencil', { raw: true, size: 13 })}</button>
-                <button type="button" data-act="dupe" data-id="${id}" title="Duplicate project" aria-label="Duplicate ${esc(p.title)}">${window.icon('copy', { raw: true, size: 13 })}</button>
-                <button type="button" data-act="del" data-id="${id}" class="is-danger" title="Delete project" aria-label="Delete ${esc(p.title)}">${window.icon('trash', { raw: true, size: 13 })}</button>
+                <button type="button" data-card-menu="${id}" aria-haspopup="menu" title="Actions" aria-label="Actions for ${esc(p.title)}">${window.icon('more', { raw: true, size: 15 })}</button>
             </div>` : '';
 
         const marks = [
@@ -199,7 +209,7 @@
         const firstDl = (Array.isArray(p.downloads) ? p.downloads : []).find((d) => window.safeUrl(d && d.url));
 
         return `
-        <article class="card card--v2 card--${kind}" data-tilt
+        <article class="card card--v2 card--${kind}${p.hidden ? ' is-hidden-project' : ''}" data-tilt
                  data-id="${id}"
                  data-category="${esc(p.category || 'other')}"
                  data-platforms="${esc(plats.join(' '))}"
@@ -220,6 +230,7 @@
                         <h3 class="card-title"><button type="button" class="card-open" data-open="${id}" data-cursor="Open">${title}</button></h3>
                         <div class="card-sub">
                             ${w ? w.platformGlyphs(p, { size: 13 }) : ''}
+                            ${p.hidden ? `<span class="badge badge--hidden" title="Only you can see this">${window.icon('eye', { raw: true, size: 11 })}Hidden</span>` : ''}
                             ${window.statusBadge(p.status)}
                             <span class="card-live" data-status-slot></span>
                         </div>
@@ -239,7 +250,7 @@
             </div>
 
             <div class="card-actions">
-                ${firstDl ? `<a class="card-act card-act--go" href="${esc(window.safeUrl(firstDl.url))}" download
+                ${firstDl ? `<a class="card-act card-act--go" href="${esc(window.safeUrl(firstDl.url))}" download data-dl="${id}"
                     data-cursor="Get" aria-label="Download ${title} for ${esc((window.PLATFORMS[firstDl.platform] || {}).label || 'your device')}">
                     ${window.icon('download', { raw: true, size: 14 })}<span>Get</span></a>`
                 : (link ? `<a class="card-act card-act--go" href="${esc(link)}" target="_blank" rel="noopener noreferrer"
@@ -472,6 +483,8 @@
     window.setPlatform = (key) => {
         state.platform = (key && window.PLATFORMS[key]) ? key : 'all';
         render();
+        // The hero wall listens, and reshuffles toward the chosen platform.
+        window.dispatchEvent(new CustomEvent('platformchange', { detail: { platform: state.platform } }));
     };
     window.setSort = async (mode) => {
         state.sort = mode;
@@ -535,7 +548,8 @@
         let shown = 0;
         figures.forEach(([cell, id, val, ok]) => {
             const box = document.querySelector(`[data-hstat="${cell}"]`);
-            const show = ok && shown < 5;
+            // Four fit on one line beside the wall; a fifth wrapped and read as clutter.
+            const show = ok && shown < 4;
             if (box) box.classList.toggle('u-hidden', !show);
             if (!show) return;
             shown++;
@@ -657,7 +671,7 @@
         paintMetrics();
         renderStats();
         if (window.Showcase) window.Showcase.sync({ force: true });
-        if (state.sort === 'stars') render();
+        if (state.sort === 'stars' || state.sort === 'smart') render();
     });
 
     async function hydrateAllStats() {
@@ -754,23 +768,36 @@
         const rel = M() ? M().release(p) : null;
         const dl = M() ? M().downloads(p) : 0;
 
+        /* Apps (Windows, Android, iOS…) get a store-style page: Get first,
+           then the facts a store shows. Websites keep "Visit live". */
+        const appMode = plats.length > 0 && plats[0] !== 'web';
+        const best = appMode && w ? w.primaryOption(p) : null;
+        const getBtn = best && best.type !== 'web' ? `
+            <a href="${esc(best.url)}" class="btn btn--primary magnetic detail-get" ${best.type === 'download' ? `download data-dl="${esc(p.id)}"` : 'target="_blank" rel="noopener noreferrer"'} data-cursor="Get">
+                ${window.icon(best.type === 'download' ? 'download' : 'external', { raw: true, size: 17 })}
+                ${best.type === 'download' ? `Get for ${esc((window.PLATFORMS[best.platform] || {}).short || 'your device')}` : esc(best.label)}
+                ${best.type === 'download' && best.size ? `<small>${esc(window.formatBytes(best.size))}</small>` : ''}</a>` : '';
+
         /* The actions live in a sticky header, not at the bottom of the sheet.
            Visiting the project is the single most likely thing anyone wants to
            do here, and it should never require scrolling past a write-up. */
         const actions = `
             <div class="detail-actions">
-                ${p.caseStudy ? `<a href="case.html?p=${encodeURIComponent(slug)}" data-case="${esc(slug)}" class="btn btn--primary magnetic" data-cursor="Read">
+                ${getBtn}
+                ${p.caseStudy ? `<a href="case.html?p=${encodeURIComponent(slug)}" data-case="${esc(slug)}" class="btn ${getBtn ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Read">
                     ${window.icon('doc', { raw: true, size: 17 })} Case study</a>` : ''}
-                ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" class="btn ${p.caseStudy ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Visit">
+                ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" class="btn ${p.caseStudy || getBtn ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Visit">
                     ${window.icon('external', { raw: true, size: 17 })} ${plats.includes('web') || !plats.length ? 'Visit live' : 'Website'}</a>` : ''}
                 ${repo ? `<a href="${esc(repo)}" target="_blank" rel="noopener noreferrer" class="btn btn--ghost magnetic" data-cursor="Code">
                     ${window.icon('github', { raw: true, size: 17 })} View code</a>` : ''}
-                <button class="btn btn--quiet" data-share="${esc(p.id)}">
-                    ${window.icon('share', { raw: true, size: 16 })} Share</button>
-                <button class="btn btn--quiet" data-compare="${esc(p.id)}" aria-pressed="${picked}">
-                    ${window.icon(picked ? 'check' : 'scale', { raw: true, size: 16 })} ${picked ? 'In comparison' : 'Compare'}</button>
-                ${window.isAdmin ? `<button class="btn btn--quiet" data-act="edit" data-id="${esc(p.id)}">
-                    ${window.icon('pencil', { raw: true, size: 16 })} Edit</button>` : ''}
+                <span class="detail-actions-rest">
+                    <button class="btn btn--quiet btn--icon" data-share="${esc(p.id)}" aria-label="Share ${esc(p.title)}" data-tip="Share">
+                        ${window.icon('share', { raw: true, size: 16 })}</button>
+                    <button class="btn btn--quiet btn--icon" data-compare="${esc(p.id)}" aria-pressed="${picked}" aria-label="${picked ? 'Remove from comparison' : 'Add to comparison'}" data-tip="${picked ? 'In comparison' : 'Compare'}">
+                        ${window.icon(picked ? 'check' : 'scale', { raw: true, size: 16 })}</button>
+                    ${window.isAdmin ? `<button class="btn btn--quiet btn--icon" data-act="edit" data-id="${esc(p.id)}" aria-label="Edit ${esc(p.title)}" data-tip="Edit">
+                        ${window.icon('pencil', { raw: true, size: 16 })}</button>` : ''}
+                </span>
             </div>`;
 
         // A row of quick facts — only the ones that are true for this project.
@@ -799,7 +826,7 @@
                             ${p.category ? `<span>${esc(categoryLabel(p.category))}</span>` : ''}
                             ${status && p.status === 'live' ? '' : window.statusBadge(p.status)}
                             ${status && w ? w.statusChip(status) : ''}
-                            ${deploy && (plats.includes('web') || !plats.length) ? `<span>${window.icon(deploy.icon, { raw: true, size: 12 })} ${esc(deploy.name)}</span>` : ''}
+                            ${deploy && deploy.name !== 'Web' && (plats.includes('web') || !plats.length) ? `<span>${window.icon(deploy.icon, { raw: true, size: 12 })} ${esc(deploy.name)}</span>` : ''}
                             ${p.year ? `<span>${window.icon('calendar', { raw: true, size: 12 })} ${esc(p.year)}</span>` : ''}
                             ${p.role ? `<span>${window.icon('sparkles', { raw: true, size: 12 })} ${esc(p.role)}</span>` : ''}
                         </div>
@@ -812,14 +839,17 @@
                 ${w ? w.galleryHtml(p, { live }) : ''}
             </div>
 
-            <div class="sheet-body">
+            <div class="sheet-body ${appMode ? 'is-app' : ''}">
                 ${p.tagline ? `<p class="detail-tagline">${esc(p.tagline)}</p>` : ''}
-                <p class="detail-lead">${esc(p.desc)}</p>
 
-                ${facts.length ? `<div class="dfacts">${facts.join('')}</div>` : ''}
+                ${appMode && w ? w.appSummaryHtml(p) : ''}
+                ${appMode ? '' : `<p class="detail-lead">${esc(p.desc)}</p>`}
+                ${!appMode && facts.length ? `<div class="dfacts">${facts.join('')}</div>` : ''}
 
                 ${w ? w.getItHtml(p) : ''}
+                ${w ? w.whatsNewHtml(p) : ''}
 
+                ${appMode ? `<div class="detail-sub">About this ${plats[0] === 'extension' ? 'extension' : 'app'}</div><p class="detail-lead detail-lead--app">${esc(p.desc)}</p>` : ''}
                 ${p.longDesc ? `<div class="detail-prose">${esc(p.longDesc)}</div>` : ''}
 
                 ${highlights.length ? `
@@ -833,6 +863,8 @@
                         ${psi ? `<div class="dhealth-col"><div class="detail-sub">Lighthouse <span class="getit-count">mobile</span></div>${w.ringsHtml(psi)}</div>` : ''}
                         ${weeks && weeks.some(Boolean) ? `<div class="dhealth-col"><div class="detail-sub">Activity</div>${w.commitStripHtml(weeks)}</div>` : ''}
                     </div>` : ''}
+
+                ${appMode && w ? w.appInfoHtml(p) : ''}
 
                 ${tags.length ? `
                     <div class="detail-sub">Built with</div>
@@ -851,7 +883,42 @@
                         <div class="detail-sub">More like this</div>
                         ${w.relatedHtml(related, { link: () => null })}
                     </div>` : ''}
-            </div>`;
+            </div>
+            ${w ? w.getBarHtml(p) : ''}`;
+    }
+
+    /* Someone scanned a QR code for this project: bring the matching install
+       to the front. On the right device it becomes one big button; anywhere
+       else it is highlighted and explained. */
+    function focusGet(platform) {
+        const target = body.querySelector(`.getit [data-getit-platform="${CSS.escape(platform)}"]`)
+            || body.querySelector('.getit-primary');
+        if (!target) return;
+        const def = window.PLATFORMS[platform] || {};
+        const here = window.visitorPlatform && window.visitorPlatform() === platform;
+        const href = target.getAttribute('href');
+        const isDl = target.hasAttribute('download');
+        const call = document.createElement('div');
+        call.className = `getcall ${here ? 'is-here' : ''}`;
+        call.innerHTML = here
+            ? `<span class="getcall-tx"><b>Ready on your ${esc(def.label || 'device')}</b><small>Tap to download and install.</small></span>
+               <a class="btn btn--primary getcall-btn" href="${esc(href)}" ${isDl ? `download data-dl="${esc(currentDetailId || '')}"` : 'target="_blank" rel="noopener noreferrer"'}>
+                   ${window.icon('download', { raw: true, size: 17 })} Download now</a>`
+            : `<span class="getcall-tx"><b>This is the ${esc(def.label || '')} version</b><small>Open this page on your ${esc(def.label || '')} device to install it.</small></span>`;
+        const panel = body.querySelector('.getit');
+        if (panel) panel.before(call);
+        target.classList.add('is-target');
+        const scroller = sheet.querySelector('.sheet-panel');
+        setTimeout(() => {
+            // Land the callout just under the sticky header, not behind it.
+            if (scroller) {
+                const head = body.querySelector('.detail-top');
+                const delta = call.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (head ? head.offsetHeight : 0) - 14;
+                scroller.scrollBy({ top: delta, behavior: (window.motionReduced && window.motionReduced()) ? 'auto' : 'smooth' });
+            }
+            (call.querySelector('a') || target).focus({ preventScroll: true });
+        }, 350);
+        if (scroller) scroller.dataset.got = platform;
     }
 
     function fillDetailAsync(p, id) {
@@ -903,9 +970,22 @@
                 if (!e.isIntersecting) return;
                 e.target.classList.add('is-in');
                 io.unobserve(e.target);
+                // Lighthouse numbers count up while their rings fill.
+                if (e.target.classList.contains('rings') && W() && W().countRings) W().countRings(e.target.parentElement);
             });
         }, { root: panel, threshold: 0.3 });
-        body.querySelectorAll('.rings, .cstrip, .getit').forEach((el) => io.observe(el));
+        body.querySelectorAll('.rings, .cstrip, .getit, .whatsnew, .asum, .appinfo').forEach((el) => io.observe(el));
+        if (W() && W().mountFlaps) W().mountFlaps(body);
+    }
+
+    /* The page takes the app's own colour — sampled from its real icon —
+       once that icon has loaded (cached per URL; tone colour until then). */
+    function accentFromIcon(p, id) {
+        if (!p.appIcon || !window.sampleImageColor) return;
+        window.sampleImageColor(p.appIcon).then((rgb) => {
+            if (!rgb || String(currentDetailId) !== String(id)) return;
+            window.applyProjectTheme(p.color || 'slate', { rgb });
+        });
     }
 
     /* Opens a project. When it was opened from a visible card, the card's
@@ -922,6 +1002,9 @@
             && source.getBoundingClientRect().top < window.innerHeight;
         const srcIcon = () => source.querySelector('.card-icon, .card-plaque, .ix-mark, .tl-plaque, .spot-icon');
         const srcTitle = () => source.querySelector('.card-open, .ix-title, .tl-title, .spot-title');
+        // From the hero wall (or a spotlight/release device), the device itself
+        // flies into the sheet's gallery.
+        const srcFrame = () => (source.matches('.wall-tile, .spot-slide, .spot-latest, .tl-item, .card') ? source.querySelector('.dframe') : null);
 
         const swap = () => {
             body.innerHTML = detailHtml(p);
@@ -931,6 +1014,11 @@
                 body.querySelector('[data-vt="title"]').style.viewTransitionName = 'vt-title';
                 srcIcon()?.style.setProperty('view-transition-name', 'none');
                 srcTitle()?.style.setProperty('view-transition-name', 'none');
+                if (srcFrame()) {
+                    srcFrame().style.setProperty('view-transition-name', 'none');
+                    const dest = body.querySelector('.dgal-slide .dframe');
+                    if (dest) dest.style.viewTransitionName = 'vt-frame';
+                }
                 sheet.classList.add('vt-instant');
             }
             window.openSheet(sheet);
@@ -944,12 +1032,13 @@
         if (morph) {
             srcIcon()?.style.setProperty('view-transition-name', 'vt-plaque');
             srcTitle()?.style.setProperty('view-transition-name', 'vt-title');
+            srcFrame()?.style.setProperty('view-transition-name', 'vt-frame');
             document.documentElement.classList.add('vt-sheet');
             const vt = document.startViewTransition(swap);
             vt.finished.finally(() => {
                 document.documentElement.classList.remove('vt-sheet');
                 sheet.classList.remove('vt-instant');
-                body.querySelectorAll('[data-vt]').forEach((el) => { el.style.viewTransitionName = ''; });
+                body.querySelectorAll('[data-vt], .dgal-slide .dframe').forEach((el) => { el.style.viewTransitionName = ''; });
                 source.querySelectorAll('[style*="view-transition-name"]').forEach((el) => el.style.removeProperty('view-transition-name'));
             });
         } else {
@@ -957,6 +1046,7 @@
         }
 
         if (window.applyProjectTheme) window.applyProjectTheme(p.color);
+        accentFromIcon(p, id);
 
         // Keep any active filter in the URL alongside the open project.
         try {
@@ -1020,8 +1110,15 @@
         // Section anchors (#work, #about…) are handled by the browser.
         if (document.getElementById(slug)) return;
         const p = projects().find((x) => window.projectSlug(x) === slug);
-        if (p) window.openProject(p.id);
+        if (!p) return;
+        window.openProject(p.id);
+        if (getParam && !getHandled) {
+            getHandled = true;
+            // After the sheet's own entrance, so the scroll is visible.
+            setTimeout(() => focusGet(getParam), 420);
+        }
     }
+    let getHandled = false;
     window.addEventListener('hashchange', () => {
         if (sheet && !sheet.classList.contains('is-open')) openFromHash();
     });
@@ -1054,6 +1151,8 @@
        ===================================================================== */
 
     grid.addEventListener('click', (e) => {
+        // The admin card menu is handled elsewhere (js/admin-dock.js).
+        if (e.target.closest('[data-card-menu], [data-admin-slot]')) return;
         const actionBtn = e.target.closest('[data-act]');
         if (actionBtn) {
             e.stopPropagation();
@@ -1128,7 +1227,9 @@
                 window.toggleCompare && window.toggleCompare(cmp.dataset.compare);
                 const on = state.compare.includes(cmp.dataset.compare);
                 cmp.setAttribute('aria-pressed', String(on));
-                cmp.innerHTML = `${window.icon(on ? 'check' : 'scale', { raw: true, size: 16 })} ${on ? 'In comparison' : 'Compare'}`;
+                cmp.setAttribute('aria-label', on ? 'Remove from comparison' : 'Add to comparison');
+                cmp.dataset.tip = on ? 'In comparison' : 'Compare';
+                cmp.innerHTML = window.icon(on ? 'check' : 'scale', { raw: true, size: 16 });
                 return;
             }
             const rel = e.target.closest('.rel-card[data-open]');

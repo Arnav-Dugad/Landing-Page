@@ -22,7 +22,7 @@
     /* -------- Command sources ------------------------------------------- */
 
     function build() {
-        const projects = window.getProjects ? window.getProjects() : [];
+        const projects = window.listProjects ? window.listProjects() : [];
         const cmds = [];
 
         projects.forEach((p) => cmds.push({
@@ -38,6 +38,9 @@
         cmds.push(
             { group: 'Navigate', icon: 'arrow-up',  label: 'Go to top',     keywords: 'home hero start', run: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
             { group: 'Navigate', icon: 'grid',      label: 'Go to work',    keywords: 'projects portfolio grid', run: go('work') },
+            ...(document.getElementById('releases') && !document.getElementById('releases').hidden
+                ? [{ group: 'Navigate', icon: 'rocket', label: 'Latest releases', keywords: 'new version update changelog shipped', run: go('releases') }]
+                : []),
             { group: 'Navigate', icon: 'info',      label: 'Go to about',   keywords: 'bio story who', run: go('about') },
             { group: 'Navigate', icon: 'layers',    label: 'Go to stack',   keywords: 'tech tools skills', run: go('stack') },
             { group: 'Navigate', icon: 'send',      label: 'Go to contact', keywords: 'email reach hire', run: go('contact') },
@@ -92,7 +95,7 @@
             run: () => { window.setFilter(c); go('work')(); }
         }));
 
-        [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['stars', 'Most starred'],
+        [['smart', 'Recommended'], ['newest', 'Newest first'], ['oldest', 'Oldest first'], ['stars', 'Most starred'],
          ['az', 'A–Z'], ['featured', 'Featured first']].forEach(([key, label]) => {
             cmds.push({
                 group: 'Sort', icon: 'sort', label: `Sort: ${label}`,

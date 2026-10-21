@@ -12,6 +12,20 @@ import { ImageResponse } from '@cf-wasm/og';
 import { buildCard, themeOf } from '../api/_card.js';
 import { findProject, toneOf } from '../api/_project.js';
 import { toBase64 } from './http.js';
+import { snapshot } from './meta.js';
+
+const isApp = (p) => !!(p && Array.isArray(p.platforms) && p.platforms.some((x) => x !== 'web'));
+
+/* App cards print the live download count; it comes from the (cached) meta
+   snapshot, so rendering a card costs no extra database reads. */
+async function liveDownloads(project) {
+    if (!isApp(project)) return 0;
+    try {
+        const { docs } = await snapshot();
+        const g = docs[project.id] && docs[project.id].github;
+        return (g && g.downloads) || 0;
+    } catch { return 0; }
+}
 
 const RESPONSE_CACHE = 'public, max-age=600, stale-while-revalidate=86400';
 
@@ -51,7 +65,7 @@ async function renderPng(req, ctx) {
         }
     } catch { /* cache unavailable */ }
 
-    const [card, options] = await buildCard(req, { project, theme });
+    const [card, options] = await buildCard(req, { project, theme, downloads: await liveDownloads(project) });
     const res = await ImageResponse.async(card, { ...options, headers: undefined });
     if (!res.ok) throw new Error(`Card render failed (${res.status})`);
     const buf = await res.arrayBuffer();
@@ -119,7 +133,7 @@ export async function handleOgSvg(req, ctx) {
     <rect class="sheen" x="0" y="-120" width="360" height="870" fill="url(#sheen)"/>
   </g>
 </g>
-<circle class="ring" cx="${DOT_X}" cy="${DOT_Y}" r="7" fill="none" stroke="${accent}" stroke-width="2"/>
+${isApp(project) ? '' : `<circle class="ring" cx="${DOT_X}" cy="${DOT_Y}" r="7" fill="none" stroke="${accent}" stroke-width="2"/>`}
 </svg>`;
 
     return new Response(svg, {

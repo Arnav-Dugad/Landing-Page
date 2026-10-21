@@ -1,5 +1,5 @@
 /* ===========================================================================
-   worker/shot.js  —  GET /api/shot?p=<slug>&w=<320..1600>[&device=mobile]
+   worker/shot.js  —  GET /api/shot?p=<slug>&w=<320..1600>[&device=mobile][&theme=dark]
 
    A real screenshot of a project's live site, for cards and device frames.
 
@@ -69,13 +69,15 @@ const notReady = (why) => new Response(JSON.stringify({ ok: false, error: why })
 
 /* Headless Chrome on Cloudflare. A JPEG at quality 72 keeps a 1280x800
    capture around 80–200 KB — small enough for one Firestore document. */
-async function capture(env, link, device) {
+async function capture(env, link, device, theme = 'light') {
     const browser = await puppeteer.launch(env.BROWSER);
     try {
         const page = await browser.newPage();
         const spec = DEVICES[device];
         await page.setViewport(spec);
         if (device === 'mobile') await page.setUserAgent(MOBILE_UA);
+        // Sites that follow the OS theme render their dark palette here.
+        await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: theme }]).catch(() => {});
         try {
             await page.goto(link, { waitUntil: 'networkidle2', timeout: 25_000 });
         } catch {
@@ -105,25 +107,35 @@ export async function handleShot(req, env, ctx) {
     const wanted = Number(url.searchParams.get('w')) || 1280;
     const w = WIDTHS.reduce((a, b) => (Math.abs(b - wanted) < Math.abs(a - wanted) ? b : a), WIDTHS[0]);
     const device = url.searchParams.get('device') === 'mobile' ? 'mobile' : 'desktop';
+    const theme = url.searchParams.get('theme') === 'dark' ? 'dark' : 'light';
 
-    // Captures committed with the site (shots/<slug>.jpg) cost nothing to
-    // serve and never touch the browser allowance or Firestore.
+    // Captures committed with the site cost nothing to serve and never touch
+    // the browser allowance or Firestore. Dark asks for shots/<slug>.dark.jpg
+    // first and settles for the light one — a site with no dark mode looks
+    // the same either way, and a real capture beats a placeholder.
     if (device === 'desktop' && env.ASSETS) {
-        try {
-            const res = await env.ASSETS.fetch(new Request(new URL(`/shots/${slug}.jpg`, req.url)));
-            if (res.ok && (res.headers.get('content-type') || '').startsWith('image/')) {
-                return imageResponse(await res.arrayBuffer(), 'image/jpeg', { 'x-shot': 'static' });
-            }
-        } catch { /* fall through to live capture */ }
+        const names = theme === 'dark' ? [`${slug}.dark.jpg`, `${slug}.jpg`] : [`${slug}.jpg`];
+        for (const name of names) {
+            try {
+                const res = await env.ASSETS.fetch(new Request(new URL(`/shots/${name}`, req.url)));
+                if (res.ok && (res.headers.get('content-type') || '').startsWith('image/')) {
+                    return imageResponse(await res.arrayBuffer(), 'image/jpeg', {
+                        'x-shot': 'static',
+                        'x-shot-theme': name.endsWith('.dark.jpg') ? 'dark' : 'light'
+                    });
+                }
+                res.body?.cancel().catch(() => {});
+            } catch { /* try the next, then live capture */ }
+        }
     }
 
-    const memKey = `${slug}/${device}`;
+    const memKey = `${slug}/${device}/${theme}`;
     const hot = memory.get(memKey);
     if (hot && Date.now() - hot.at < MAX_AGE_MS) return imageResponse(hot.bytes, hot.type, { 'x-shot': 'memory' });
 
     // Width is part of the edge cache key so a future resize step can vary
     // by it; today every width is served the same capture.
-    const cacheKey = new Request(`https://shot-cache.internal/v1/${encodeURIComponent(slug)}/${device}/${w}.jpg`);
+    const cacheKey = new Request(`https://shot-cache.internal/v2/${encodeURIComponent(slug)}/${device}/${theme}/${w}.jpg`);
     try {
         const hit = await caches.default.match(cacheKey);
         if (hit) return new Response(hit.body, hit);
@@ -139,7 +151,7 @@ export async function handleShot(req, env, ctx) {
     } catch { /* no link */ }
     if (!link) throw new HttpError(404, 'This project has no live site to capture');
 
-    const docId = `shots/${project.id}${device === 'mobile' ? '__m' : ''}`;
+    const docId = `shots/${project.id}${device === 'mobile' ? '__m' : ''}${theme === 'dark' ? '__d' : ''}`;
 
     const store = (bytes, type) => {
         remember(memKey, { at: Date.now(), bytes, type });
@@ -170,12 +182,12 @@ export async function handleShot(req, env, ctx) {
     // One capture per project at a time, however many visitors ask.
     if (!inflight.has(docId)) {
         inflight.set(docId, (async () => {
-            const buf = await capture(env, link, device);
+            const buf = await capture(env, link, device, theme);
             const b64 = toBase64(buf);
             if (b64.length < 900_000) {
                 try {
                     const token = await edgeToken(env);
-                    await setDoc(docId, { data: b64, type: 'image/jpeg', link, device, takenAt: Date.now() }, token);
+                    await setDoc(docId, { data: b64, type: 'image/jpeg', link, device, theme, takenAt: Date.now() }, token);
                 } catch (e) { console.error('shot store', e && e.message); }
             }
             return buf;

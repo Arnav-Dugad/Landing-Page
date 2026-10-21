@@ -400,12 +400,9 @@
         const take = await review(current, proposal || {});
         if (!take || !Object.keys(take).length) return;
         const next = { ...current, ...take };
-        // Writing a case study only makes sense if the page gets published.
-        if (take.problem || take.approach || take.outcome) {
-            const fold = document.getElementById('caseFold');
-            if (fold) fold.open = true;
-        }
         window.writeEditorForm(next);
+        // A drafted case study is worth looking at straight away.
+        if ((take.problem || take.approach || take.outcome) && window.editorTab) window.editorTab('story');
         window.refreshEditorPreview();
         window.toast(`Applied ${Object.keys(take).length} change${Object.keys(take).length === 1 ? '' : 's'} — review and save`, 'success');
     }));
@@ -423,17 +420,28 @@
 
     document.getElementById('aiAlt')?.addEventListener('click', (e) => busy(e.currentTarget, async () => {
         const current = window.readEditorForm();
-        if (!current.gallery.length) throw new Error('Add screenshot URLs first');
-        const alts = current.gallery.map((_, i) => current.galleryAlt[i] || '');
-        for (let i = 0; i < current.gallery.length; i++) {
+        // The media grid knows each image's absolute URL — uploaded ones are
+        // site-relative (/api/media/…) and the model has to fetch them.
+        const items = window.editorMedia ? window.editorMedia()
+            : current.gallery.map((url, i) => ({ url, absolute: url, alt: current.galleryAlt[i] || '' }));
+        if (!items.length) throw new Error('Add some screenshots first');
+        const todo = items.filter((m) => !m.alt).length;
+        if (!todo) { window.toast('Every screenshot already has a description', 'info'); return; }
+        const alts = items.map((m) => m.alt);
+        let n = 0;
+        for (let i = 0; i < items.length; i++) {
             if (alts[i]) continue;
-            const r = await call('alt-text', { imageUrl: current.gallery[i], project: { title: current.title, desc: current.desc } });
+            const r = await call('alt-text', { imageUrl: items[i].absolute, project: { title: current.title, desc: current.desc } });
             alts[i] = (r && r.alt) || '';
+            if (alts[i]) n++;
         }
-        const field = document.getElementById('fGalleryAlt');
-        if (field) field.value = alts.join('\n');
+        if (window.editorSetAlts) window.editorSetAlts(alts);
+        else {
+            const field = document.getElementById('fGalleryAlt');
+            if (field) field.value = alts.join('\n');
+        }
         window.refreshEditorPreview();
-        window.toast('Screenshots described', 'success');
+        window.toast(`Described ${n} screenshot${n === 1 ? '' : 's'}`, 'success');
     }));
 
     /* The importer shares this choice — one provider picker, remembered once. */

@@ -226,6 +226,8 @@
 
     window.playHover = () => blip(520, 700, 'sine', 0.014, 0.06);
     window.playClick = () => blip(680, 260, 'triangle', 0.04, 0.11);
+    // A soft tick, rising with `level` (0–1) — used by counting numbers.
+    window.playTick = (level = 0.5) => blip(820 + level * 520, 980 + level * 520, 'sine', 0.009, 0.035);
 
     function paintMute() {
         const btn = document.getElementById('soundToggle');

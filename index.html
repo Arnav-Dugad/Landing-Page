@@ -60,6 +60,7 @@
 <link rel="stylesheet" href="css/features.css">
 <link rel="stylesheet" href="css/showcase.css">
 <link rel="stylesheet" href="css/micro.css">
+<link rel="stylesheet" href="css/admin.css">
 
 <script type="application/ld+json">
 {
@@ -239,31 +240,15 @@
              Rendered by js/showcase.js; stays empty (and collapses) until data. -->
         <div class="spot" id="spotlight" aria-label="Featured work"></div>
 
-        <!-- Admin bar -->
-        <div class="toolbar adminbar" data-admin-only>
-            <button class="btn btn--primary magnetic" id="importOpen" title="Paste a link — everything else is filled in for you">
-                <span data-icon="wand" data-size="17"></span> Magic import
-            </button>
-            <button class="btn btn--ghost magnetic" id="discoverOpen" title="Your GitHub repos that aren't on the site yet">
-                <span data-icon="github" data-size="17"></span> Discover repos
-            </button>
-            <button class="btn btn--quiet" data-new-project>
-                <span data-icon="plus" data-size="16"></span> Blank project
-            </button>
-            <button class="btn btn--ghost magnetic" id="enrichAll"
-                    title="Read every repo and fill in tech, descriptions, years and links">
-                <span data-icon="wand" data-size="17"></span> Auto-fill everything
-            </button>
-            <button class="btn btn--ghost magnetic" id="aiOpen" title="Chat about the portfolio and run the AI tools">
-                <span data-icon="sparkles" data-size="17"></span> AI studio
-            </button>
-            <button class="btn btn--quiet" id="healthOpen" title="Find dead repos and live links that are down">
-                <span data-icon="pulse" data-size="16"></span> Health check
-            </button>
-            <button class="btn btn--quiet" id="nowOpen" title="Edit the /now page">
-                <span data-icon="pen" data-size="16"></span> Edit Now page
-            </button>
-        </div>
+        <!-- Latest releases — editorial cards from the release radar. Hidden
+             until something has shipped recently. Filled by js/showcase.js. -->
+        <section class="releases" id="releases" aria-labelledby="releasesTitle" hidden>
+            <header class="releases-head" data-reveal="up">
+                <h3 id="releasesTitle" class="releases-title">Just <em>shipped</em></h3>
+                <p class="releases-note">New versions, straight from the release radar.</p>
+            </header>
+            <div class="releases-list" id="releasesList"></div>
+        </section>
 
         <!-- Platform switcher: All / Web / Windows / Android / … (only the
              platforms that exist). Rendered by js/showcase.js. -->
@@ -283,6 +268,7 @@
 
                 <div class="selectwrap">
                     <select id="sortSelect" aria-label="Sort projects">
+                        <option value="smart">Recommended</option>
                         <option value="newest">Newest first</option>
                         <option value="oldest">Oldest first</option>
                         <option value="stars">Most starred</option>
@@ -680,194 +666,111 @@
      Project editor (add / edit / duplicate)
      ====================================================================== -->
 <div class="sheet" id="editorSheet" aria-hidden="true">
-    <div class="sheet-panel sheet-panel--lg" role="dialog" aria-modal="true" aria-label="Project editor">
+    <div class="sheet-panel sheet-panel--lg ed-panel" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
         <button class="sheet-close" data-close aria-label="Close"><span data-icon="x" data-size="16"></span></button>
+
+        <header class="ed-head">
+            <div class="ed-headline">
+                <h2 id="editorTitle">New project</h2>
+                <p id="editorSub"></p>
+            </div>
+            <nav class="ed-tabs" role="tablist" aria-label="Editor sections">
+                <button type="button" role="tab" class="ed-tab is-active" data-ed-tab="basics" aria-selected="true" aria-controls="edp-basics" id="edt-basics">Basics</button>
+                <button type="button" role="tab" class="ed-tab" data-ed-tab="media" aria-selected="false" aria-controls="edp-media" id="edt-media">Media <b class="ed-tab-n" id="edMediaCount"></b></button>
+                <button type="button" role="tab" class="ed-tab" data-ed-tab="getit" aria-selected="false" aria-controls="edp-getit" id="edt-getit">Get it</button>
+                <button type="button" role="tab" class="ed-tab" data-ed-tab="story" aria-selected="false" aria-controls="edp-story" id="edt-story">Story</button>
+                <button type="button" role="tab" class="ed-tab" data-ed-tab="more" aria-selected="false" aria-controls="edp-more" id="edt-more">More</button>
+                <span class="ed-tab-ink" aria-hidden="true"></span>
+            </nav>
+        </header>
 
         <div class="editor-split">
             <div class="editor-form">
-                <div style="padding-bottom:22px;border-bottom:1px solid var(--line);margin-bottom:24px">
-                    <h2 id="editorTitle" style="font-family:var(--font-display);font-size:1.7rem;font-weight:400;letter-spacing:-.025em">New project</h2>
-                    <p id="editorSub" style="font-size:var(--t-sm);color:var(--ink-50);margin-top:6px"></p>
-                </div>
+                <form id="editorForm" novalidate>
 
-                <form id="editorForm">
-                    <!-- Automation: shown for projects the importer created. Fields
-                         you change by hand are locked so refreshes leave them alone. -->
-                    <div class="ed-auto u-hidden" id="edAuto">
-                        <div class="ed-auto-top">
-                            <label class="switch">
-                                <input type="checkbox" id="fAuto">
-                                <span class="switch-track"><i></i></span>
-                                <span><b>Auto-managed</b> <em>kept up to date from its sources</em></span>
-                            </label>
-                            <button class="btn btn--quiet" type="button" id="edReimport" title="Read the sources again and refresh everything that isn't locked">
-                                <span data-icon="refresh" data-size="15"></span> Re-import from sources
+                    <!-- ===== Basics ===================================== -->
+                    <section class="ed-pane" role="tabpanel" id="edp-basics" aria-labelledby="edt-basics" data-ed-pane="basics">
+                        <div class="form-grid">
+                            <div class="field field--wide">
+                                <label for="fTitle">Title</label>
+                                <input class="input input--lg" id="fTitle" required maxlength="120" placeholder="Space Shooter" autocomplete="off">
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fTagline">Tagline <em>one punchy line under the title</em></label>
+                                <input class="input" id="fTagline" maxlength="120" placeholder="Voice, rediscovered.">
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fDesc">Short description <em>shown on the card</em></label>
+                                <textarea class="textarea" id="fDesc" required maxlength="1000" style="min-height:72px" placeholder="A one-or-two-line summary of what it does."></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label id="fPlatformsLabel">Runs on <em>tap in order — the first one leads</em></label>
+                                <div class="plat-pick" id="platformPicker" role="group" aria-labelledby="fPlatformsLabel"></div>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fLink">Live URL</label>
+                                <div class="field-row">
+                                    <input class="input" id="fLink" type="url" placeholder="https://…">
+                                    <button class="btn btn--quiet" type="button" id="testLink" aria-label="Open the live URL in a new tab" data-tip="Open in a new tab">
+                                        <span data-icon="external" data-size="15"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fRepo">GitHub repo <em>optional</em></label>
+                                <input class="input" id="fRepo" type="url" placeholder="https://github.com/user/repo">
+                            </div>
+
+                            <div class="field">
+                                <label for="fStatus">Status</label>
+                                <div class="selectwrap" style="width:100%">
+                                    <select class="select" id="fStatus">
+                                        <option value="live">Live</option>
+                                        <option value="wip">In progress</option>
+                                        <option value="archived">Archived</option>
+                                    </select>
+                                    <span data-icon="chev-down" data-size="14"></span>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="fYear">Year</label>
+                                <input class="input" id="fYear" maxlength="24" placeholder="2026">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ===== Media ====================================== -->
+                    <section class="ed-pane" role="tabpanel" id="edp-media" aria-labelledby="edt-media" data-ed-pane="media" hidden>
+                        <div class="md-drop" id="mediaDrop" tabindex="0" role="button" aria-describedby="mediaDropHint">
+                            <input type="file" id="mediaFile" accept="image/*" multiple hidden>
+                            <span class="md-drop-art" aria-hidden="true"><i></i><i></i><i></i></span>
+                            <b>Drop screenshots here</b>
+                            <span id="mediaDropHint">or <u>browse your computer</u><span class="md-paste"> · paste with <kbd>Ctrl</kbd>+<kbd>V</kbd></span> · PNG, JPEG, WebP, GIF</span>
+                        </div>
+
+                        <div class="md-grid" id="mediaGrid" aria-live="polite"></div>
+
+                        <div class="md-tools">
+                            <form class="md-url" id="mediaUrlForm" onsubmit="return false">
+                                <input class="input" id="mediaUrl" type="url" placeholder="…or add an image by URL" aria-label="Image URL">
+                                <button class="btn btn--quiet" type="button" id="mediaUrlAdd">Add</button>
+                            </form>
+                            <button class="btn btn--quiet" type="button" id="aiAlt" data-tip="Write alt text for every screenshot that has none">
+                                <span data-icon="sparkles" data-size="15"></span> Describe all
                             </button>
                         </div>
-                        <div class="ed-locked" id="edLocked" aria-live="polite"></div>
-                    </div>
 
-                    <div class="form-grid">
-                        <div class="field field--wide">
-                            <label for="fTitle">Title</label>
-                            <input class="input" id="fTitle" required maxlength="120" placeholder="Space Shooter">
-                        </div>
+                        <!-- The grid above writes these; they are what gets saved. -->
+                        <textarea id="fGallery" hidden></textarea>
+                        <textarea id="fGalleryAlt" hidden></textarea>
 
-                        <div class="field field--wide">
-                            <label for="fTagline">Tagline <em>one punchy line — shown under the title</em></label>
-                            <input class="input" id="fTagline" maxlength="120" placeholder="Voice, rediscovered.">
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fDesc">Short description <em>shown on the card</em></label>
-                            <textarea class="textarea" id="fDesc" required maxlength="1000" style="min-height:72px" placeholder="A one-or-two-line summary of what it does."></textarea>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label id="fPlatformsLabel">Platforms <em>where it runs — first one leads</em></label>
-                            <div class="plat-pick" id="platformPicker" role="group" aria-labelledby="fPlatformsLabel"></div>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fLink">Live URL</label>
-                            <div class="field-row">
-                                <input class="input" id="fLink" type="url" placeholder="https://…">
-                                <button class="btn btn--quiet" type="button" id="testLink" title="Open in a new tab">
-                                    <span data-icon="external" data-size="15"></span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fRepo">GitHub repo <em>optional — auto-detected from github.io links</em></label>
-                            <input class="input" id="fRepo" type="url" placeholder="https://github.com/user/repo">
-                        </div>
-
-                        <div class="field field--wide">
-                            <div class="field-row">
-                                <button class="btn btn--ghost" type="button" id="autofill" style="flex:1">
-                                    <span data-icon="wand" data-size="17"></span>
-                                    Auto-fill from GitHub
-                                </button>
-                                <button class="btn btn--ghost" type="button" id="aiImprove" style="flex:1"
-                                        title="Write polished copy from the README with Claude, Gemini or ChatGPT">
-                                    <span data-icon="sparkles" data-size="17"></span>
-                                    Improve with AI
-                                </button>
-                            </div>
-                            <p style="font-size:var(--t-2xs);color:var(--ink-35);line-height:1.5">
-                                Auto-fill reads the repo's languages, <code>package.json</code> and topics and
-                                only fills blanks. <b>Improve with AI</b> reads the README and rewrites the
-                                copy and case study — you review every change before saving.
-                            </p>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fLongDesc">Write-up <em>optional — shown in the detail view</em></label>
-                            <textarea class="textarea" id="fLongDesc" placeholder="The full story: what it does, how you built it, what was hard."></textarea>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fHighlights">Highlights <em>one per line</em></label>
-                            <textarea class="textarea" id="fHighlights" style="min-height:76px" placeholder="Realtime multiplayer over WebSockets&#10;Works offline via a service worker"></textarea>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fDemoVideo">Demo video <em>optional — YouTube or Vimeo</em></label>
-                            <input class="input" id="fDemoVideo" type="url" placeholder="https://youtube.com/watch?v=…">
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fPreviewVideo">Hover preview <em>optional — a short muted MP4/WebM loop, or a GIF/WebP</em></label>
-                            <input class="input" id="fPreviewVideo" type="url" placeholder="https://…/preview.mp4">
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fSearchTerms">Search terms <em>comma separated — what people might search for; AI can write these</em></label>
-                            <div class="field-row">
-                                <input class="input" id="fSearchTerms" placeholder="multiplayer, voice call, webrtc">
-                                <button class="btn btn--quiet" type="button" id="aiTerms" title="Generate with AI">
-                                    <span data-icon="sparkles" data-size="15"></span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <label for="fCategory">Category</label>
-                            <div class="selectwrap" style="width:100%">
-                                <select class="select" id="fCategory"></select>
-                                <span data-icon="chev-down" data-size="14"></span>
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <label for="fColor">Colour</label>
-                            <div class="selectwrap" style="width:100%">
-                                <select class="select" id="fColor"></select>
-                                <span data-icon="chev-down" data-size="14"></span>
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <label for="fStatus">Status</label>
-                            <div class="selectwrap" style="width:100%">
-                                <select class="select" id="fStatus">
-                                    <option value="live">Live</option>
-                                    <option value="wip">In progress</option>
-                                    <option value="archived">Archived</option>
-                                </select>
-                                <span data-icon="chev-down" data-size="14"></span>
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <label for="fYear">Year</label>
-                            <input class="input" id="fYear" maxlength="24" placeholder="2026">
-                        </div>
-
-                        <div class="field">
-                            <label for="fRole">Your role <em>optional</em></label>
-                            <input class="input" id="fRole" placeholder="Solo / Front-end / Team of 3">
-                        </div>
-
-                        <div class="field">
-                            <label for="fOrder">Manual order <em>optional</em></label>
-                            <input class="input" id="fOrder" type="number" placeholder="1">
-                        </div>
-
-                        <div class="field field--wide">
-                            <label class="check">
-                                <input type="checkbox" id="fFeatured">
-                                <span class="box"><span data-icon="check" data-size="12"></span></span>
-                                Feature this project — it pins to the top under “Featured first”
-                            </label>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fIcon">Icon</label>
-                            <input class="input" id="fIcon" placeholder="rocket">
-                            <input class="input" id="iconSearch" placeholder="Search icons — game, chart, cloud, lock…" style="margin-top:8px">
-                            <div class="iconpick" id="iconPicker"></div>
-                        </div>
-
-                        <div class="field field--wide">
-                            <label for="fTags">Tech <em>comma separated</em></label>
-                            <input class="input" id="fTags" placeholder="JavaScript, Canvas, WebGL">
-                            <div id="tagPicker"></div>
-                        </div>
-                    </div>
-
-                    <!-- Apps: icons, releases and store listings. The importer fills
-                         all of this from GitHub releases and store pages. -->
-                    <details class="fold" id="appsFold">
-                        <summary>
-                            <span data-icon="download" data-size="15"></span>
-                            Apps, downloads &amp; stores
-                            <em>icon, cover, release files, store links</em>
-                            <span class="fold-chev" data-icon="chev-down" data-size="15"></span>
-                        </summary>
-
-                        <div class="form-grid" style="margin-top:18px">
+                        <div class="form-grid ed-media-urls">
                             <div class="field">
                                 <label for="fAppIcon">App icon <em>image URL</em></label>
                                 <div class="field-row ed-imgrow">
@@ -876,19 +779,37 @@
                                 </div>
                             </div>
                             <div class="field">
-                                <label for="fCover">Cover image <em>image URL</em></label>
+                                <label for="fCover">Cover <em>★ a screenshot, or a URL</em></label>
                                 <div class="field-row ed-imgrow">
                                     <span class="ed-thumb ed-thumb--wide" id="fCoverThumb" aria-hidden="true"></span>
                                     <input class="input" id="fCover" type="url" placeholder="https://…/cover.png">
                                 </div>
                             </div>
                             <div class="field">
+                                <label for="fCoverDark">Dark-theme cover <em>optional</em></label>
+                                <input class="input" id="fCoverDark" type="url" placeholder="https://…/cover-dark.png">
+                            </div>
+                            <div class="field">
+                                <label for="fDemoVideo">Demo video <em>YouTube or Vimeo</em></label>
+                                <input class="input" id="fDemoVideo" type="url" placeholder="https://youtube.com/watch?v=…">
+                            </div>
+                            <div class="field field--wide">
+                                <label for="fPreviewVideo">Hover preview <em>a short muted MP4/WebM loop, or a GIF/WebP</em></label>
+                                <input class="input" id="fPreviewVideo" type="url" placeholder="https://…/preview.mp4">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ===== Get it ===================================== -->
+                    <section class="ed-pane" role="tabpanel" id="edp-getit" aria-labelledby="edt-getit" data-ed-pane="getit" hidden>
+                        <div class="form-grid">
+                            <div class="field">
                                 <label for="fVersion">Latest version</label>
                                 <input class="input" id="fVersion" maxlength="40" placeholder="2.5.0">
                             </div>
                             <div class="field">
-                                <label for="fSources">Sources <em>links the importer reads, one per line</em></label>
-                                <textarea class="textarea" id="fSources" style="min-height:44px" placeholder="https://github.com/user/repo"></textarea>
+                                <label for="fRequirements">Requirements <em>one per line</em></label>
+                                <textarea class="textarea" id="fRequirements" style="min-height:44px" maxlength="400" placeholder="Windows 10 or later&#10;.NET 8 runtime"></textarea>
                             </div>
 
                             <div class="field field--wide">
@@ -911,80 +832,166 @@
                                 </div>
                             </div>
                         </div>
-                    </details>
+                    </section>
 
-                    <!-- Case study: everything needed for the long-form page -->
-                    <details class="fold" id="caseFold">
-                        <summary>
-                            <span data-icon="doc" data-size="15"></span>
-                            Case study
-                            <em>problem, process, outcome — turns this project into a full page</em>
-                            <span class="fold-chev" data-icon="chev-down" data-size="15"></span>
-                        </summary>
-
-                        <div class="form-grid" style="margin-top:18px">
+                    <!-- ===== Story ====================================== -->
+                    <section class="ed-pane" role="tabpanel" id="edp-story" aria-labelledby="edt-story" data-ed-pane="story" hidden>
+                        <div class="form-grid">
                             <div class="field field--wide">
-                                <label class="check">
-                                    <input type="checkbox" id="fCaseStudy">
-                                    <span class="box"><span data-icon="check" data-size="12"></span></span>
-                                    Publish a case-study page for this project
-                                </label>
+                                <label for="fLongDesc">Write-up <em>shown in the detail view</em></label>
+                                <textarea class="textarea" id="fLongDesc" placeholder="The full story: what it does, how you built it, what was hard."></textarea>
                             </div>
 
+                            <div class="field field--wide">
+                                <label for="fHighlights">Highlights <em>one per line</em></label>
+                                <textarea class="textarea" id="fHighlights" style="min-height:76px" placeholder="Realtime multiplayer over WebSockets&#10;Works offline via a service worker"></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label class="switch ed-switch">
+                                    <input type="checkbox" id="fCaseStudy">
+                                    <span class="switch-track"><i></i></span>
+                                    <span><b>Case-study page</b> <em>publish a long-form page for this project</em></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-grid ed-case" id="edCase">
                             <div class="field field--wide">
                                 <label for="fProblem">The problem <em>what wasn't working, and for whom</em></label>
                                 <textarea class="textarea" id="fProblem" placeholder="Nobody in my year could tell how close they were to the attendance cutoff…"></textarea>
                             </div>
-
                             <div class="field field--wide">
                                 <label for="fApproach">The approach <em>how you attacked it</em></label>
                                 <textarea class="textarea" id="fApproach" placeholder="Started with the maths, then worked backwards to the smallest interface that could show it…"></textarea>
                             </div>
-
                             <div class="field field--wide">
                                 <label for="fChallenges">What broke <em>one per line — the honest part</em></label>
                                 <textarea class="textarea" id="fChallenges" placeholder="Timezones silently shifted every date by a day&#10;The first data model made editing a row impossible"></textarea>
                             </div>
-
                             <div class="field field--wide">
                                 <label for="fOutcome">The outcome <em>what shipped, what you'd change</em></label>
                                 <textarea class="textarea" id="fOutcome" placeholder="Used by ~40 people in my course; the next version needs offline support…"></textarea>
                             </div>
-
                             <div class="field field--wide">
                                 <label for="fMetrics">Numbers <em>one per line, as "Label: value"</em></label>
                                 <textarea class="textarea" id="fMetrics" style="min-height:72px" placeholder="Users: 40+&#10;Load time: 0.4s&#10;Lighthouse: 100"></textarea>
                             </div>
+                        </div>
+                    </section>
 
-                            <div class="field field--wide">
-                                <label for="fGallery">Screenshots <em>one image URL per line</em></label>
-                                <textarea class="textarea" id="fGallery" style="min-height:72px" placeholder="https://…/screen-1.png&#10;https://…/screen-2.png"></textarea>
+                    <!-- ===== More ======================================= -->
+                    <section class="ed-pane" role="tabpanel" id="edp-more" aria-labelledby="edt-more" data-ed-pane="more" hidden>
+                        <div class="form-grid">
+                            <div class="field">
+                                <label for="fCategory">Category</label>
+                                <div class="selectwrap" style="width:100%">
+                                    <select class="select" id="fCategory"></select>
+                                    <span data-icon="chev-down" data-size="14"></span>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="fColor">Colour</label>
+                                <div class="selectwrap" style="width:100%">
+                                    <select class="select" id="fColor"></select>
+                                    <span data-icon="chev-down" data-size="14"></span>
+                                </div>
                             </div>
 
                             <div class="field field--wide">
-                                <label for="fGalleryAlt">Screenshot descriptions <em>alt text, one line per screenshot, same order</em></label>
-                                <textarea class="textarea" id="fGalleryAlt" style="min-height:72px" placeholder="The level editor with a grid of tiles and a palette on the left"></textarea>
-                                <button class="btn btn--quiet" type="button" id="aiAlt" style="justify-self:start">
-                                    <span data-icon="sparkles" data-size="15"></span> Describe screenshots with AI
-                                </button>
+                                <label for="fTags">Tech <em>comma separated</em></label>
+                                <input class="input" id="fTags" placeholder="JavaScript, Canvas, WebGL">
+                                <div id="tagPicker"></div>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fSearchTerms">Search terms <em>what people might type to find it</em></label>
+                                <div class="field-row">
+                                    <input class="input" id="fSearchTerms" placeholder="multiplayer, voice call, webrtc">
+                                    <button class="btn btn--quiet" type="button" id="aiTerms" aria-label="Write search terms with AI" data-tip="Write these with AI">
+                                        <span data-icon="sparkles" data-size="15"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label for="fIcon">Icon</label>
+                                <div class="field-row">
+                                    <input class="input" id="fIcon" placeholder="rocket" style="max-width:160px">
+                                    <input class="input" id="iconSearch" placeholder="Search icons — game, chart, cloud, lock…">
+                                </div>
+                                <div class="iconpick" id="iconPicker"></div>
+                            </div>
+
+                            <div class="field">
+                                <label for="fRole">Your role</label>
+                                <input class="input" id="fRole" placeholder="Solo / Front-end / Team of 3">
+                            </div>
+                            <div class="field">
+                                <label for="fOrder">Manual order</label>
+                                <input class="input" id="fOrder" type="number" placeholder="1">
+                            </div>
+
+                            <div class="field field--wide ed-switches">
+                                <label class="switch ed-switch">
+                                    <input type="checkbox" id="fFeatured">
+                                    <span class="switch-track"><i></i></span>
+                                    <span><b>Featured</b> <em>leads the spotlight and “Featured first”</em></span>
+                                </label>
+                                <label class="switch ed-switch">
+                                    <input type="checkbox" id="fHidden">
+                                    <span class="switch-track"><i></i></span>
+                                    <span><b>Hidden</b> <em>keep it, but don’t show it to visitors</em></span>
+                                </label>
                             </div>
                         </div>
-                    </details>
+
+                        <!-- Automation: projects the importer manages. Fields you
+                             change by hand lock, so refreshes leave them alone. -->
+                        <div class="ed-auto" id="edAuto">
+                            <div class="ed-auto-top">
+                                <label class="switch ed-switch">
+                                    <input type="checkbox" id="fAuto">
+                                    <span class="switch-track"><i></i></span>
+                                    <span><b>Auto-managed</b> <em>kept up to date from its sources</em></span>
+                                </label>
+                            </div>
+                            <div class="ed-locked" id="edLocked" aria-live="polite"></div>
+                            <div class="field" style="margin-top:12px">
+                                <label for="fSources">Sources <em>links the importer reads, one per line</em></label>
+                                <textarea class="textarea" id="fSources" style="min-height:44px" placeholder="https://github.com/user/repo"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="ed-history" id="edHistory" hidden>
+                            <h6>History</h6>
+                            <div id="edHistoryList"></div>
+                        </div>
+                    </section>
                 </form>
             </div>
 
             <aside class="editor-preview">
                 <h6>Live preview</h6>
                 <div id="editorPreview"></div>
-                <p class="hint">
-                    This is the exact component the grid renders — what you see here is
-                    what visitors get.
-                </p>
+                <p class="hint">The exact card visitors see.</p>
             </aside>
         </div>
 
-        <div class="sheet-foot">
-            <button class="btn btn--quiet" type="button" data-close>Cancel</button>
+        <div class="sheet-foot ed-foot">
+            <button class="btn btn--quiet ed-more-btn" type="button" id="edMore" aria-haspopup="menu" aria-expanded="false" aria-label="More actions" data-tip="More actions">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+            <!-- Secondary actions live in the ⋯ menu; these stay in the DOM so
+                 ai.js and enrich.js can keep binding to their ids. -->
+            <div class="ed-hidden-acts" hidden>
+                <button type="button" id="autofill">Auto-fill from GitHub</button>
+                <button type="button" id="aiImprove">Improve with AI</button>
+                <button type="button" id="edReimport">Re-import from sources</button>
+            </div>
+            <span class="ed-status" id="edStatus" aria-live="polite"></span>
+            <span class="imp-foot-gap"></span>
+            <button class="btn btn--quiet" type="button" data-close>Close</button>
             <button class="btn btn--primary" type="submit" form="editorForm" id="editorSave">Add project</button>
         </div>
     </div>
@@ -1116,6 +1123,7 @@
 <script src="js/admin.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/importer.js"></script>
+<script src="js/admin-dock.js"></script>
 <script src="js/reorder.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/app.js"></script>
