@@ -84,6 +84,13 @@ export async function verifyIdToken(token, {
 
 /* Router helper: returns { token, claims } or throws a 401 HttpError. */
 export async function requireAdmin(req, env) {
+    // Local testing only: DEV_ADMIN_BYPASS exists solely in a developer's
+    // .dev.vars. It is never a deployed var or secret, so in production this
+    // branch is unreachable.
+    if (env.DEV_ADMIN_BYPASS === '1' && req.headers.get('x-dev-admin') === '1'
+        && /^(localhost|127\.0\.0\.1)$/.test(new URL(req.url).hostname)) {
+        return { token: '', claims: { email: env.ADMIN_EMAIL, dev: true } };
+    }
     const token = bearer(req);
     const claims = await verifyIdToken(token, { adminEmail: env.ADMIN_EMAIL });
     return { token, claims };

@@ -48,6 +48,20 @@
     window.loadProjectsRest = () => {
         if (pending) return pending;
         pending = (async () => {
+            // On the Worker the list comes from its edge cache (and survives a
+            // Firestore quota outage); only other hosts read Firestore directly.
+            if (window.EDGE) {
+                for (const url of ['/api/projects', '/data/projects-snapshot.json']) {
+                    try {
+                        const r = await fetch(url, { headers: { accept: 'application/json' } });
+                        if (!r.ok) continue;
+                        const j = await r.json();
+                        if (Array.isArray(j.projects)) {
+                            return j.projects.map((p) => ({ ...p, slug: p.slug || window.slugify(p.title) }));
+                        }
+                    } catch { /* next source */ }
+                }
+            }
             const res = await fetch(ENDPOINT, { headers: { accept: 'application/json' } });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();

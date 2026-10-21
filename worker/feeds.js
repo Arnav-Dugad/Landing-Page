@@ -52,7 +52,10 @@ export async function handleRss() {
 
     const entries = list.map((p) => {
         const body = [
+            p.cover ? `<p><img src="${xml(p.cover)}" alt="${xml(p.title)}"></p>` : '',
+            p.tagline ? `<p><strong>${xml(p.tagline)}</strong></p>` : '',
             `<p>${xml(p.desc || '')}</p>`,
+            p.platforms && p.platforms.length ? `<p>Runs on ${xml(p.platforms.join(', '))}${p.version ? ` · v${xml(p.version)}` : ''}</p>` : '',
             p.tags && p.tags.length ? `<p>Built with ${xml(p.tags.filter(Boolean).join(', '))}</p>` : '',
             p.caseUrl ? `<p><a href="${xml(p.caseUrl)}">Read the case study</a></p>` : '',
             p.link ? `<p><a href="${xml(p.link)}">Open it live</a></p>` : ''
@@ -101,12 +104,13 @@ export async function handleJsonFeed() {
             url: p.url,
             ...(p.caseUrl ? { external_url: p.caseUrl } : (p.link ? { external_url: p.link } : {})),
             title: p.title,
-            summary: p.desc || '',
+            summary: p.tagline || p.desc || '',
             content_text: [p.desc, p.longDesc].filter(Boolean).join('\n\n') || p.title,
-            image: `${SITE}/api/og?p=${encodeURIComponent(p.slug)}`,
+            image: p.cover || `${SITE}/api/og?p=${encodeURIComponent(p.slug)}`,
+            ...(p.appIcon ? { banner_image: `${SITE}/api/og?p=${encodeURIComponent(p.slug)}` } : {}),
             ...(p.date ? { date_published: p.date.toISOString() } : {}),
             ...(p.updatedAt && validDate(p.updatedAt) ? { date_modified: validDate(p.updatedAt).toISOString() } : {}),
-            tags: [p.category, ...(p.tags || [])].filter(Boolean)
+            tags: [p.category, ...(p.platforms || []), ...(p.tags || [])].filter(Boolean)
         }))
     };
     return new Response(JSON.stringify(feed, null, 2), {

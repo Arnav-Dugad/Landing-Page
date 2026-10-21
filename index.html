@@ -58,6 +58,8 @@
 <link rel="stylesheet" href="css/motion.css">
 <link rel="stylesheet" href="css/widgets.css">
 <link rel="stylesheet" href="css/features.css">
+<link rel="stylesheet" href="css/showcase.css">
+<link rel="stylesheet" href="css/micro.css">
 
 <script type="application/ld+json">
 {
@@ -139,58 +141,62 @@
 <!-- ======================================================================
      Hero
      ====================================================================== -->
-<section class="hero" id="top">
-    <div class="u-shell">
-        <div class="hero-badge" data-reveal="down">
-            <span class="dot"></span>
-            <b>Open to work</b>
-            <s></s>
-            <span id="connStatus">Connecting</span>
-        </div>
+<section class="hero hero--v2" id="top">
+    <!-- The living wall: real projects, in the device they run on, drifting on
+         a tilted plane behind the name. Filled by js/showcase.js. -->
+    <div class="hero-wall" id="heroWall" aria-hidden="true"></div>
 
-        <!-- Not data-split: js/motion.js draws these as strokes, then fills them. -->
-        <h1 class="hero-name" data-draw>
-            <span class="ln">Arnav</span>
-            <span class="ln"><em>Dugad</em></span>
-        </h1>
-
-        <div class="hero-body">
-            <div>
-                <p class="hero-lead" data-reveal="up" style="--delay:120ms">
-                    I build <b>interactive things for the web</b> — games, tools and
-                    interfaces that feel considered rather than assembled. Everything
-                    below is live, shipped, and running on real code.
-                </p>
-
-                <p class="hero-role" data-reveal="up" style="--delay:200ms">
-                    <span>Currently</span> <b id="heroRole">building for the web</b>
-                </p>
-
-                <div class="hero-cta" data-reveal="up" style="--delay:280ms">
-                    <a href="#work" class="btn btn--primary magnetic" data-cursor="Browse">
-                        <span data-icon="arrow-down" data-size="17"></span> See the work
-                    </a>
-                    <button class="btn btn--ghost magnetic" data-contact data-cursor="Write">
-                        <span data-icon="send" data-size="17"></span> Get in touch
-                    </button>
-                </div>
+    <div class="u-shell hero-shell">
+        <div class="hero-copy">
+            <div class="hero-badge" data-reveal="down">
+                <span class="dot"></span>
+                <b>Open to work</b>
+                <s></s>
+                <span id="connStatus">Connecting</span>
             </div>
 
-            <dl class="hero-figures" data-reveal="left" style="--delay:340ms">
-                <div class="hero-fig">
-                    <dt id="figProjects">0</dt>
-                    <dd>Projects shipped</dd>
-                </div>
-                <div class="hero-fig">
-                    <dt id="figLive">0</dt>
-                    <dd>Live right now</dd>
-                </div>
-                <div class="hero-fig">
-                    <dt id="figTech">0</dt>
-                    <dd>Technologies used</dd>
-                </div>
-            </dl>
+            <!-- Not data-split: js/motion.js draws these as strokes, then fills them. -->
+            <h1 class="hero-name" data-draw>
+                <span class="ln">Arnav</span>
+                <span class="ln"><em>Dugad</em></span>
+            </h1>
+
+            <p class="hero-lead" data-reveal="up" style="--delay:120ms">
+                I build <b>software people actually use</b> — websites, Windows and
+                Android apps, games and tools that feel considered rather than
+                assembled. Everything here is live, shipped and running on real code.
+            </p>
+
+            <p class="hero-role" data-reveal="up" style="--delay:200ms">
+                <span>Currently</span> <b id="heroRole">building for the web</b>
+            </p>
+
+            <div class="hero-cta" data-reveal="up" style="--delay:280ms">
+                <a href="#work" class="btn btn--primary magnetic" data-cursor="Browse">
+                    <span data-icon="arrow-down" data-size="17"></span> See the work
+                </a>
+                <button class="btn btn--ghost magnetic" data-contact data-cursor="Write">
+                    <span data-icon="send" data-size="17"></span> Get in touch
+                </button>
+            </div>
+
+            <!-- Latest public GitHub activity, rotating. Hidden until it loads. -->
+            <p class="hero-ship" id="heroShip" hidden data-reveal="up" style="--delay:360ms">
+                <span class="hero-ship-dot" aria-hidden="true"></span>
+                <span class="hero-ship-label">Shipping now</span>
+                <span class="hero-ship-roll" id="heroShipRoll" aria-live="polite"></span>
+            </p>
         </div>
+
+        <dl class="hero-stats" id="heroStats" data-reveal="up" style="--delay:420ms">
+            <div class="hstat" data-hstat="projects"><dt id="hsProjects">0</dt><dd>Projects shipped</dd></div>
+            <div class="hstat u-hidden" data-hstat="platforms"><dt id="hsPlatforms">0</dt><dd>Platforms</dd></div>
+            <div class="hstat u-hidden" data-hstat="downloads"><dt id="hsDownloads">0</dt><dd>App downloads</dd></div>
+            <div class="hstat u-hidden" data-hstat="stars"><dt id="hsStars">0</dt><dd>GitHub stars</dd></div>
+            <div class="hstat u-hidden" data-hstat="perf"><dt id="hsPerf">0</dt><dd>Avg. Lighthouse</dd></div>
+            <div class="hstat u-hidden" data-hstat="live"><dt id="hsLive">0</dt><dd>Live right now</dd></div>
+            <div class="hstat u-hidden" data-hstat="tech"><dt id="hsTech">0</dt><dd>Technologies</dd></div>
+        </dl>
 
         <a class="hero-scroll" href="#work">
             <span class="rule"></span> Scroll to explore
@@ -201,14 +207,14 @@
 <!-- Marquee -->
 <div class="marquee" aria-hidden="true">
     <div class="marquee-track">
-        <span class="marquee-item">Interfaces <span>✳</span></span>
+        <span class="marquee-item">Websites <span>✳</span></span>
+        <span class="marquee-item">Windows apps <span>✳</span></span>
+        <span class="marquee-item">Android apps <span>✳</span></span>
+        <span class="marquee-item">iPhone <span>✳</span></span>
         <span class="marquee-item">Games <span>✳</span></span>
         <span class="marquee-item">Tools <span>✳</span></span>
         <span class="marquee-item">Motion <span>✳</span></span>
-        <span class="marquee-item">Canvas <span>✳</span></span>
         <span class="marquee-item">Realtime <span>✳</span></span>
-        <span class="marquee-item">Type <span>✳</span></span>
-        <span class="marquee-item">Systems <span>✳</span></span>
     </div>
 </div>
 
@@ -224,15 +230,25 @@
                 <h2 class="sec-title" data-split>Things I've <em>built</em></h2>
             </div>
             <p class="sec-note" data-reveal="up" style="--delay:120ms">
-                Pulled live from the database — open any card for a running preview,
-                the write-up and real GitHub stats.
+                Websites, Windows and Android apps — each shown on the device it runs
+                on, with live downloads, releases and performance scores.
             </p>
         </header>
 
+        <!-- Featured bento: the lead tile cycles through featured work.
+             Rendered by js/showcase.js; stays empty (and collapses) until data. -->
+        <div class="spot" id="spotlight" aria-label="Featured work"></div>
+
         <!-- Admin bar -->
         <div class="toolbar adminbar" data-admin-only>
-            <button class="btn btn--primary magnetic" data-new-project>
-                <span data-icon="plus" data-size="17"></span> Add a project
+            <button class="btn btn--primary magnetic" id="importOpen" title="Paste a link — everything else is filled in for you">
+                <span data-icon="wand" data-size="17"></span> Magic import
+            </button>
+            <button class="btn btn--ghost magnetic" id="discoverOpen" title="Your GitHub repos that aren't on the site yet">
+                <span data-icon="github" data-size="17"></span> Discover repos
+            </button>
+            <button class="btn btn--quiet" data-new-project>
+                <span data-icon="plus" data-size="16"></span> Blank project
             </button>
             <button class="btn btn--ghost magnetic" id="enrichAll"
                     title="Read every repo and fill in tech, descriptions, years and links">
@@ -248,6 +264,10 @@
                 <span data-icon="pen" data-size="16"></span> Edit Now page
             </button>
         </div>
+
+        <!-- Platform switcher: All / Web / Windows / Android / … (only the
+             platforms that exist). Rendered by js/showcase.js. -->
+        <div class="platbar" id="platbar" role="group" aria-label="Filter by platform"></div>
 
         <!-- The sentinel tells the bar when it has become stuck under the nav. -->
         <div class="workbar-sentinel" id="workbarSentinel" aria-hidden="true"></div>
@@ -308,13 +328,6 @@
         </div>
 
         <p class="u-mono" id="resultCount" style="color:var(--ink-35);margin:20px 0 18px"></p>
-
-        <dl class="stats u-hidden" id="stats" data-reveal="up">
-            <div class="stat"><dt id="statProjects">0</dt><dd><span data-icon="folder" data-size="12"></span> Projects</dd></div>
-            <div class="stat"><dt id="statStars">0</dt><dd><span data-icon="star" data-size="12"></span> GitHub stars</dd></div>
-            <div class="stat"><dt id="statTech">0</dt><dd><span data-icon="code" data-size="12"></span> Technologies</dd></div>
-            <div class="stat"><dt id="statCats">0</dt><dd><span data-icon="layers" data-size="12"></span> Categories</dd></div>
-        </dl>
 
         <div class="grid" id="grid"></div>
     </div>
@@ -678,15 +691,41 @@
                 </div>
 
                 <form id="editorForm">
+                    <!-- Automation: shown for projects the importer created. Fields
+                         you change by hand are locked so refreshes leave them alone. -->
+                    <div class="ed-auto u-hidden" id="edAuto">
+                        <div class="ed-auto-top">
+                            <label class="switch">
+                                <input type="checkbox" id="fAuto">
+                                <span class="switch-track"><i></i></span>
+                                <span><b>Auto-managed</b> <em>kept up to date from its sources</em></span>
+                            </label>
+                            <button class="btn btn--quiet" type="button" id="edReimport" title="Read the sources again and refresh everything that isn't locked">
+                                <span data-icon="refresh" data-size="15"></span> Re-import from sources
+                            </button>
+                        </div>
+                        <div class="ed-locked" id="edLocked" aria-live="polite"></div>
+                    </div>
+
                     <div class="form-grid">
                         <div class="field field--wide">
                             <label for="fTitle">Title</label>
-                            <input class="input" id="fTitle" required placeholder="Space Shooter">
+                            <input class="input" id="fTitle" required maxlength="120" placeholder="Space Shooter">
+                        </div>
+
+                        <div class="field field--wide">
+                            <label for="fTagline">Tagline <em>one punchy line — shown under the title</em></label>
+                            <input class="input" id="fTagline" maxlength="120" placeholder="Voice, rediscovered.">
                         </div>
 
                         <div class="field field--wide">
                             <label for="fDesc">Short description <em>shown on the card</em></label>
-                            <textarea class="textarea" id="fDesc" required style="min-height:72px" placeholder="A one-or-two-line summary of what it does."></textarea>
+                            <textarea class="textarea" id="fDesc" required maxlength="1000" style="min-height:72px" placeholder="A one-or-two-line summary of what it does."></textarea>
+                        </div>
+
+                        <div class="field field--wide">
+                            <label id="fPlatformsLabel">Platforms <em>where it runs — first one leads</em></label>
+                            <div class="plat-pick" id="platformPicker" role="group" aria-labelledby="fPlatformsLabel"></div>
                         </div>
 
                         <div class="field field--wide">
@@ -817,6 +856,62 @@
                             <div id="tagPicker"></div>
                         </div>
                     </div>
+
+                    <!-- Apps: icons, releases and store listings. The importer fills
+                         all of this from GitHub releases and store pages. -->
+                    <details class="fold" id="appsFold">
+                        <summary>
+                            <span data-icon="download" data-size="15"></span>
+                            Apps, downloads &amp; stores
+                            <em>icon, cover, release files, store links</em>
+                            <span class="fold-chev" data-icon="chev-down" data-size="15"></span>
+                        </summary>
+
+                        <div class="form-grid" style="margin-top:18px">
+                            <div class="field">
+                                <label for="fAppIcon">App icon <em>image URL</em></label>
+                                <div class="field-row ed-imgrow">
+                                    <span class="ed-thumb" id="fAppIconThumb" aria-hidden="true"></span>
+                                    <input class="input" id="fAppIcon" type="url" placeholder="https://…/icon-512.png">
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="fCover">Cover image <em>image URL</em></label>
+                                <div class="field-row ed-imgrow">
+                                    <span class="ed-thumb ed-thumb--wide" id="fCoverThumb" aria-hidden="true"></span>
+                                    <input class="input" id="fCover" type="url" placeholder="https://…/cover.png">
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="fVersion">Latest version</label>
+                                <input class="input" id="fVersion" maxlength="40" placeholder="2.5.0">
+                            </div>
+                            <div class="field">
+                                <label for="fSources">Sources <em>links the importer reads, one per line</em></label>
+                                <textarea class="textarea" id="fSources" style="min-height:44px" placeholder="https://github.com/user/repo"></textarea>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label id="fDownloadsLabel">Downloads <em>direct release files — up to 12</em></label>
+                                <div class="dl-rows" id="dlRows" aria-labelledby="fDownloadsLabel"></div>
+                                <button class="btn btn--quiet" type="button" id="dlAdd" style="justify-self:start">
+                                    <span data-icon="plus" data-size="15"></span> Add a download
+                                </button>
+                            </div>
+
+                            <div class="field field--wide">
+                                <label>Store listings</label>
+                                <div class="store-grid">
+                                    <label class="store-in"><span>Google Play</span><input class="input" type="url" data-store="play" placeholder="https://play.google.com/store/apps/details?id=…"></label>
+                                    <label class="store-in"><span>Microsoft Store</span><input class="input" type="url" data-store="microsoft" placeholder="https://apps.microsoft.com/detail/…"></label>
+                                    <label class="store-in"><span>App Store</span><input class="input" type="url" data-store="appstore" placeholder="https://apps.apple.com/app/…"></label>
+                                    <label class="store-in"><span>Chrome Web Store</span><input class="input" type="url" data-store="chrome" placeholder="https://chromewebstore.google.com/detail/…"></label>
+                                    <label class="store-in"><span>Firefox Add-ons</span><input class="input" type="url" data-store="firefox" placeholder="https://addons.mozilla.org/…"></label>
+                                    <label class="store-in"><span>itch.io</span><input class="input" type="url" data-store="itch" placeholder="https://you.itch.io/game"></label>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
 
                     <!-- Case study: everything needed for the long-form page -->
                     <details class="fold" id="caseFold">
@@ -1012,14 +1107,19 @@
 <script src="js/backdrop.js"></script>
 <script src="js/github.js"></script>
 <script src="js/widgets.js"></script>
+<script src="js/meta.js"></script>
+<script src="js/qr.js"></script>
 <script src="js/enrich.js"></script>
 <script src="js/render.js"></script>
 <script src="js/views.js"></script>
+<script src="js/showcase.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/importer.js"></script>
 <script src="js/reorder.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/app.js"></script>
+<script src="js/micro.js"></script>
 <script type="module" src="js/firebase.js"></script>
 
 </body>

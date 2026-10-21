@@ -100,7 +100,19 @@ service cloud.firestore {
             && (!('galleryAlt' in request.resource.data) || (request.resource.data.galleryAlt is list && request.resource.data.galleryAlt.size() <= 20))
             && (!('searchTerms' in request.resource.data) || (request.resource.data.searchTerms is list && request.resource.data.searchTerms.size() <= 40))
             && (!('previewVideo' in request.resource.data) || (request.resource.data.previewVideo is string && request.resource.data.previewVideo.size() <= 2000))
-            && (!('tags' in request.resource.data) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 30));
+            && (!('tags' in request.resource.data) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 30))
+            // v2: fields the importer fills in (all optional)
+            && (!('platforms' in request.resource.data) || (request.resource.data.platforms is list && request.resource.data.platforms.size() <= 8))
+            && (!('tagline' in request.resource.data) || (request.resource.data.tagline is string && request.resource.data.tagline.size() <= 200))
+            && (!('appIcon' in request.resource.data) || (request.resource.data.appIcon is string && request.resource.data.appIcon.size() <= 2000))
+            && (!('cover' in request.resource.data) || (request.resource.data.cover is string && request.resource.data.cover.size() <= 2000))
+            && (!('downloads' in request.resource.data) || (request.resource.data.downloads is list && request.resource.data.downloads.size() <= 12))
+            && (!('stores' in request.resource.data) || (request.resource.data.stores is map && request.resource.data.stores.size() <= 10))
+            && (!('version' in request.resource.data) || (request.resource.data.version is string && request.resource.data.version.size() <= 40))
+            && (!('releasedAt' in request.resource.data) || request.resource.data.releasedAt is number || request.resource.data.releasedAt == null)
+            && (!('sources' in request.resource.data) || (request.resource.data.sources is list && request.resource.data.sources.size() <= 10))
+            && (!('auto' in request.resource.data) || request.resource.data.auto is bool)
+            && (!('locked' in request.resource.data) || (request.resource.data.locked is list && request.resource.data.locked.size() <= 60));
         }
 
         allow create: if isAdmin() && validProject();
@@ -164,6 +176,19 @@ service cloud.firestore {
           && request.resource.data.note is string && request.resource.data.note.size() <= 2000;
       }
       match /site/status {
+        allow read: if true;
+        allow write: if isEdge();
+      }
+
+      // ---- Living metrics + screenshots, maintained by the Worker --------
+      // meta/{projectId}   stars, downloads, versions, Lighthouse, uptime
+      // shots/{projectId}  a JPEG of the live site (base64), re-taken
+      //                    about once a fortnight
+      match /meta/{projectId} {
+        allow read: if true;
+        allow write: if isEdge();
+      }
+      match /shots/{shotId} {
         allow read: if true;
         allow write: if isEdge();
       }

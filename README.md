@@ -162,6 +162,50 @@ server. The same three routes run on Cloudflare (`worker/index.js`, rendering wi
 shared through `api/_card.js`. Everything else still runs as plain static files — on GitHub
 Pages the share button simply falls back to the hash deep link.
 
+## Adding work: paste a link
+
+**Magic import** (admin bar, or <kbd>Shift</kbd>+<kbd>I</kbd>, or drop a URL on the page)
+takes any link — a GitHub repo, a live site, a Play Store / Microsoft Store / App Store
+/ itch.io / Chrome Web Store / Firefox add-on / npm / PyPI page — and the Worker
+(`worker/ingest.js`) gathers everything it can, streaming each stage to the UI:
+
+- **GitHub** — description, topics, languages, README (images become screenshots,
+  store and demo links are picked up), releases: every asset is classified by platform
+  (`.exe/.msi/.msix` → Windows, `.apk` → Android, `.ipa` → iOS, `.dmg` → macOS, …) with
+  sizes and download counts.
+- **The live site** — title, description, social image, icons, theme colour, PWA
+  manifest, a fingerprint of the tech it runs and where it's hosted; Lighthouse scores
+  via PageSpeed Insights.
+- **Stores** — ratings, installs, icons and screenshots.
+- **AI** — Claude (or Gemini / ChatGPT) writes the title, tagline, copy, highlights,
+  case study, search terms and alt text from those facts only, then picks a category,
+  icon and colour. You review, then publish.
+
+**Discover repos** lists every repo of yours that isn't on the site yet, with a platform
+guess, and imports any selection in one go. Fields you edit by hand are *locked*, so
+**Re-import** and the automatic refresh never overwrite them.
+
+## Living metrics
+
+`/api/meta` keeps stars, release downloads, latest version, 52 weeks of commit
+activity, uptime, Lighthouse scores and store ratings for every project in Firestore
+(`meta/{id}`), refreshed a few at a time in the background — nothing to maintain.
+
+## Staying inside the free tiers
+
+Firestore's free plan allows 50,000 reads a day. Visitors therefore never read
+Firestore directly on the Worker: `/api/projects` and `/api/meta` are served from
+Cloudflare's cache, with a last-known-good copy that survives a quota outage, and
+`data/projects-snapshot.json` as the final fallback. Only the signed-in admin holds a
+realtime listener. Screenshots of live sites are committed in `shots/<slug>.jpg`;
+`/api/shot` serves those first and only uses Cloudflare Browser Rendering for projects
+without one (and never for a site that's down).
+
+Optional Worker secrets that make it smarter: `GITHUB_TOKEN` (fine-grained, public
+repositories read-only — 5,000 GitHub requests an hour instead of 60, plus the
+contribution calendar) and `PSI_API_KEY` (Google API key with only PageSpeed Insights
+enabled — Lighthouse scores).
+
 ## Structure
 
 ```

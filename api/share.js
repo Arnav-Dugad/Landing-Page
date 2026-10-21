@@ -70,7 +70,7 @@ export default async function handler(req) {
     const found = Boolean(project);
     const title = found ? `${project.title} — Arnav Dugad` : 'Arnav Dugad — Interactive web work';
     const description = found
-        ? project.desc
+        ? (project.tagline || project.desc)
         : 'Interactive web experiences, games and tools — every project live, with real GitHub data.';
 
     // A case study is a real page; everything else deep-links into the grid.

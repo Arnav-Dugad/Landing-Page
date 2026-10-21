@@ -615,8 +615,8 @@
         if (role) {
             M.scramble(role, [
                 'building for the web',
+                'shipping Windows & Android apps',
                 'games, tools & interfaces',
-                'front-end engineering',
                 'design that ships'
             ]);
         }

@@ -85,6 +85,36 @@ const setStatus = (text, tone) => {
      · password   — the admin, which is what firestore.rules actually checks
    Admin state is therefore derived from Firebase, never from a client flag. */
 let subscribed = false;
+let counted = false;
+let edgeFailed = false;
+
+/* Firestore's free tier allows 50k reads a day, and a realtime listener on
+   the project list costs one read per project per visitor. On the Worker,
+   visitors instead get the list from /api/projects (cached at the edge, so
+   thousands of visits cost Firestore a handful of reads), falling back to
+   the snapshot shipped with the site. Starts immediately — no need to wait
+   for the anonymous sign-in to show the work. */
+(async function loadForVisitors() {
+    if (!window.EDGE) return;
+    for (const url of ['/api/projects', '/data/projects-snapshot.json']) {
+        try {
+            const res = await fetch(url, { headers: { accept: 'application/json' } });
+            if (!res.ok) continue;
+            const json = await res.json();
+            if (!Array.isArray(json.projects)) continue;
+            if (subscribed && loaded) return;            // the admin's live listener won
+            projects = json.projects
+                .map(({ slug, ...p }) => p)
+                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            loaded = true;
+            window.renderProjects && window.renderProjects();
+            return;
+        } catch { /* try the next source */ }
+    }
+    // Neither worked: fall back to a direct listener.
+    edgeFailed = true;
+    if (user && !subscribed) { subscribed = true; subscribe(); }
+})();
 
 onAuthStateChanged(auth, (u) => {
     user = u;
@@ -104,7 +134,10 @@ onAuthStateChanged(auth, (u) => {
         window.applyAdminState && window.applyAdminState();
     }
 
-    if (!subscribed) { subscribed = true; subscribe(); countVisit(); }
+    // Visitors read projects through the Worker (see loadForVisitors); only
+    // the admin — or a host without the Worker — holds a realtime listener.
+    if ((nowAdmin || !window.EDGE || edgeFailed) && !subscribed) { subscribed = true; subscribe(); }
+    if (!counted) { counted = true; countVisit(); }
 });
 
 /* -------- Admin session --------------------------------------------------- */
@@ -196,28 +229,59 @@ async function countVisit() {
    when empty — a project with no live URL is legitimate. */
 const REQUIRED = ['title', 'desc', 'link'];
 
-/* Strips undefined/null/'' so a cleared optional field is removed rather than
-   written as an empty string that later renders as a blank badge. */
+/* Strips undefined/null/''/NaN so a cleared optional field is removed rather
+   than written as an empty string that later renders as a blank badge. It
+   recurses into maps (stores) and arrays of maps (downloads), dropping empty
+   entries, so an importer draft can be saved as-is. */
+const isPlainObject = (v) => v && typeof v === 'object' && !Array.isArray(v);
+
+function prune(v) {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+    if (typeof v === 'string') return v.trim() ? v : undefined;
+    if (Array.isArray(v)) {
+        const arr = v.map(prune).filter((x) => x !== undefined);
+        return arr.length ? arr : undefined;
+    }
+    if (isPlainObject(v)) {
+        const obj = {};
+        Object.entries(v).forEach(([k, x]) => {
+            const c = prune(x);
+            if (c !== undefined) obj[k] = c;
+        });
+        return Object.keys(obj).length ? obj : undefined;
+    }
+    return v;                                   // booleans
+}
+
 function clean(data) {
     const out = {};
     Object.entries(data).forEach(([k, v]) => {
-        if (v === undefined || v === null) return;
-        if (typeof v === 'string' && !v.trim()) return;
-        if (Array.isArray(v) && !v.length) return;
-        out[k] = v;
+        if (k === 'id') return;                 // the doc id is never a field
+        const c = prune(v);
+        if (c !== undefined) out[k] = c;
     });
+    // A download without a URL is not a download.
+    if (Array.isArray(out.downloads)) {
+        out.downloads = out.downloads.filter((d) => isPlainObject(d) && d.url).slice(0, 12);
+        if (!out.downloads.length) delete out.downloads;
+    }
+    if (Array.isArray(out.sources)) out.sources = out.sources.slice(0, 10);
     REQUIRED.forEach((k) => { out[k] = String(data[k] ?? '').trim(); });
     // Booleans must survive even when false.
     out.featured = !!data.featured;
     return out;
 }
+window.cleanProjectData = clean;
 
-window.saveProjectToDb = async (data) => {
+/* `quiet` keeps a batch import from stacking thirty "Project added" toasts.
+   Resolves to the new document's id (truthy) or false. */
+window.saveProjectToDb = async (data, { quiet = false } = {}) => {
     if (!user) { window.toast('Not connected to the database yet', 'error'); return false; }
     try {
-        await addDoc(projectsCol(), { ...clean(data), createdAt: Date.now(), updatedAt: Date.now() });
-        window.toast('Project added', 'success');
-        return true;
+        const ref = await addDoc(projectsCol(), { ...clean(data), createdAt: Date.now(), updatedAt: Date.now() });
+        if (!quiet) window.toast('Project added', 'success');
+        return ref.id || true;
     } catch (e) {
         console.error('Add failed:', e);
         window.toast(`Could not save: ${e.message}`, 'error');

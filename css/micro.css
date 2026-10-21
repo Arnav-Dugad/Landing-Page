@@ -1,0 +1,764 @@
+/* ===========================================================================
+   micro.css — the micro-interaction layer (js/micro.js), the theme reveal
+   (js/theme.js), the editor's automation fields (js/admin.js) and the
+   importer / discover sheets (js/importer.js).
+
+   Tokens only; both themes; nothing here changes layout of existing
+   components. Under reduced motion the motion parts switch off at the end.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Press ink — the ripple layer js/micro.js inserts into pressable controls
+   --------------------------------------------------------------------------- */
+
+.mi-ink {
+    position: absolute; inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+}
+.mi-ink i {
+    position: absolute;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0;
+    transform: scale(0);
+}
+
+/* ---------------------------------------------------------------------------
+   Gliding focus ring (keyboard only)
+   --------------------------------------------------------------------------- */
+
+.mi-focus {
+    position: fixed; top: 0; left: 0;
+    z-index: 94;
+    width: 0; height: 0;
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 0 0 4px var(--accent-veil);
+    pointer-events: none;
+    opacity: 0;
+    transition: transform .34s var(--e-expo), width .34s var(--e-expo), height .34s var(--e-expo),
+                border-radius .34s var(--e-expo), opacity .14s var(--e-out);
+}
+.mi-focus.is-on { opacity: 1; }
+.mi-focus.is-jump { transition: opacity .14s var(--e-out); }
+
+/* While the ring is drawn it IS the focus indicator. */
+html.mi-ring :focus-visible { outline-color: transparent !important; }
+html.mi-ring .card:has(.card-open:focus-visible),
+html.mi-ring .ix-row:has(.ix-title:focus-visible) { outline-color: transparent !important; }
+
+/* ---------------------------------------------------------------------------
+   Tooltip
+   --------------------------------------------------------------------------- */
+
+.mi-tip {
+    position: fixed; top: 0; left: 0;
+    z-index: 93;
+    max-width: 260px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-sans);
+    font-size: var(--t-2xs);
+    font-weight: 500;
+    line-height: 1.35;
+    letter-spacing: .01em;
+    box-shadow: var(--shadow-2);
+    pointer-events: none;
+    opacity: 0;
+    scale: .92;
+    transform-origin: 50% 100%;
+    transition: opacity .14s var(--e-out), scale .24s var(--e-spring);
+}
+.mi-tip.is-on { opacity: 1; scale: 1; }
+.mi-tip.is-below { transform-origin: 50% 0%; }
+.mi-tip i {
+    position: absolute; bottom: -4px;
+    width: 8px; height: 8px;
+    margin-left: -4px;
+    border-radius: 1px;
+    background: inherit;
+    transform: rotate(45deg);
+}
+.mi-tip.is-below i { top: -4px; bottom: auto; }
+
+/* ---------------------------------------------------------------------------
+   Drawn check / cross, copy flag
+   --------------------------------------------------------------------------- */
+
+.mi-check path { stroke-dasharray: 26; stroke-dashoffset: 26; animation: mi-draw .42s var(--e-out) forwards; }
+.mi-cross path { animation-duration: .32s; }
+@keyframes mi-draw { to { stroke-dashoffset: 0; } }
+
+.mi-copied {
+    position: fixed;
+    z-index: 93;
+    padding: 3px 9px;
+    border-radius: var(--r-full);
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    letter-spacing: .04em;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(-50%, -100%);
+    animation: mi-flag 1.1s var(--e-out) forwards;
+}
+@keyframes mi-flag {
+    0%   { opacity: 0; transform: translate(-50%, -60%) scale(.8); }
+    18%  { opacity: 1; transform: translate(-50%, -150%) scale(1); }
+    75%  { opacity: 1; transform: translate(-50%, -150%); }
+    100% { opacity: 0; transform: translate(-50%, -190%); }
+}
+
+/* ---------------------------------------------------------------------------
+   Toast deck — newest in front, older ones tucked behind; fans out on hover
+   --------------------------------------------------------------------------- */
+
+.toasts.mi-deck {
+    display: block;
+    height: var(--deck-h, 0px);
+    transition: height var(--d-3) var(--e-expo);
+}
+.toasts.mi-deck .toast {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    transform: translate3d(var(--sx, 0px), calc(var(--i, 0) * -10px), 0) scale(calc(1 - var(--i, 0) * .05));
+    transform-origin: 50% 100%;
+    transition: transform var(--d-4) var(--e-expo), opacity var(--d-3) var(--e-out);
+    animation: mi-toast-in var(--d-4) var(--e-spring) both;
+    touch-action: pan-y;
+    cursor: grab;
+}
+.toasts.mi-deck.is-fanned .toast { transform: translate3d(var(--sx, 0px), calc(var(--y, 0px) * -1), 0); }
+.toasts.mi-deck .toast.is-swiping { transition: none; cursor: grabbing; }
+.toasts.mi-deck .toast.mi-hidden { opacity: 0; pointer-events: none; }
+.toasts.mi-deck .toast.is-out { animation: mi-toast-out var(--d-2) var(--e-out) forwards; }
+.toasts.mi-deck .toast button { cursor: pointer; }
+
+@keyframes mi-toast-in {
+    from { opacity: 0; translate: 0 26px; scale: .94; }
+    to   { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes mi-toast-out {
+    to { opacity: 0; translate: 0 12px; scale: .96; }
+}
+
+/* How long this toast has left — pauses while the deck is hovered. */
+.mi-toast-life {
+    position: absolute; left: 18px; right: 18px; bottom: 4px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: .22;
+    transform-origin: left;
+    animation: mi-life linear forwards;
+    pointer-events: none;
+}
+.toasts.is-fanned .mi-toast-life { animation-play-state: paused; }
+@keyframes mi-life { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---------------------------------------------------------------------------
+   Smart nav — slides away while you read down, back on the way up
+   --------------------------------------------------------------------------- */
+
+.nav {
+    transition: background var(--d-3) var(--e-expo), border-color var(--d-3) var(--e-expo),
+                box-shadow var(--d-3) var(--e-expo), height var(--d-3) var(--e-expo),
+                top var(--d-3) var(--e-expo), translate var(--d-4) var(--e-expo);
+}
+html.mi-nav-up .nav { translate: -50% calc(-100% - 28px); }
+
+/* ---------------------------------------------------------------------------
+   Link underline — draws from the side the pointer came in
+   --------------------------------------------------------------------------- */
+
+a.mi-u {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-size: 0% 1px;
+    background-position: var(--u-origin, left) 100%;
+    transition: background-size .45s var(--e-expo), color var(--d-2) var(--e-out), gap var(--d-2) var(--e-out);
+}
+a.mi-u.is-u { background-size: 100% 1px; }
+
+/* ---------------------------------------------------------------------------
+   Inputs: search clear, result bump, near-limit counter, busy buttons
+   --------------------------------------------------------------------------- */
+
+.search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.search:focus-within > svg:first-of-type { animation: mi-nudge .5s var(--e-spring); }
+@keyframes mi-nudge {
+    0% { rotate: 0deg; } 35% { rotate: -14deg; scale: 1.15; } 100% { rotate: 0deg; scale: 1; }
+}
+
+.mi-clear {
+    position: absolute; right: 11px; top: 50%;
+    translate: 0 -50%;
+    display: grid; place-items: center;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--paper-sunk);
+    color: var(--ink-50);
+    opacity: 0;
+    scale: .4;
+    rotate: -90deg;
+    pointer-events: none;
+    transition: opacity var(--d-2) var(--e-out), scale var(--d-3) var(--e-spring),
+                rotate var(--d-4) var(--e-expo), background var(--d-2) var(--e-out), color var(--d-2) var(--e-out);
+}
+.search .mi-clear svg { position: static; translate: none; width: 13px; height: 13px; color: inherit; }
+.search.has-value .mi-clear { opacity: 1; scale: 1; rotate: 0deg; pointer-events: auto; }
+.search.has-value kbd { opacity: 0; }
+.mi-clear:hover { background: var(--ink); color: var(--paper); }
+
+.mi-bump { animation: mi-bump .5s var(--e-out); }
+@keyframes mi-bump {
+    0% { translate: 0 0; } 30% { translate: 0 -3px; color: var(--accent); } 100% { translate: 0 0; }
+}
+
+.mi-count {
+    position: absolute; top: 0; right: 0;
+    padding: 1px 7px;
+    border-radius: var(--r-full);
+    background: var(--paper-sunk);
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    color: var(--ink-35);
+    opacity: 0;
+    translate: 0 3px;
+    pointer-events: none;
+    transition: opacity var(--d-2) var(--e-out), translate var(--d-3) var(--e-expo), color var(--d-2) var(--e-out);
+}
+.mi-count.is-on { opacity: 1; translate: 0 0; }
+.mi-count.is-full { color: var(--accent); background: var(--accent-soft); }
+
+.btn.mi-busy, .btn.mi-busy[disabled] { opacity: 1; pointer-events: none; }
+.mi-busy-in { display: inline-flex; align-items: center; justify-content: center; width: 100%; }
+.mi-spin { animation: spin .8s linear infinite; }
+.btn.is-ok { background: var(--pine) !important; border-color: var(--pine) !important; color: var(--paper) !important; }
+.btn.is-bad { background: var(--accent-soft) !important; border-color: var(--accent) !important; color: var(--accent) !important; }
+.btn.is-ok::before, .btn.is-bad::before { display: none; }
+
+/* ---------------------------------------------------------------------------
+   Keycaps that press when you press them
+   --------------------------------------------------------------------------- */
+
+kbd { transition: translate .08s var(--e-out), background .12s var(--e-out), color .12s var(--e-out), border-color .12s var(--e-out); }
+kbd.mi-key-down {
+    translate: 0 1.5px;
+    background: var(--accent-soft) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Images: hidden until loaded (then blurred up by JS); broken ones step aside
+   --------------------------------------------------------------------------- */
+
+html.mi-img img[loading="lazy"]:not(.mi-loaded):not(.mi-broken),
+html.mi-img img[data-blur]:not(.mi-loaded):not(.mi-broken) { opacity: 0; }
+img.mi-broken { opacity: 0 !important; }
+
+/* ---------------------------------------------------------------------------
+   Long-press ring (touch)
+   --------------------------------------------------------------------------- */
+
+@property --mi-p {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 0;
+}
+.mi-hold {
+    position: fixed;
+    width: 58px; height: 58px;
+    margin: -29px 0 0 -29px;
+    z-index: 94;
+    border-radius: 50%;
+    pointer-events: none;
+    background: conic-gradient(var(--accent) calc(var(--mi-p) * 1%), var(--accent-veil) 0);
+    -webkit-mask: radial-gradient(circle, transparent 21px, #000 22px);
+            mask: radial-gradient(circle, transparent 21px, #000 22px);
+    animation: mi-hold .37s linear .08s both;
+}
+.mi-hold.is-done { animation: none; --mi-p: 100; scale: 1.5; opacity: 0; transition: scale .3s var(--e-out), opacity .3s var(--e-out); }
+@keyframes mi-hold { from { --mi-p: 0; opacity: .3; } to { --mi-p: 100; opacity: 1; } }
+
+/* ---------------------------------------------------------------------------
+   Burst particles
+   --------------------------------------------------------------------------- */
+
+.mi-burst {
+    position: fixed;
+    z-index: 96;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Theme: the toggle glyph spins into its next state, and the new palette
+   spreads from the toggle as a growing circle (js/theme.js)
+   --------------------------------------------------------------------------- */
+
+.theme-ico.is-in { animation: mi-theme-ico .55s var(--e-spring); }
+@keyframes mi-theme-ico {
+    from { opacity: 0; transform: rotate(-120deg) scale(.4); }
+    to   { opacity: 1; transform: none; }
+}
+
+html.vt-theme *, html.vt-theme *::before, html.vt-theme *::after { view-transition-name: none !important; }
+html.vt-theme::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
+html.vt-theme::view-transition-new(root) {
+    animation: mi-theme-reveal .64s cubic-bezier(.65, 0, .35, 1);
+    mix-blend-mode: normal;
+}
+@keyframes mi-theme-reveal {
+    from { clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 0px)); }
+    to   { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 0px)); }
+}
+
+/* ---------------------------------------------------------------------------
+   Switch — a real toggle for on/off settings
+   --------------------------------------------------------------------------- */
+
+.switch {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: var(--t-sm);
+    color: var(--ink-70);
+    cursor: pointer;
+    user-select: none;
+}
+.switch input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.switch-track {
+    position: relative;
+    flex: none;
+    width: 38px; height: 22px;
+    border-radius: var(--r-full);
+    background: var(--line-strong);
+    transition: background var(--d-2) var(--e-out);
+}
+.switch-track i {
+    position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px;
+    border-radius: var(--r-full);
+    background: var(--paper-raised);
+    box-shadow: var(--shadow-1);
+    transition: transform var(--d-4) var(--e-spring), width var(--d-2) var(--e-out);
+}
+.switch input:checked + .switch-track { background: var(--accent); }
+.switch input:checked + .switch-track i { transform: translateX(16px); }
+.switch:active .switch-track i { width: 20px; }
+.switch:active input:checked + .switch-track i { transform: translateX(12px); }
+.switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch b { font-weight: 500; color: var(--ink); }
+.switch em { font-style: normal; font-size: var(--t-2xs); color: var(--ink-35); margin-left: 4px; }
+
+/* ---------------------------------------------------------------------------
+   Editor: automation strip, platforms, downloads, stores, image fields
+   --------------------------------------------------------------------------- */
+
+.ed-auto {
+    display: grid; gap: 10px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--accent-veil);
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--paper));
+    transition: background var(--d-3) var(--e-out), border-color var(--d-3) var(--e-out);
+}
+.ed-auto.is-off { border-color: var(--line); background: var(--paper); }
+.ed-auto-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ed-auto-top .btn { height: 36px; }
+.ed-locked { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--t-2xs); color: var(--ink-50); }
+.ed-locked-note { display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; }
+.ed-locked-note svg { width: 12px; height: 12px; }
+.lock-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 7px 0 10px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    font-size: var(--t-2xs);
+    color: var(--ink-70);
+    animation: mi-pop-in .3s var(--e-spring);
+    transition: border-color var(--d-2) var(--e-out), color var(--d-2) var(--e-out);
+}
+.lock-chip svg { width: 11px; height: 11px; opacity: .6; }
+.lock-chip:hover { border-color: var(--accent); color: var(--accent); }
+@keyframes mi-pop-in { from { opacity: 0; scale: .7; } to { opacity: 1; scale: 1; } }
+
+.plat-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.plat-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 34px; padding: 0 13px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-size: var(--t-xs);
+    color: var(--ink-50);
+    transition: background var(--d-2) var(--e-out), color var(--d-2) var(--e-out), border-color var(--d-2) var(--e-out);
+}
+.plat-chip svg { width: 14px; height: 14px; }
+.plat-chip:hover { border-color: var(--line-strong); color: var(--ink); }
+.plat-chip.is-on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.plat-chip b {
+    display: grid; place-items: center;
+    width: 18px; height: 18px; margin-right: -5px;
+    border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+    font: 500 10px/1 var(--font-mono);
+    animation: mi-pop-in .3s var(--e-spring);
+}
+
+.dl-rows { display: grid; gap: 8px; }
+.dl-row {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr) minmax(0, 1.5fr) 66px 84px 74px 34px;
+    gap: 6px; align-items: center;
+    animation: mi-pop-in .3s var(--e-out);
+}
+.dl-row .input { padding: 9px 10px; font-size: var(--t-xs); }
+.dl-row .selectwrap { width: 100%; }
+.dl-row .selectwrap select.select { padding: 9px 26px 9px 10px; font-size: var(--t-xs); }
+.dl-row .dl-del { width: 34px; height: 34px; }
+.dl-empty {
+    padding: 10px 12px;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--r-md);
+    font-size: var(--t-2xs);
+    color: var(--ink-35);
+}
+@media (max-width: 900px) {
+    .dl-row { grid-template-columns: 1fr 1fr 1fr; }
+    .dl-row [data-dl="label"], .dl-row [data-dl="url"] { grid-column: 1 / -1; }
+    .dl-row .dl-del { justify-self: end; grid-column: 3; }
+}
+
+.store-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.store-in { display: grid; gap: 4px; font-size: var(--t-2xs); color: var(--ink-50); }
+.store-in .input { padding: 9px 12px; font-size: var(--t-xs); }
+@media (max-width: 640px) { .store-grid { grid-template-columns: 1fr; } }
+
+.ed-imgrow { align-items: center; }
+.ed-thumb {
+    flex: none;
+    width: 42px; height: 42px;
+    border-radius: 11px;
+    border: 1px solid var(--line);
+    background: var(--paper-sunk) center / cover no-repeat;
+}
+.ed-thumb--wide { width: 66px; }
+.ed-thumb.is-empty { background-image: repeating-linear-gradient(45deg, var(--line-soft) 0 5px, transparent 5px 10px); }
+
+/* ---------------------------------------------------------------------------
+   Importer
+   --------------------------------------------------------------------------- */
+
+.imp-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: 28px;
+    align-items: start;
+}
+@media (max-width: 900px) { .imp-body { grid-template-columns: 1fr; } }
+
+.imp-paste { display: block; }
+.imp-paste textarea {
+    display: block;
+    width: 100%;
+    min-height: 112px;
+    resize: vertical;
+    padding: 16px 18px;
+    border-radius: var(--r-lg);
+    border: 1.5px dashed var(--line-strong);
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 var(--t-sm)/1.6 var(--font-mono);
+    transition: border-color var(--d-2) var(--e-out), background var(--d-2) var(--e-out), box-shadow var(--d-2) var(--e-out);
+}
+.imp-paste textarea::placeholder { color: var(--ink-35); font-family: var(--font-sans); }
+.imp-paste textarea:focus { border-style: solid; border-color: var(--ink-35); background: var(--paper-raised); box-shadow: 0 0 0 4px var(--accent-veil); }
+
+.imp-detect { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; margin: 10px 0 14px; }
+.imp-src {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 26px; padding: 0 10px;
+    border-radius: var(--r-full);
+    background: var(--paper-sunk);
+    border: 1px solid var(--line-soft);
+    font-size: var(--t-2xs);
+    color: var(--ink-50);
+    animation: mi-pop-in .3s var(--e-spring);
+}
+.imp-src svg { width: 13px; height: 13px; }
+.imp-src b { font-weight: 500; color: var(--ink); }
+.imp-src em { font-style: normal; font-family: var(--font-mono); color: var(--ink-35); max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-src.is-warn { color: var(--amber); }
+
+.imp-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.imp-row .btn--primary { margin-left: auto; }
+.imp-provs {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: var(--r-full);
+    background: var(--paper-sunk);
+    border: 1px solid var(--line);
+}
+.imp-prov {
+    height: 30px; padding: 0 13px;
+    border-radius: var(--r-full);
+    font-size: var(--t-xs);
+    color: var(--ink-50);
+    transition: background var(--d-2) var(--e-out), color var(--d-2) var(--e-out), box-shadow var(--d-2) var(--e-out);
+}
+.imp-prov:hover { color: var(--ink); }
+.imp-prov.is-on { background: var(--paper-raised); color: var(--ink); box-shadow: var(--shadow-1); }
+.imp-prov.is-off { color: var(--ink-20); }
+.imp-ai { font-size: var(--t-xs); }
+
+.imp-stages { display: grid; gap: 2px; margin-top: 18px; }
+.imp-stage {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 12px; align-items: start;
+    padding: 8px 8px;
+    border-radius: var(--r-sm);
+    transition: background var(--d-2) var(--e-out), opacity var(--d-3) var(--e-out);
+}
+.imp-stage[data-state="idle"] { opacity: .42; }
+.imp-stage[data-state="run"] { background: var(--paper-sunk); }
+.imp-txt { min-width: 0; }
+.imp-txt b { display: block; font-size: var(--t-sm); font-weight: 500; color: var(--ink); }
+.imp-txt small { display: block; font-family: var(--font-mono); font-size: var(--t-2xs); color: var(--ink-35); overflow-wrap: anywhere; }
+.imp-txt small:empty { display: none; }
+.imp-stage[data-state="error"] small { color: var(--accent); }
+
+/* Stage glyph: an empty ring that spins, fills with a check, dashes, or errs. */
+.imp-ico {
+    position: relative;
+    display: grid; place-items: center;
+    width: 22px; height: 22px;
+    margin-top: 1px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line-strong);
+    transition: background var(--d-2) var(--e-out), border-color var(--d-2) var(--e-out);
+}
+[data-state="run"] > .imp-ico { border-color: var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+[data-state="ok"] > .imp-ico { border-color: var(--pine); background: var(--pine); animation: mi-pop-in .35s var(--e-spring); }
+[data-state="ok"] > .imp-ico::after {
+    content: "";
+    width: 9px; height: 5px;
+    border-left: 2px solid var(--paper);
+    border-bottom: 2px solid var(--paper);
+    transform: translateY(-1px) rotate(-45deg);
+}
+[data-state="skip"] > .imp-ico { border-style: dashed; }
+[data-state="skip"] > .imp-ico::after { content: ""; width: 8px; height: 2px; border-radius: 1px; background: var(--ink-20); }
+[data-state="error"] > .imp-ico { border-color: var(--accent); background: var(--accent-soft); animation: mi-pop-in .35s var(--e-spring); }
+[data-state="error"] > .imp-ico::after { content: "!"; font: 700 12px/1 var(--font-sans); color: var(--accent); }
+
+.imp-right {
+    position: sticky; top: 0;
+    min-height: 380px;
+    padding: 22px;
+    border-radius: var(--r-xl);
+    border: 1px solid var(--line);
+    background: var(--paper-sunk);
+}
+.imp-empty {
+    display: grid; justify-items: center; gap: 10px;
+    padding: 26px 10px;
+    text-align: center;
+    color: var(--ink-50);
+}
+.imp-empty h4 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 400; color: var(--ink); letter-spacing: -.015em; }
+.imp-empty p { font-size: var(--t-sm); max-width: 46ch; }
+.imp-empty > svg { color: var(--pine); }
+.imp-fail > svg { color: var(--accent); }
+.imp-empty-art {
+    position: relative;
+    display: grid; place-items: center;
+    width: 86px; height: 86px;
+    margin-bottom: 6px;
+    color: var(--accent);
+}
+.imp-empty-art span {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    opacity: 0;
+    animation: mi-sonar 2.6s var(--e-out) infinite;
+}
+.imp-empty-art span:nth-child(2) { animation-delay: .86s; }
+.imp-empty-art span:nth-child(3) { animation-delay: 1.72s; }
+.imp-right.is-waiting .imp-empty-art span { animation-duration: 1.2s; }
+@keyframes mi-sonar { from { transform: scale(.35); opacity: .7; } to { transform: scale(1.35); opacity: 0; } }
+.imp-tips { display: grid; gap: 7px; margin-top: 8px; text-align: left; font-size: var(--t-xs); color: var(--ink-50); }
+.imp-tips li { display: flex; align-items: center; gap: 9px; }
+.imp-tips svg { width: 13px; height: 13px; color: var(--ink-35); flex: none; }
+
+.imp-preview { animation: mi-pop-in .45s var(--e-spring); }
+.imp-preview a, .imp-preview button { pointer-events: none; }
+.imp-preview .card { cursor: default; }
+.imp-tagline {
+    margin: 14px 2px 0;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--ink-70);
+    font-variation-settings: "SOFT" 60, "WONK" 1;
+}
+.imp-sum { display: grid; gap: 10px; margin-top: 16px; }
+.imp-sum > div { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 10px; align-items: start; }
+.imp-sum dt { padding-top: 4px; font-family: var(--font-mono); font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: .1em; color: var(--ink-35); }
+.imp-sum dd { display: flex; flex-wrap: wrap; gap: 5px; font-size: var(--t-xs); color: var(--ink-70); align-items: center; }
+.imp-sum dd > svg { width: 12px; height: 12px; }
+.imp-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 9px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    font-size: var(--t-2xs);
+    color: var(--ink-70);
+    white-space: nowrap;
+}
+.imp-chip svg { width: 12px; height: 12px; }
+.imp-dls { flex-direction: column; align-items: stretch !important; }
+.imp-dl {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line-soft);
+    background: var(--paper-raised);
+}
+.imp-dl svg { width: 12px; height: 12px; color: var(--ink-35); }
+.imp-dl b { font-size: var(--t-xs); font-weight: 500; color: var(--ink); }
+.imp-dl em { margin-left: auto; font-style: normal; font-family: var(--font-mono); font-size: var(--t-2xs); color: var(--ink-35); }
+.imp-shots { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.imp-shots img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: var(--paper-raised); }
+
+.imp-dupe {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: var(--r-md);
+    background: var(--amber-soft);
+    color: var(--amber);
+    font-size: var(--t-xs);
+}
+.imp-dupe span { flex: 1; }
+.imp-dupe b { font-weight: 600; }
+.imp-dupe .btn { height: 32px; }
+.imp-dupe svg { width: 15px; height: 15px; flex: none; }
+
+.imp-foot-gap { flex: 1; }
+
+/* Drop a link anywhere (admin) */
+.imp-drop {
+    position: fixed; inset: 12px;
+    z-index: 89;
+    display: grid; place-items: center;
+    border: 2px dashed var(--accent);
+    border-radius: var(--r-2xl);
+    background: color-mix(in srgb, var(--paper) 82%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--d-2) var(--e-out);
+}
+.imp-drop.is-on { opacity: 1; }
+.imp-drop > div { display: grid; justify-items: center; gap: 8px; color: var(--accent); scale: .94; transition: scale var(--d-4) var(--e-spring); }
+.imp-drop.is-on > div { scale: 1; }
+.imp-drop b { font-family: var(--font-display); font-size: 1.7rem; font-weight: 400; color: var(--ink); }
+.imp-drop span { font-size: var(--t-sm); color: var(--ink-50); }
+
+/* ---------------------------------------------------------------------------
+   Discover
+   --------------------------------------------------------------------------- */
+
+.disc-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.disc-search { flex: 1 1 220px; min-width: 200px; }
+.disc-search input { height: 40px; }
+.disc-all.check, .disc-pick.check { padding: 0; border: 0; background: none; }
+.disc-all.check { font-size: var(--t-xs); }
+
+.disc-list { display: grid; gap: 6px; }
+.disc-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 14px; align-items: center;
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line-soft);
+    background: var(--paper);
+    transition: border-color var(--d-2) var(--e-out), background var(--d-2) var(--e-out), opacity var(--d-3) var(--e-out);
+}
+.disc-row:hover { border-color: var(--line-strong); }
+.disc-row:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 50%, var(--paper)); }
+.disc-row.is-in { opacity: .62; }
+.disc-row.is-running { border-color: var(--ink-35); background: var(--paper-raised); }
+.disc-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.disc-name b { font-size: var(--t-sm); font-weight: 500; color: var(--ink); }
+.disc-main { min-width: 0; }
+.disc-main p {
+    margin-top: 2px;
+    font-size: var(--t-xs);
+    color: var(--ink-50);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+    overflow: hidden;
+}
+.disc-main p.is-muted { color: var(--ink-35); font-style: italic; }
+.disc-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    margin-top: 7px;
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    color: var(--ink-35);
+}
+.disc-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+.disc-meta svg { width: 11px; height: 11px; }
+.disc-state { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 210px; }
+.disc-state[data-state="idle"] { display: none; }
+.disc-state small { font-size: var(--t-2xs); color: var(--ink-50); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.disc-state[data-state="error"] small { color: var(--accent); }
+.disc-one { height: 34px; padding: 0 13px; font-size: var(--t-xs); }
+.disc-skel {
+    height: 78px;
+    background: linear-gradient(100deg, var(--paper-sunk) 30%, var(--paper-raised) 50%, var(--paper-sunk) 70%);
+    background-size: 240% 100%;
+    animation: shimmer 1.6s var(--e-inout) infinite;
+}
+.disc-skel span { display: none; }
+.disc-count { font-family: var(--font-mono); font-size: var(--t-2xs); color: var(--ink-35); }
+.disc-foot .btn.is-stop { background: var(--accent-soft); color: var(--accent); }
+.disc-foot .btn.is-stop::before { display: none; }
+
+@media (max-width: 640px) {
+    .disc-row { grid-template-columns: auto minmax(0, 1fr); }
+    .disc-state, .disc-one { grid-column: 2; justify-self: start; }
+    .imp-sum > div { grid-template-columns: 1fr; gap: 4px; }
+    .imp-row .btn--primary { margin-left: 0; width: 100%; }
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion — keep the information, drop the movement
+   --------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    .mi-ink, .mi-burst, .mi-copied, .mi-hold { display: none !important; }
+    .mi-focus { transition: opacity .01s; }
+    .toasts.mi-deck .toast { animation: none; }
+    html.mi-nav-up .nav { translate: -50% 0; }
+    .imp-empty-art span { animation: none; opacity: .3; }
+    [data-state="run"] > .imp-ico { animation: none; border-top-color: var(--accent); }
+    html.mi-img img[loading="lazy"]:not(.mi-loaded):not(.mi-broken),
+    html.mi-img img[data-blur]:not(.mi-loaded):not(.mi-broken) { opacity: 1; }
+}

@@ -46,6 +46,40 @@
             { group: 'Navigate', icon: 'news',      label: 'RSS feed', keywords: 'rss atom subscribe feed json', run: () => { location.href = '/feed.xml'; } }
         );
 
+        // Platforms: one command per platform that actually has work on it.
+        const platCounts = {};
+        projects.forEach((p) => window.platformsOf(p).forEach((k) => { platCounts[k] = (platCounts[k] || 0) + 1; }));
+        if (Object.keys(platCounts).length > 1) {
+            cmds.push({
+                group: 'Platforms', icon: 'blocks', label: 'Show everything',
+                keywords: 'all platforms reset', run: () => { window.setPlatform('all'); go('work')(); }
+            });
+            Object.keys(window.PLATFORMS).filter((k) => platCounts[k]).forEach((k) => {
+                const def = window.PLATFORMS[k];
+                cmds.push({
+                    group: 'Platforms', icon: def.icon, label: `Show ${def.noun.toLowerCase()}`,
+                    sub: `${platCounts[k]} project${platCounts[k] === 1 ? '' : 's'}`,
+                    keywords: `platform ${k} ${def.label} ${def.noun} apps`,
+                    run: () => { window.setPlatform(k); go('work')(); }
+                });
+            });
+        }
+
+        // Direct downloads — "Download UsageNotch for Windows".
+        projects.forEach((p) => (Array.isArray(p.downloads) ? p.downloads : []).forEach((d) => {
+            const url = window.safeUrl(d && d.url);
+            if (!url) return;
+            const def = window.PLATFORMS[d.platform] || { label: d.label || 'your device', icon: 'download' };
+            cmds.push({
+                group: 'Downloads', icon: def.icon,
+                label: `Download ${p.title} for ${def.label}`,
+                sub: [d.version && `v${String(d.version).replace(/^v/i, '')}`, window.formatBytes(d.size)].filter(Boolean).join(' · '),
+                keywords: `download install get ${d.platform} ${p.title} apk exe`,
+                hint: 'Get',
+                run: () => { const a = document.createElement('a'); a.href = url; a.download = ''; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+            });
+        }));
+
         const cats = [...new Set(projects.map((p) => p.category || 'other'))].sort();
         cmds.push({
             group: 'Filter', icon: 'filter', label: 'Show all projects',

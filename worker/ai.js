@@ -536,6 +536,32 @@ async function taskAltText(body) {
 const BUILDERS = { chat: taskChat, improve: taskImprove, 'search-terms': taskSearchTerms, 'alt-text': taskAltText };
 
 /* ===========================================================================
+   For other modules (the importer): one structured call to whichever
+   provider is configured. `prefer` is tried first, then Claude → Gemini →
+   ChatGPT, skipping any without a key. Returns { provider, model, data }.
+   =========================================================================== */
+
+export const SITE_VOICE_RULES = SITE_VOICE;
+export { parseJson, clip, str, strList };
+
+export function availableProvider(env, prefer) {
+    const order = [prefer, 'claude', 'gemini', 'openai'].filter((p, i, a) => p && PROVIDERS[p] && a.indexOf(p) === i);
+    return order.find((p) => !!env[PROVIDERS[p].secret]) || null;
+}
+
+export async function structured(env, { prefer, model, system, user, schema, maxTokens = 16000 }) {
+    const provider = availableProvider(env, prefer);
+    if (!provider) throw new HttpError(503, 'No AI provider key is configured');
+    const meta = PROVIDERS[provider];
+    const useModel = provider === prefer && typeof model === 'string' && MODEL_RE.test(model) ? model : meta.defaultModel;
+    const text = await CALLERS[provider]({
+        apiKey: env[meta.secret], model: useModel, system,
+        messages: [{ role: 'user', content: user }], schema, maxTokens
+    });
+    return { provider, label: meta.label, model: useModel, data: parseJson(text, meta.label) };
+}
+
+/* ===========================================================================
    Routes
    =========================================================================== */
 

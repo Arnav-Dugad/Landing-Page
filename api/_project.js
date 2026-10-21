@@ -44,21 +44,65 @@ export function unwrapFields(fields) {
     return out;
 }
 
-/* Returns every project, each with an `id` and a derived `slug`. Throws on a
-   network or HTTP failure so callers can decide what to serve instead. */
+/* "Last known good" copy of the raw project list. Firestore's free tier has
+   a daily read quota; when it runs out (or the network blips) every page
+   built from projects keeps working from this copy instead of failing.
+   Isolate memory first, then the Cache API (Cloudflare only — Vercel's edge
+   has no caches.default, so there it is memory-only). */
+const LAST_GOOD_KEY = 'https://projects-cache.internal/v1/last-good';
+let memoryCopy = null;          // { at, json }
+const FRESH_MS = 60 * 1000;
+
+const hasCache = () => typeof caches !== 'undefined' && caches.default;
+
+async function readLastGood() {
+    if (memoryCopy) return memoryCopy.json;
+    if (!hasCache()) return null;
+    try {
+        const hit = await caches.default.match(LAST_GOOD_KEY);
+        if (hit) { const json = await hit.json(); memoryCopy = { at: 0, json }; return json; }
+    } catch { /* no copy */ }
+    return null;
+}
+
+async function writeLastGood(json) {
+    memoryCopy = { at: Date.now(), json };
+    if (!hasCache()) return;
+    try {
+        await caches.default.put(LAST_GOOD_KEY, new Response(JSON.stringify(json), {
+            headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=2592000' }
+        }));
+    } catch { /* best effort */ }
+}
+
+const toProjects = (json) => (json.documents || []).map((d) => {
+    const data = unwrapFields(d.fields || {});
+    return { ...data, id: d.name.split('/').pop(), slug: slugify(data.title) };
+});
+
+/* Returns every project, each with an `id` and a derived `slug`. Serves the
+   last good copy when Firestore can't answer; throws only if there has never
+   been one. */
 export async function fetchProjects() {
-    const res = await fetch(ENDPOINT, {
-        // Firestore data changes rarely; a short shared cache keeps crawler
-        // traffic off the database without making edits feel stale.
-        cf: { cacheTtl: 300 },
-        headers: { accept: 'application/json' }
-    });
-    if (!res.ok) throw new Error(`Firestore responded ${res.status}`);
-    const json = await res.json();
-    return (json.documents || []).map((d) => {
-        const data = unwrapFields(d.fields || {});
-        return { ...data, id: d.name.split('/').pop(), slug: slugify(data.title) };
-    });
+    // A minute of isolate memory absorbs bursts without touching Firestore.
+    if (memoryCopy && Date.now() - memoryCopy.at < FRESH_MS) return toProjects(memoryCopy.json);
+    try {
+        const res = await fetch(ENDPOINT, {
+            // Firestore data changes rarely; a short shared cache keeps crawler
+            // traffic off the database without making edits feel stale.
+            cf: { cacheTtl: 300 },
+            headers: { accept: 'application/json' }
+        });
+        if (!res.ok) throw new Error(`Firestore responded ${res.status}`);
+        const json = await res.json();
+        if (!Array.isArray(json.documents)) throw new Error('Firestore returned no documents');
+        await writeLastGood(json);
+        return toProjects(json);
+    } catch (e) {
+        const json = await readLastGood();
+        if (json) return toProjects(json);
+        throw e;
+    }
 }
 
 export async function findProject(slug) {

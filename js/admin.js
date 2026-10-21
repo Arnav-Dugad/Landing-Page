@@ -27,6 +27,31 @@
     let snapshot = '';
     let draftTimer = null;
 
+    /* Automation state. `baseline` is what the importer last wrote; any field
+       the admin changes away from it becomes locked, so a later re-import or
+       metrics refresh never overwrites a hand edit. `carry` holds fields the
+       form doesn't show but a full-overwrite save must keep. */
+    let baseline = null;
+    let locked = new Set();
+    let unlocked = new Set();
+    let carry = {};
+
+    const TRACKED = ['title', 'tagline', 'desc', 'longDesc', 'highlights', 'tags', 'category', 'color',
+        'icon', 'status', 'year', 'link', 'repo', 'searchTerms', 'platforms', 'appIcon', 'cover',
+        'version', 'downloads', 'stores', 'gallery', 'galleryAlt', 'problem', 'approach',
+        'challenges', 'outcome'];
+
+    const PLATFORM_KEYS = ['web', 'windows', 'android', 'ios', 'macos', 'linux', 'extension', 'cli'];
+    const PLATFORM_FALLBACK = {
+        web: ['Web', 'globe'], windows: ['Windows', 'desktop'], android: ['Android', 'mobile'],
+        ios: ['iOS', 'mobile'], macos: ['macOS', 'monitor'], linux: ['Linux', 'terminal'],
+        extension: ['Extension', 'puzzle'], cli: ['CLI', 'terminal']
+    };
+    const platformMeta = (k) => {
+        const P = window.PLATFORMS && window.PLATFORMS[k];
+        return { label: (P && P.label) || PLATFORM_FALLBACK[k][0], icon: (P && P.icon) || PLATFORM_FALLBACK[k][1] };
+    };
+
     window.isAdmin = false;   // the auth listener in firebase.js owns this
 
     /* Categories live in js/core.js so the case-study, résumé and Now pages
@@ -102,9 +127,81 @@
 
     const lines = (id) => val(id).split('\n').map((s) => s.trim()).filter(Boolean);
 
-    function readForm() {
+    /* ---- Platforms: toggle chips, click order = importance ------------- */
+    let platformOrder = [];
+
+    function paintPlatforms() {
+        const box = F('platformPicker');
+        if (!box) return;
+        box.innerHTML = PLATFORM_KEYS.map((k) => {
+            const m = platformMeta(k);
+            const at = platformOrder.indexOf(k);
+            return `<button type="button" class="plat-chip ${at >= 0 ? 'is-on' : ''}" data-platform="${k}" aria-pressed="${at >= 0}">
+                ${window.icon(m.icon, { raw: true, size: 14 })}<span>${m.label}</span>${at >= 0 ? `<b>${at + 1}</b>` : ''}</button>`;
+        }).join('');
+    }
+
+    /* ---- Downloads: one compact row per release file -------------------- */
+    const MB = 1024 * 1024;
+
+    function downloadRow(d = {}) {
+        const opts = PLATFORM_KEYS.map((k) =>
+            `<option value="${k}" ${d.platform === k ? 'selected' : ''}>${platformMeta(k).label}</option>`).join('');
+        const size = d.size ? (d.size / MB).toFixed(d.size >= 10 * MB ? 0 : 1) : '';
+        return `<div class="dl-row" data-arch="${window.esc(d.arch || '')}">
+            <div class="selectwrap"><select class="select" data-dl="platform" aria-label="Platform">${opts}</select>${window.icon('chev-down', { raw: true, size: 14 })}</div>
+            <input class="input" data-dl="label" placeholder="Label — e.g. Windows installer" value="${window.esc(d.label || '')}" aria-label="Label">
+            <input class="input" data-dl="url" type="url" placeholder="https://…/App-1.0.exe" value="${window.esc(d.url || '')}" aria-label="File URL">
+            <input class="input" data-dl="size" type="number" min="0" step="0.1" placeholder="MB" value="${size}" aria-label="Size in MB">
+            <input class="input" data-dl="count" type="number" min="0" placeholder="Downloads" value="${d.count ?? ''}" aria-label="Download count">
+            <input class="input" data-dl="version" placeholder="1.0.0" value="${window.esc(d.version || '')}" aria-label="Version">
+            <button type="button" class="ibtn dl-del" data-dl-del aria-label="Remove this download">${window.icon('x', { raw: true, size: 14 })}</button>
+        </div>`;
+    }
+
+    function paintDownloads(list = []) {
+        const box = F('dlRows');
+        if (!box) return;
+        box.innerHTML = list.length ? list.map(downloadRow).join('')
+            : '<p class="dl-empty">No release files yet — the importer adds .exe, .apk, .dmg and friends from GitHub releases.</p>';
+    }
+
+    function readDownloads() {
+        return Array.from(document.querySelectorAll('#dlRows .dl-row')).map((row) => {
+            const g = (k) => String((row.querySelector(`[data-dl="${k}"]`) || {}).value || '').trim();
+            return {
+                platform: g('platform'), label: g('label'), url: g('url'),
+                size: Math.round((parseFloat(g('size')) || 0) * MB),
+                count: parseInt(g('count'), 10) || 0,
+                version: g('version'), arch: row.dataset.arch || ''
+            };
+        }).filter((d) => d.url).slice(0, 12);
+    }
+
+    function readStores() {
+        const out = {};
+        document.querySelectorAll('#editorForm [data-store]').forEach((el) => {
+            const v = String(el.value || '').trim();
+            if (v) out[el.dataset.store] = v;
+        });
+        return out;
+    }
+
+    function paintThumbs() {
+        [['fAppIcon', 'fAppIconThumb'], ['fCover', 'fCoverThumb']].forEach(([input, thumb]) => {
+            const el = F(thumb);
+            if (!el) return;
+            const url = window.safeUrl(val(input));
+            el.style.backgroundImage = url ? `url("${url.replace(/"/g, '%22')}")` : '';
+            el.classList.toggle('is-empty', !url);
+        });
+    }
+
+    /* Every field the form shows — no automation bookkeeping. */
+    function readFields() {
         return {
             title: val('fTitle'),
+            tagline: val('fTagline'),
             desc: val('fDesc'),
             longDesc: val('fLongDesc'),
             link: val('fLink'),
@@ -132,7 +229,58 @@
             outcome: val('fOutcome'),
             metrics: lines('fMetrics'),
             gallery: lines('fGallery'),
-            galleryAlt: lines('fGalleryAlt')
+            galleryAlt: lines('fGalleryAlt'),
+
+            /* Apps, downloads & stores */
+            platforms: platformOrder.slice(),
+            appIcon: val('fAppIcon'),
+            cover: val('fCover'),
+            version: val('fVersion'),
+            downloads: readDownloads(),
+            stores: readStores(),
+            sources: lines('fSources').slice(0, 10)
+        };
+    }
+
+    /* Comparable form of any field value, so "unchanged" means unchanged
+       regardless of whitespace, key order or number formatting. */
+    function norm(v) {
+        if (v === undefined || v === null) return '';
+        // Empty lists and maps mean "nothing", same as a missing field.
+        if (Array.isArray(v)) {
+            const items = v.map((x) => (x && typeof x === 'object' ? norm(x) : String(x).trim())).filter((x) => x !== '');
+            return items.length ? JSON.stringify(items) : '';
+        }
+        if (typeof v === 'object') {
+            const obj = Object.keys(v).sort().reduce((o, k) => {
+                const x = v[k];
+                if (x !== '' && x !== null && x !== undefined && x !== 0) o[k] = typeof x === 'string' ? x.trim() : x;
+                return o;
+            }, {});
+            return Object.keys(obj).length ? JSON.stringify(obj) : '';
+        }
+        return String(v).trim();
+    }
+
+    function computeLocked(fields) {
+        const out = new Set(locked);
+        if (baseline) {
+            TRACKED.forEach((k) => {
+                if (norm(fields[k]) !== norm(baseline[k])) out.add(k);
+            });
+        }
+        unlocked.forEach((k) => out.delete(k));
+        return out;
+    }
+
+    function readForm() {
+        const fields = readFields();
+        const auto = !!(F('fAuto') && F('fAuto').checked);
+        return {
+            ...carry,
+            ...fields,
+            auto,
+            locked: auto ? Array.from(computeLocked(fields)) : Array.from(locked)
         };
     }
 
@@ -170,6 +318,27 @@
         if (feat) feat.checked = !!p.featured;
         const cs = F('fCaseStudy');
         if (cs) cs.checked = !!p.caseStudy;
+
+        set('fTagline', p.tagline);
+        set('fAppIcon', p.appIcon);
+        set('fCover', p.cover);
+        set('fVersion', p.version);
+        set('fSources', join(p.sources));
+        platformOrder = (Array.isArray(p.platforms) ? p.platforms : []).filter((k) => PLATFORM_KEYS.includes(k));
+        paintPlatforms();
+        paintDownloads(Array.isArray(p.downloads) ? p.downloads : []);
+        document.querySelectorAll('#editorForm [data-store]').forEach((el) => {
+            el.value = (p.stores && p.stores[el.dataset.store]) || '';
+        });
+        const auto = F('fAuto');
+        if (auto) auto.checked = !!p.auto;
+        // Fields the form doesn't show, but a full-overwrite save must keep.
+        carry = {};
+        if (p.releasedAt) carry.releasedAt = p.releasedAt;
+        paintThumbs();
+        // Anything with downloads or stores deserves its section open.
+        const apps = F('appsFold');
+        if (apps) apps.open = !!((p.downloads || []).length || (p.stores && Object.keys(p.stores).length) || p.appIcon);
     }
 
     /* js/enrich.js drives the form from outside when auto-filling from GitHub. */
@@ -208,6 +377,15 @@
     function renderPreview() {
         if (!preview) return;
         const p = readForm();
+        renderAuto();
+        // The real card renderer, so the preview can never drift from the grid.
+        if (window.projectCardHtml) {
+            try {
+                preview.innerHTML = window.projectCardHtml({ ...p, id: 'preview' }, 0);
+                preview.querySelectorAll('[data-reveal]').forEach((el) => el.classList.add('is-in'));
+                return;
+            } catch (e) { console.error('Preview fell back:', e); }
+        }
         const tags = p.tags.length ? p.tags : ['Tag'];
         const shown = tags.slice(0, 4);
         const overflow = tags.length - shown.length;
@@ -234,6 +412,33 @@
         </article>`;
     }
 
+    /* The strip above the form: auto switch + the locked-field chips. */
+    const FIELD_LABELS = {
+        title: 'Title', tagline: 'Tagline', desc: 'Description', longDesc: 'Write-up', highlights: 'Highlights',
+        tags: 'Tech', category: 'Category', color: 'Colour', icon: 'Icon', status: 'Status', year: 'Year',
+        link: 'Live URL', repo: 'Repo', searchTerms: 'Search terms', platforms: 'Platforms', appIcon: 'App icon',
+        cover: 'Cover', version: 'Version', downloads: 'Downloads', stores: 'Stores', gallery: 'Screenshots',
+        galleryAlt: 'Alt text', problem: 'Problem', approach: 'Approach', challenges: 'What broke', outcome: 'Outcome'
+    };
+
+    function renderAuto() {
+        const strip = F('edAuto');
+        if (!strip) return;
+        const auto = !!(F('fAuto') && F('fAuto').checked);
+        const show = auto || !!baseline || lines('fSources').length > 0;
+        strip.classList.toggle('u-hidden', !show);
+        strip.classList.toggle('is-off', !auto);
+        const box = F('edLocked');
+        if (!box) return;
+        const keys = Array.from(computeLocked(readFields()));
+        box.innerHTML = !auto
+            ? '<span class="ed-locked-note">Off — nothing here is refreshed automatically.</span>'
+            : keys.length
+                ? `<span class="ed-locked-note">${window.icon('lock', { raw: true, size: 12 })} Kept as you wrote them:</span>${keys.map((k) =>
+                    `<button type="button" class="lock-chip" data-unlock="${k}" data-tip="Let the sources update this again">${FIELD_LABELS[k] || k}${window.icon('x', { raw: true, size: 11 })}</button>`).join('')}`
+                : '<span class="ed-locked-note">Every field follows the sources. Edit one and it locks.</span>';
+    }
+
     window.refreshEditorPreview = () => { renderPreview(); syncTagStates(); dirty = true; };
 
     /* Any field edit refreshes the preview, marks the form dirty and (debounced)
@@ -257,9 +462,13 @@
         buildTagPicker();
 
         editingId = mode === 'edit' ? String(project.id) : null;
+        locked = new Set((project && Array.isArray(project.locked)) ? project.locked : []);
+        unlocked = new Set();
+        baseline = (project && project.auto && mode === 'edit') ? { ...project } : null;
+        if (mode === 'dupe') { baseline = null; locked = new Set(); }
 
         if (mode === 'new') {
-            writeForm({ category: 'web', color: 'indigo', icon: 'rocket', status: 'live', year: String(new Date().getFullYear()) });
+            writeForm({ category: 'web', color: 'indigo', icon: 'rocket', status: 'live', year: String(new Date().getFullYear()), ...(project || {}) });
             titleEl.textContent = 'New project';
             subEl.textContent = 'It appears on the site the moment you save — no rebuild, no deploy.';
             saveBtn.textContent = 'Add project';
@@ -326,6 +535,19 @@
         open('new');
     };
 
+    /* Opens a new-project editor pre-filled with an importer draft. The
+       draft becomes the baseline, so anything changed before saving is
+       locked against future refreshes. */
+    window.openEditorWith = (draft = {}) => {
+        if (!window.isAdmin) { window.toast('Unlock admin mode first', 'error'); return; }
+        const { id: _drop, ...data } = draft;
+        open('new', { ...data, auto: data.auto !== false });
+        baseline = { ...data };
+        subEl.textContent = 'Imported for you — check it over, change anything, then add it. Edited fields stay as you wrote them.';
+        dirty = true;
+        renderPreview();
+    };
+
     window.editProject = (id) => {
         if (!window.isAdmin) { window.toast('Unlock admin mode first', 'error'); return; }
         const p = find(id);
@@ -366,9 +588,10 @@
         if (!data.desc)  { window.toast('A short description is required', 'error'); F('fDesc').focus(); return; }
 
         // Normalise bare domains typed without a scheme.
-        ['link', 'repo', 'demoVideo', 'previewVideo'].forEach((k) => {
-            if (data[k] && !/^https?:\/\//i.test(data[k])) data[k] = `https://${data[k]}`;
-        });
+        const withScheme = (v) => (v && !/^https?:\/\//i.test(v) ? `https://${v}` : v);
+        ['link', 'repo', 'demoVideo', 'previewVideo', 'appIcon', 'cover'].forEach((k) => { data[k] = withScheme(data[k]); });
+        Object.keys(data.stores || {}).forEach((k) => { data.stores[k] = withScheme(data.stores[k]); });
+        (data.downloads || []).forEach((d) => { d.url = withScheme(d.url); });
         if (data.order === null || Number.isNaN(data.order)) delete data.order;
 
         saveBtn.disabled = true;
@@ -427,6 +650,99 @@
             renderPreview();
         });
     }
+
+    const platformBox = F('platformPicker');
+    if (platformBox) {
+        platformBox.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-platform]');
+            if (!btn) return;
+            const k = btn.dataset.platform;
+            const at = platformOrder.indexOf(k);
+            if (at >= 0) platformOrder.splice(at, 1); else platformOrder.push(k);
+            paintPlatforms();
+            onEdit();
+        });
+    }
+
+    const dlAdd = F('dlAdd');
+    if (dlAdd) {
+        dlAdd.addEventListener('click', () => {
+            const box = F('dlRows');
+            const rows = box.querySelectorAll('.dl-row').length;
+            if (rows >= 12) { window.toast('Twelve downloads is the limit', 'info'); return; }
+            if (!rows) box.innerHTML = '';
+            box.insertAdjacentHTML('beforeend', downloadRow({ platform: platformOrder[0] || 'windows' }));
+            box.lastElementChild.querySelector('[data-dl="url"]').focus();
+            onEdit();
+        });
+    }
+    const dlBox = F('dlRows');
+    if (dlBox) {
+        dlBox.addEventListener('click', (e) => {
+            const del = e.target.closest('[data-dl-del]');
+            if (!del) return;
+            del.closest('.dl-row').remove();
+            if (!dlBox.querySelector('.dl-row')) paintDownloads([]);
+            onEdit();
+        });
+    }
+
+    const lockedBox = F('edLocked');
+    if (lockedBox) {
+        lockedBox.addEventListener('click', (e) => {
+            const chip = e.target.closest('[data-unlock]');
+            if (!chip) return;
+            const k = chip.dataset.unlock;
+            locked.delete(k);
+            unlocked.add(k);
+            renderAuto();
+            dirty = true;
+        });
+    }
+
+    ['fAppIcon', 'fCover'].forEach((id) => { if (F(id)) F(id).addEventListener('input', paintThumbs); });
+
+    /* Re-import: read the sources again and refresh everything not locked. */
+    const reimportBtn = F('edReimport');
+    if (reimportBtn) {
+        reimportBtn.addEventListener('click', async () => {
+            if (!window.Importer || !window.Importer.ingest) { window.toast('The importer is not available here', 'error'); return; }
+            const current = readForm();
+            const urls = current.sources.length ? current.sources : [current.repo, current.link].filter(Boolean);
+            if (!urls.length) { window.toast('Add a source link first', 'error'); return; }
+            const busy = window.Micro ? window.Micro.busy(reimportBtn) : { done() {} };
+            const progress = window.progressToast('Reading the sources…');
+            try {
+                const final = await window.Importer.ingest({ urls, existing: current }, (ev) => {
+                    if (ev.label && ev.status === 'run') progress.update(ev.label);
+                });
+                const draft = final.project || {};
+                const keep = new Set(current.locked || []);
+                const merged = { ...current };
+                let changed = 0;
+                Object.entries(draft).forEach(([k, v]) => {
+                    if (keep.has(k) || k === 'locked' || k === 'id' || k === 'auto') return;
+                    if (norm(v) !== norm(current[k])) changed++;
+                    merged[k] = v;
+                });
+                writeForm(merged);
+                baseline = { ...(baseline || {}), ...draft };
+                renderPreview();
+                syncTagStates();
+                dirty = true;
+                busy.done(true);
+                window.toast(changed ? `Refreshed ${changed} field${changed === 1 ? '' : 's'} — locked ones untouched` : 'Already up to date', 'success');
+            } catch (e) {
+                busy.done(false);
+                window.toast(e.message || 'Re-import failed', 'error');
+            } finally {
+                progress.close();
+            }
+        });
+    }
+
+    const autoBox = F('fAuto');
+    if (autoBox) autoBox.addEventListener('change', () => { if (autoBox.checked && !baseline) baseline = { ...readFields() }; renderAuto(); });
 
     const autofillBtn = F('autofill');
     if (autofillBtn) autofillBtn.addEventListener('click', () => window.enrichEditorForm && window.enrichEditorForm());

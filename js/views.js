@@ -40,9 +40,10 @@
         return `<ol class="ix">${list.map((p, i) => `
             <li class="ix-row" data-id="${esc(p.id)}" style="${window.toneVars(p.color)}--delay:${Math.min(i, 12) * 35}ms" data-reveal="up">
                 <span class="ix-num">${String(i + 1).padStart(2, '0')}</span>
-                <span class="ix-mark card-plaque" aria-hidden="true">${window.icon(p.icon, { size: 20 })}</span>
+                <span class="ix-mark" aria-hidden="true">${window.Widgets.appIconHtml(p, { size: 38 })}</span>
                 <h3 class="ix-head"><button type="button" class="ix-title" data-open="${esc(p.id)}" data-cursor="Open">${esc(p.title)}</button></h3>
                 <span class="ix-meta">
+                    <span class="ix-plats">${window.platformsOf(p).map((k) => window.icon(window.PLATFORMS[k].icon, { raw: true, size: 13 })).join('')}</span>
                     <span>${esc(window.categoryLabel(p.category))}</span>
                     ${p.year ? `<span>${esc(p.year)}</span>` : ''}
                     <span class="card-live" data-status-slot></span>
@@ -103,7 +104,7 @@
                          style="${window.toneVars(p.color)}--delay:${Math.min(i, 8) * 40}ms" data-reveal="up">
                     <span class="tl-dot" aria-hidden="true"></span>
                     <div class="tl-card">
-                        <span class="tl-plaque card-plaque" aria-hidden="true">${window.icon(p.icon, { size: 20 })}</span>
+                        <span class="tl-plaque" aria-hidden="true">${window.Widgets.appIconHtml(p, { size: 42 })}</span>
                         <div class="tl-text">
                             ${marks.length ? `<div class="tl-firsts">${marks.map((m) => `<span>${window.icon('sparkles', { raw: true, size: 11 })}${esc(m)}</span>`).join('')}</div>` : ''}
                             <h3><button type="button" class="tl-title" data-open="${esc(p.id)}" data-cursor="Open">${esc(p.title)}</button></h3>
@@ -371,6 +372,7 @@
 
         const cell = (fn) => picked.map((p) => `<td>${fn(p)}</td>`).join('');
         const rows = [
+            ['Runs on', (p) => (window.Widgets.platformGlyphs(p, { labels: true, size: 13 }) || '—')],
             ['Category', (p) => esc(window.categoryLabel(p.category))],
             ['Year', (p) => esc(p.year || '—')],
             ['Status', (p) => {
@@ -384,6 +386,9 @@
             ['Stars', (p) => `<span data-cmp="stars" data-id="${esc(p.id)}">…</span>`],
             ['Forks', (p) => `<span data-cmp="forks" data-id="${esc(p.id)}">…</span>`],
             ['Last push', (p) => `<span data-cmp="pushed" data-id="${esc(p.id)}">…</span>`],
+            ['Downloads', (p) => { const n = window.Meta ? window.Meta.downloads(p) : 0; return n ? `${window.icon('download', { raw: true, size: 12 })} ${window.formatCount(n)}` : '—'; }],
+            ['Version', (p) => { const r = window.Meta ? window.Meta.release(p) : null; return r ? `v${esc(r.version)}${r.date ? ` · ${esc(window.Widgets.shortAgo(r.date))}` : ''}` : '—'; }],
+            ['Lighthouse', (p) => { const ps = window.Meta ? window.Meta.psi(p) : null; return ps ? window.Widgets.ringsHtml(ps).replace('class="rings"', 'class="rings rings--sm is-in"') : '—'; }],
             ['Languages', (p) => `<div data-cmp="langs" data-id="${esc(p.id)}" class="cmp-langs"></div>`],
             ['Tech', (p) => `<div class="cmp-tags">${(p.tags || []).map((t) =>
                 `<span class="tag ${shared.has(String(t).toLowerCase()) ? 'is-shared' : ''}">${esc(t)}</span>`).join('') || '—'}</div>`],
@@ -405,7 +410,7 @@
                 <table class="cmp" style="--cols:${picked.length}">
                     <thead><tr><th scope="col"><span class="u-sr">Field</span></th>${picked.map((p) => `
                         <th scope="col" style="${window.toneVars(p.color)}">
-                            <span class="card-plaque">${window.icon(p.icon, { size: 20 })}</span>
+                            ${window.Widgets.appIconHtml(p, { size: 42, cls: 'cmp-icon' })}
                             <button type="button" class="cmp-title" data-cmp-open="${esc(p.id)}">${esc(p.title)}</button>
                             <p>${esc(p.desc)}</p>
                         </th>`).join('')}</tr></thead>
@@ -419,12 +424,13 @@
         picked.forEach(async (p) => {
             const repo = window.resolveRepoUrl(p);
             const put = (k, v) => { const el = compareBody.querySelector(`[data-cmp="${k}"][data-id="${CSS.escape(String(p.id))}"]`); if (el) el.innerHTML = v; };
-            if (!repo) { put('stars', '—'); put('forks', '—'); put('pushed', '—'); return; }
-            const [s, langs] = await Promise.all([window.fetchGitHubStats(repo), window.fetchGitHubLanguages(repo)]);
-            put('stars', s ? `${window.icon('star', { raw: true, size: 12 })} ${s.stars.toLocaleString()}` : '—');
-            put('forks', s ? s.forks.toLocaleString() : '—');
-            put('pushed', s && s.updatedAt ? esc(window.relativeTime(s.updatedAt)) : '—');
-            const top = (langs || []).slice(0, 5);
+            if (!repo) { put('stars', '—'); put('forks', '—'); put('pushed', '—'); put('langs', '—'); return; }
+            // Meta from the Worker first; github.js only when that is missing.
+            const g = window.Meta ? await window.Meta.github(p) : null;
+            put('stars', g ? `${window.icon('star', { raw: true, size: 12 })} ${Number(g.stars || 0).toLocaleString()}` : '—');
+            put('forks', g ? Number(g.forks || 0).toLocaleString() : '—');
+            put('pushed', g && g.pushedAt ? esc(window.relativeTime(new Date(g.pushedAt).toISOString())) : '—');
+            const top = ((g && g.languages) || []).slice(0, 5);
             put('langs', top.length ? `<div class="langbar">${top.map((l) =>
                 `<span style="width:${l.pct}%;background:${window.langColor(l.name)}"></span>`).join('')}</div>
                 <div class="langlegend">${top.slice(0, 3).map((l) => `<span><s style="background:${window.langColor(l.name)}"></s>${esc(l.name)}</span>`).join('')}</div>` : '—');

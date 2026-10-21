@@ -177,7 +177,18 @@
         target2:  '<path d="M20.5 12a8.5 8.5 0 1 1-4.9-7.7"/><path d="M20.8 4.6 12 13.4l-2.6-2.6"/>',
         bolt2:    '<path d="M12.5 2.5 5.5 12h5l-1 9.5L17 12h-5Z"/><path d="M2.5 8h3M2.5 16h4M18.5 16h3"/>',
         stack:    '<path d="M4 8.5 12 4l8 4.5-8 4.5Z"/><path d="M4 13.2 12 17.7l8-4.5"/>',
-        wallet2:  '<path d="M3.5 7.2a2.4 2.4 0 0 1 2.4-2.4h12a1.8 1.8 0 0 1 1.8 1.8v1.4"/><rect x="3.5" y="7.2" width="17" height="12.4" rx="2.8"/><circle cx="16.4" cy="13.4" r="1.4"/>'
+        wallet2:  '<path d="M3.5 7.2a2.4 2.4 0 0 1 2.4-2.4h12a1.8 1.8 0 0 1 1.8 1.8v1.4"/><rect x="3.5" y="7.2" width="17" height="12.4" rx="2.8"/><circle cx="16.4" cy="13.4" r="1.4"/>',
+
+        /* -- platforms (same pen, same weight — never brand-coloured) ------ */
+        windows:  '<path d="M3.5 5.4 10.4 4.3v7.2H3.5Z"/><path d="M12.6 4 20.5 2.8v8.7h-7.9Z"/><path d="M3.5 12.5h6.9v7.2l-6.9-1.1Z"/><path d="M12.6 12.5h7.9v8.7l-7.9-1.2Z"/>',
+        android:  '<path d="M4.4 16.6a7.6 7.6 0 0 1 15.2 0Z"/><path d="m7.4 10.6-1.9-3.2M16.6 10.6l1.9-3.2"/><circle cx="9.2" cy="13.6" r=".95" fill="currentColor" stroke="none"/><circle cx="14.8" cy="13.6" r=".95" fill="currentColor" stroke="none"/>',
+        apple:    '<path d="M16.4 12.8c0-2.4 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-1.9-1.5-.2-3 .9-3.8.9s-2-.9-3.3-.8C6 7.3 4.4 8.3 3.6 9.9c-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.6-1-2.6-4.1Z"/><path d="M14.3 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.6 2.8-1.4Z"/>',
+        linux:    '<path d="M12 2.8c-2.2 0-3.5 1.9-3.5 4.4 0 1.6-.7 2.6-1.6 3.9-1.2 1.6-2.4 3.5-2.4 5.9 0 .8.2 1.5.5 2.1M12 2.8c2.2 0 3.5 1.9 3.5 4.4 0 1.6.7 2.6 1.6 3.9 1.2 1.6 2.4 3.5 2.4 5.9 0 .8-.2 1.5-.5 2.1"/><path d="M4.4 19.6c1.5 1 3.3 1.3 4.6.5M19.6 19.6c-1.5 1-3.3 1.3-4.6.5M9.4 20.4h5.2"/><path d="M10.6 9.4h2.8L12 10.9Z"/><circle cx="10.4" cy="7.2" r=".8" fill="currentColor" stroke="none"/><circle cx="13.6" cy="7.2" r=".8" fill="currentColor" stroke="none"/>',
+        chrome:   '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6"/><path d="M12 8.4h8.3M8.9 13.8 4.7 6.6M15.1 13.8 11 21"/>',
+        gauge:    '<path d="M4.2 17.6a9 9 0 1 1 15.6 0"/><path d="m12 13 4.2-5.2"/><circle cx="12" cy="13" r="1.4"/>',
+        bag:      '<path d="M5 8h14l-1.1 12.5H6.1Z"/><path d="M9 10.5V6.6a3 3 0 0 1 6 0v3.9"/>',
+        qr:       '<rect x="3.5" y="3.5" width="6.2" height="6.2" rx="1.2"/><rect x="14.3" y="3.5" width="6.2" height="6.2" rx="1.2"/><rect x="3.5" y="14.3" width="6.2" height="6.2" rx="1.2"/><path d="M14.3 14.3h2.8v2.8M20.5 14.3v.01M14.3 20.5h6.2M20.5 17.6v2.9"/>',
+        tag2:     '<path d="M3.5 12.2V4.8a1.3 1.3 0 0 1 1.3-1.3h7.4l8.3 8.3a1.8 1.8 0 0 1 0 2.6l-6.2 6.2a1.8 1.8 0 0 1-2.6 0Z"/><circle cx="8.2" cy="8.2" r="1.3"/>'
     };
 
     /* Old FontAwesome values → new keys. Anything unmatched falls back to
@@ -332,6 +343,10 @@
         target2: 'goal target complete achieve', bolt2: 'bolt energy power fast surge',
         stack: 'stack layers pile collection', wallet2: 'wallet card payment money',
         sun: 'sun light theme day', moon: 'moon dark theme night',
-        monitor: 'monitor screen display system', doc: 'document file page case study'
+        monitor: 'monitor screen display system', doc: 'document file page case study',
+        windows: 'windows pc desktop microsoft app', android: 'android phone mobile app play',
+        apple: 'apple ios iphone mac app store', linux: 'linux penguin unix desktop',
+        chrome: 'chrome browser extension', gauge: 'gauge speed performance lighthouse score',
+        bag: 'bag store shop buy', qr: 'qr code scan phone install', tag2: 'tag version release label'
     };
 })();

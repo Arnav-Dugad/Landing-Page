@@ -82,6 +82,22 @@ export async function setDoc(rel, data, token) {
 export const commit = (writes, token) =>
     call(`${BASE}:commit`, { method: 'POST', token, body: { writes } });
 
+/* Every document in a collection under DATA_PATH → { [docId]: fields }.
+   Collections here are small (one doc per project), so one page of 300 is
+   the whole set. */
+export async function listDocs(collection, token) {
+    const out = {};
+    let pageToken = '';
+    for (let page = 0; page < 4; page++) {
+        const url = `${BASE}/${DATA_PATH}/${collection}?pageSize=300${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
+        const res = await call(url, { token });
+        for (const d of res.documents || []) out[d.name.split('/').pop()] = unwrapFields(d.fields || {});
+        if (!res.nextPageToken) break;
+        pageToken = res.nextPageToken;
+    }
+    return out;
+}
+
 /* Which of these documents exist? → Set of the rel paths that do. */
 export async function existing(rels, token) {
     if (!rels.length) return new Set();

@@ -21,7 +21,7 @@
     };
     const resolve = (p) => (p === 'system' ? (media.matches ? 'dark' : 'light') : p);
 
-    function apply(p, { announce = false } = {}) {
+    function apply(p, { announce = false, morph = false } = {}) {
         const active = resolve(p);
         const root = document.documentElement;
 
@@ -36,7 +36,7 @@
                 getComputedStyle(root).getPropertyValue('--paper').trim() || (active === 'dark' ? '#131110' : '#F7F5F0'));
         }
 
-        paintButtons(p);
+        paintButtons(p, { morph });
 
         // The dot lattice paints with raw RGB, so it can't inherit tokens.
         window.dispatchEvent(new CustomEvent('themechange', { detail: { pref: p, theme: active } }));
@@ -44,10 +44,12 @@
         if (announce && window.toast) window.toast(`Theme: ${LABEL[p]}`, 'info');
     }
 
-    function paintButtons(p) {
+    function paintButtons(p, { morph = false } = {}) {
         document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
             const showLabel = btn.hasAttribute('data-theme-label');
-            const svg = window.icon(MARK[p], { raw: true, size: btn.dataset.size || 16 });
+            // The glyph turns into the next one: the old mark spins out, the
+            // new one spins in (css/micro.css .theme-ico).
+            const svg = window.icon(MARK[p], { raw: true, size: btn.dataset.size || 16, cls: `theme-ico${morph ? ' is-in' : ''}` });
             btn.innerHTML = showLabel ? `${svg} ${LABEL[p]}` : svg;
             btn.setAttribute('aria-label', `Theme: ${LABEL[p]} — click to change`);
             btn.setAttribute('title', `Theme: ${LABEL[p]}`);
@@ -56,9 +58,34 @@
 
     /* Cycle System → Light → Dark → System. Three states rather than two so
        "follow my OS" stays reachable once someone has picked a side. */
-    window.cycleTheme = () => {
+    /* The new palette spreads out from the toggle as a growing circle (a
+       View Transition clipping the new snapshot). Without support, or with
+       reduced motion, the switch is instant. */
+    function transition(fn, origin) {
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (typeof document.startViewTransition !== 'function' || reduced) { fn(); return; }
+        const root = document.documentElement;
+        const r = origin && origin.getBoundingClientRect ? origin.getBoundingClientRect() : null;
+        const x = r ? r.left + r.width / 2 : window.innerWidth - 40;
+        const y = r ? r.top + r.height / 2 : 40;
+        const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+        root.style.setProperty('--vt-x', `${x}px`);
+        root.style.setProperty('--vt-y', `${y}px`);
+        root.style.setProperty('--vt-r', `${Math.ceil(radius)}px`);
+        root.classList.add('vt-theme');
+        const vt = document.startViewTransition(fn);
+        // A second click mid-reveal skips the first transition; that's fine.
+        vt.ready.catch(() => {});
+        vt.finished.catch(() => {}).finally(() => root.classList.remove('vt-theme'));
+    }
+
+    window.cycleTheme = (e) => {
         const next = ORDER[(ORDER.indexOf(pref()) + 1) % ORDER.length];
-        apply(next, { announce: true });
+        const origin = e && e.currentTarget && e.currentTarget.nodeType === 1 ? e.currentTarget : null;
+        // Only a real theme change gets the reveal; System→Light on a light
+        // OS changes nothing visible, so it just morphs the icon.
+        if (resolve(next) !== resolve(pref())) transition(() => apply(next, { announce: true, morph: true }), origin);
+        else apply(next, { announce: true, morph: true });
     };
 
     window.setTheme = (p) => apply(ORDER.includes(p) ? p : 'system', { announce: true });

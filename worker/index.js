@@ -16,12 +16,19 @@
      /api/now           the Now page (PUT is admin only)
      /api/ai            writing help from Claude / Gemini / ChatGPT (admin only)
      /api/ai/config     which AI providers are configured (admin only)
+     /api/ingest        paste links → a complete project draft (admin, NDJSON)
+     /api/discover      GitHub repos not yet on the site (admin)
+     /api/meta          living metrics per project; /api/meta/refresh (admin)
+     /api/shot          a screenshot of a project's live site
+     /api/activity      latest public GitHub activity
+     /api/contributions the year's contribution calendar (needs GITHUB_TOKEN)
 
    All data lives in Firestore (see worker/firestore.js); the Cache API is
    used only as a cache.
    =========================================================================== */
 
 import share from '../api/share.js';
+import { fetchProjects } from '../api/_project.js';
 import sitemap from '../api/sitemap.js';
 import { withHeaders, fail, HttpError } from './http.js';
 import { FirestoreError } from './firestore.js';
@@ -31,8 +38,36 @@ import { handleReactions } from './reactions.js';
 import { handleNow } from './now.js';
 import { handleRss, handleJsonFeed } from './feeds.js';
 import { handleAi, handleAiConfig } from './ai.js';
+import { handleIngest } from './ingest.js';
+import { handleMeta, handleMetaRefresh } from './meta.js';
+import { handleShot } from './shot.js';
+import { handleDiscover } from './discover.js';
+import { handleActivity, handleContributions } from './activity.js';
 
 const CANONICAL_HOST = 'www.arnavdugad.in';
+
+/* The whole project list for visitors. Served from the Worker so a page view
+   costs Firestore nothing: fetchProjects() keeps a minute of isolate memory
+   plus a last-good copy that survives quota outages. Admins still get a
+   realtime Firestore subscription in the browser. */
+async function handleProjects(req, env) {
+    let projects;
+    try {
+        projects = await fetchProjects();
+    } catch (e) {
+        // No live data and no cached copy in this data centre: fall back to
+        // the snapshot committed with the site.
+        const snap = await env.ASSETS.fetch(new Request(new URL('/data/projects-snapshot.json', req.url)));
+        if (!snap.ok) throw e;
+        projects = (await snap.json()).projects || [];
+    }
+    return new Response(JSON.stringify({ projects }), {
+        headers: {
+            'content-type': 'application/json; charset=utf-8',
+            'cache-control': 'public, max-age=30, stale-while-revalidate=300'
+        }
+    });
+}
 
 async function route(req, env, ctx) {
     const url = new URL(req.url);
@@ -52,6 +87,14 @@ async function route(req, env, ctx) {
     if (pathname === '/api/now') return handleNow(req, env);
     if (pathname === '/api/ai') return handleAi(req, env);
     if (pathname === '/api/ai/config') return handleAiConfig(req, env);
+    if (pathname === '/api/ingest') return handleIngest(req, env, ctx);
+    if (pathname === '/api/discover') return handleDiscover(req, env);
+    if (pathname === '/api/projects') return handleProjects(req, env);
+    if (pathname === '/api/meta') return handleMeta(req, env, ctx);
+    if (pathname === '/api/meta/refresh') return handleMetaRefresh(req, env);
+    if (pathname === '/api/shot') return handleShot(req, env, ctx);
+    if (pathname === '/api/activity') return handleActivity(req, env, ctx);
+    if (pathname === '/api/contributions') return handleContributions(req, env, ctx);
 
     if (pathname.startsWith('/p/')) return share(req);
     if (pathname === '/sitemap.xml') return sitemap(req);

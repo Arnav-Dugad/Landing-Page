@@ -8,6 +8,10 @@
      · CATEGORY_GROUPS       the category taxonomy and its human labels
      · EDGE / edgeFetch()    the Cloudflare (or Vercel) API, when present
      · applyProjectTheme()   re-tints the whole page in one project's colour
+     · PLATFORMS             web / windows / android / ios / … and their frames
+     · platformsOf()         a project's platforms (old records: link ⇒ web)
+     · visitorPlatform()     the visitor's own OS — picks the leading download
+     · formatCount/Bytes()   1.2k downloads, 24 MB
      · HANDOFF_KEY()         index → case-study instant-render handoff
 
    No DOM work and no data loading happens here, so it is safe to run
@@ -105,7 +109,7 @@
     const host = location.hostname.toLowerCase();
     window.EDGE = /(^|\.)arnavdugad\.in$/.test(host)
         || /\.(workers\.dev|vercel\.app)$/.test(host)
-        || (/^(localhost|127\.0\.0\.1)$/.test(host) && /^(8787|8788)$/.test(location.port));
+        || (/^(localhost|127\.0\.0\.1)$/.test(host) && /^(878[7-9])$/.test(location.port));
 
     window.edgeFetch = async (path, { method = 'GET', body, token } = {}) => {
         if (!window.EDGE) throw new Error('The site API is not available on this host');
@@ -189,6 +193,61 @@
         paintTone();
         window.dispatchEvent(new CustomEvent('accentchange', { detail: { tone: activeTone } }));
     });
+
+    /* -------- Platforms -------------------------------------------------------
+       What a project runs on. Ordered by how a visitor would scan them; `icon`
+       is a js/icons.js key and `frame` is the device frame it is shown in. */
+    window.PLATFORMS = {
+        web:       { label: 'Web',               short: 'Web',       icon: 'globe',    frame: 'web',     noun: 'Websites' },
+        windows:   { label: 'Windows',           short: 'Windows',   icon: 'windows',  frame: 'windows', noun: 'Windows apps' },
+        android:   { label: 'Android',           short: 'Android',   icon: 'android',  frame: 'phone',   noun: 'Android apps' },
+        ios:       { label: 'iOS',               short: 'iOS',       icon: 'apple',    frame: 'phone',   noun: 'iPhone apps' },
+        macos:     { label: 'macOS',             short: 'Mac',       icon: 'apple',    frame: 'web',     noun: 'Mac apps' },
+        linux:     { label: 'Linux',             short: 'Linux',     icon: 'linux',    frame: 'windows', noun: 'Linux apps' },
+        extension: { label: 'Browser extension', short: 'Extension', icon: 'chrome',   frame: 'web',     noun: 'Extensions' },
+        cli:       { label: 'Command line',      short: 'CLI',       icon: 'terminal', frame: 'windows', noun: 'CLI tools' }
+    };
+
+    /* A project's platforms, cleaned to known keys. Older records predate the
+       field, so a live link alone means "web". */
+    window.platformsOf = (p) => {
+        if (!p) return [];
+        const list = (Array.isArray(p.platforms) ? p.platforms : [])
+            .map((k) => String(k || '').toLowerCase().trim())
+            .filter((k, i, a) => window.PLATFORMS[k] && a.indexOf(k) === i);
+        if (list.length) return list;
+        return window.safeUrl(p.link) ? ['web'] : [];
+    };
+
+    /* The visitor's own OS — decides which download button leads. Client hints
+       first (exact, no UA parsing), then a conservative UA sniff. */
+    window.visitorPlatform = () => {
+        try {
+            const hint = navigator.userAgentData && navigator.userAgentData.platform;
+            const ua = `${hint || ''} ${navigator.userAgent || ''}`.toLowerCase();
+            if (/android/.test(ua)) return 'android';
+            if (/iphone|ipad|ipod/.test(ua) || (/macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios';
+            if (/windows|win32|win64/.test(ua)) return 'windows';
+            if (/mac ?os|macintosh/.test(ua)) return 'macos';
+            if (/linux|x11|cros/.test(ua)) return 'linux';
+        } catch { /* fall through */ }
+        return 'other';
+    };
+
+    /* -------- Number formatting ---------------------------------------------- */
+    window.formatCount = (n) => {
+        const v = Number(n) || 0;
+        if (v < 1000) return String(Math.round(v));
+        if (v < 1e6) return `${(v / 1e3).toFixed(v < 1e4 ? 1 : 0).replace(/\.0$/, '')}k`;
+        return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M`;
+    };
+    window.formatBytes = (n) => {
+        const v = Number(n) || 0;
+        if (!v) return '';
+        if (v < 1024 * 1024) return `${Math.max(1, Math.round(v / 1024))} KB`;
+        if (v < 1024 ** 3) return `${(v / 1024 / 1024).toFixed(v < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+        return `${(v / 1024 ** 3).toFixed(1)} GB`;
+    };
 
     /* -------- Case-study handoff --------------------------------------------
        The index stashes the clicked project here before navigating, so the

@@ -436,5 +436,16 @@
         window.toast('Screenshots described', 'success');
     }));
 
-    window.Ai = { call, loadConfig };
+    /* The importer shares this choice — one provider picker, remembered once. */
+    const getProvider = () => provider;
+    const setProvider = (key) => {
+        if (!PROVIDERS.some((p) => p.key === key)) return;
+        provider = key;
+        store.set('ai:provider', provider);
+        paintProviders();
+    };
+    const modelFor = (key) => models[key] || '';
+    const getConfig = () => config;
+
+    window.Ai = { call, loadConfig, getProvider, setProvider, modelFor, getConfig, PROVIDERS };
 })();

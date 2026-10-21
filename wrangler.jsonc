@@ -19,11 +19,19 @@
     // Public, non-secret settings. Secrets (never in this file):
     //   EDGE_EMAIL, EDGE_PASSWORD     the worker's own Firebase account
     //   ANTHROPIC_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY   admin AI tools
-    //   VOTER_SALT (optional), GITHUB_TOKEN (optional, raises README rate limits)
+    //   VOTER_SALT (optional)
+    //   GITHUB_TOKEN (fine-grained, public read-only — 5,000 GitHub requests
+    //                 an hour instead of 60, and the contribution calendar)
+    //   PSI_API_KEY  (optional Google API key for PageSpeed Insights quota)
     // Set with `npx wrangler secret put NAME`, or locally in .dev.vars.
     "vars": {
-        "ADMIN_EMAIL": "arnavrival12@gmail.com"
+        "ADMIN_EMAIL": "arnavrival12@gmail.com",
+        "GITHUB_USER": "Arnav-Dugad"
     },
+
+    // Cloudflare Browser Rendering — headless Chrome for /api/shot. The
+    // captures themselves are stored in Firestore, not on Cloudflare.
+    "browser": { "binding": "BROWSER" },
 
     // No cron: the account's 5 free cron slots are used by other Workers.
     // /api/status re-checks on demand whenever the stored result is older

@@ -63,19 +63,22 @@
                 </div>`).join('')
             : '<p class="cv-muted">No tagged projects yet.</p>';
 
+        const reach = (p) => (window.platformsOf ? window.platformsOf(p).filter((k) => k !== 'web').length : 0);
         const picked = projects.slice().sort((a, b) =>
-            (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+            (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || reach(b) - reach(a) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
 
         projectsBox.innerHTML = picked.length ? picked.map((p) => {
             const link = window.safeUrl(p.link);
             const tags = (p.tags || []).filter(Boolean).slice(0, 6);
+            // "Windows · Android" says more on a CV than a category slug does.
+            const plats = window.platformsOf ? window.platformsOf(p).map((k) => window.PLATFORMS[k].label) : [];
             return `
                 <section class="cv-project">
                     <header>
                         <h3>${esc(p.title)}</h3>
-                        <span>${[window.categoryLabel(p.category), p.year].filter(Boolean).map(esc).join(' · ')}</span>
+                        <span>${[plats.join(' · ') || window.categoryLabel(p.category), p.year].filter(Boolean).map(esc).join(' · ')}</span>
                     </header>
-                    <p>${esc(p.desc)}</p>
+                    <p>${esc(p.tagline || p.desc)}</p>
                     <footer>
                         ${tags.length ? `<span class="cv-tags">${tags.map(esc).join(' · ')}</span>` : ''}
                         ${link ? `<a href="${esc(link)}">${esc(hostOf(link))}</a>` : ''}

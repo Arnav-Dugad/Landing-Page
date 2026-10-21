@@ -62,6 +62,27 @@ async function loadFont(family, weight) {
     }
 }
 
+/* A project's real app icon as a data URL, so the card can show it in the
+   plaque. PNG/JPEG only (what Satori decodes); anything else, or any
+   failure, falls back to the lettered plaque. */
+async function loadIcon(url) {
+    try {
+        const u = new URL(String(url || ''));
+        if (u.protocol !== 'https:') return null;
+        const res = await fetch(u.href, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) return null;
+        const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+        if (type !== 'image/png' && type !== 'image/jpeg') return null;
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (buf.byteLength > 600_000) return null;
+        let bin = '';
+        for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+        return `data:${type};base64,${btoa(bin)}`;
+    } catch {
+        return null;
+    }
+}
+
 /* Everything an ImageResponse needs, minus the ImageResponse itself, so the
    Vercel and Cloudflare entry points can each use their own renderer.
    A caller that already holds the project (the worker does, to version its
@@ -82,16 +103,17 @@ export async function buildCard(req, opts = {}) {
     }
 
     const title = project?.title || 'Arnav Dugad';
-    const desc = project?.desc || 'Interactive web experiences, games and tools.';
+    const desc = project?.tagline || project?.desc || 'Interactive web experiences, games and tools.';
     const category = (project?.category || 'portfolio').toUpperCase();
     const year = project?.year || '';
     const tags = (project?.tags || []).filter(Boolean).slice(0, 4);
     const [toneA, toneB] = toneOf(project?.color, theme);
     const initial = String(title).trim().charAt(0).toUpperCase() || 'A';
 
-    const [display, body] = await Promise.all([
+    const [display, body, iconSrc] = await Promise.all([
         loadFont('Fraunces:opsz,wght@9..144,600', 600),
-        loadFont('Inter+Tight:wght@500', 500)
+        loadFont('Inter+Tight:wght@500', 500),
+        project?.appIcon ? loadIcon(project.appIcon) : Promise.resolve(null)
     ]);
     const fonts = [display, body].filter(Boolean);
 
@@ -121,19 +143,24 @@ export async function buildCard(req, opts = {}) {
             { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
             div(
                 { display: 'flex', alignItems: 'center' },
-                div(
-                    {
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: '86px', height: '86px',
-                        borderRadius: '24px',
-                        background: `linear-gradient(140deg, ${toneA}, ${toneB})`,
-                        color: PLAQUE_INK,
-                        fontSize: '44px',
-                        fontFamily: displayFamily,
-                        marginRight: '26px'
-                    },
-                    initial
-                ),
+                iconSrc
+                    ? h('img', {
+                        src: iconSrc, width: 86, height: 86,
+                        style: { width: '86px', height: '86px', borderRadius: '22px', marginRight: '26px', objectFit: 'cover' }
+                    })
+                    : div(
+                        {
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: '86px', height: '86px',
+                            borderRadius: '24px',
+                            background: `linear-gradient(140deg, ${toneA}, ${toneB})`,
+                            color: PLAQUE_INK,
+                            fontSize: '44px',
+                            fontFamily: displayFamily,
+                            marginRight: '26px'
+                        },
+                        initial
+                    ),
                 div(
                     { display: 'flex', flexDirection: 'column' },
                     text({ fontSize: '22px', color: INK_35, letterSpacing: '0.16em' }, category),

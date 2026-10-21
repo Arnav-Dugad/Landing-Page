@@ -133,6 +133,24 @@
 }
 .case-media iframe, .case-media img { width: 100%; height: 100%; border: 0; object-fit: cover; }
 
+/* With a device frame inside, the media box becomes a toned stage. */
+.case-media:has(.dframe) {
+    aspect-ratio: auto;
+    padding: clamp(22px, 5vw, 64px) clamp(18px, 6vw, 84px);
+    background:
+        radial-gradient(80% 90% at 80% 0%, color-mix(in srgb, var(--tone-b) 26%, transparent), transparent 62%),
+        linear-gradient(170deg, var(--tone-t), var(--paper-sunk));
+}
+.case-media:has(.dframe) .case-zoom { height: auto; }
+.case-media .case-phones { padding: 0; }
+.case-media .case-phones .case-zoom { width: min(28%, 220px); flex: none; }
+.case-media .case-phones .case-zoom .dframe--phone { width: 100%; }
+.case-media .case-phones[data-count="3"] .case-zoom:nth-child(1) { transform: translateY(16px) rotate(-4deg); }
+.case-media .case-phones[data-count="3"] .case-zoom:nth-child(2) { transform: translateY(-8px); z-index: 1; }
+.case-media .case-phones[data-count="3"] .case-zoom:nth-child(3) { transform: translateY(16px) rotate(4deg); }
+.case-media .case-phones .dframe--phone { transform: none !important; }
+.case-mast .case-plaque .appicon { --ai: 52px; }
+
 .case-zoom {
     display: block; width: 100%; height: 100%;
     padding: 0;

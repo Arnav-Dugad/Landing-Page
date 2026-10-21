@@ -204,12 +204,31 @@
 
         const quote = hasAuthoredQuote(project) ? '' : autoQuote(project);
 
-        const media = shots.length
-            ? `<button type="button" class="case-zoom" data-zoom="0" aria-label="Enlarge: ${esc(shots[0].alt)}">
-                   <img src="${esc(shots[0].src)}" alt="${esc(shots[0].alt)}" loading="eager">
-               </button>`
-            : (link ? `<iframe src="${esc(link)}" title="${esc(project.title)} live preview" loading="eager"
-                        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>` : '');
+        /* The hero is the project on its own device: a browser for the web,
+           a window for Windows, a fan of phones for mobile apps. */
+        const W = window.Widgets;
+        const plats = window.platformsOf ? window.platformsOf(project) : [];
+        const kind = W ? W.mediaFor(project).kind : 'web';
+        let media = '';
+        if (W && kind === 'phone' && shots.length) {
+            media = `<div class="dgal-phones case-phones" data-count="${Math.min(3, shots.length)}">${shots.slice(0, 3).map((sh, i) => `
+                <button type="button" class="case-zoom" data-zoom="${i}" aria-label="Enlarge: ${esc(sh.alt)}">
+                    ${W.frameHtml(project, { src: sh.src, alt: sh.alt, eager: true })}
+                </button>`).join('')}</div>`;
+        } else if (W && shots.length) {
+            media = `<button type="button" class="case-zoom" data-zoom="0" aria-label="Enlarge: ${esc(shots[0].alt)}">
+                ${W.frameHtml(project, { src: shots[0].src, alt: shots[0].alt, eager: true })}</button>`;
+        } else if (W && link) {
+            // A screenshot, not an iframe: plenty of sites refuse to be framed
+            // (X-Frame-Options), and a broken frame is worse than a picture.
+            media = W.frameHtml(project, { w: 1400, eager: true });
+        } else if (shots.length) {
+            media = `<button type="button" class="case-zoom" data-zoom="0" aria-label="Enlarge: ${esc(shots[0].alt)}">
+                   <img src="${esc(shots[0].src)}" alt="${esc(shots[0].alt)}" loading="eager"></button>`;
+        }
+        // Phones already show up to three screens up top; the gallery picks up after them.
+        const galleryFrom = kind === 'phone' ? Math.min(3, shots.length) : 1;
+        const primary = W && W.primaryOption ? W.primaryOption(project) : null;
 
         const sections = [
             block('The problem', prose(project.problem)),
@@ -221,11 +240,11 @@
                 </ol>` : ''),
             block('The outcome', prose(project.outcome)),
             project.longDesc && !project.problem ? block('Notes', prose(project.longDesc)) : '',
-            block('Screens', shots.length > 1 ? `
+            block('Screens', shots.length > galleryFrom ? `
                 <div class="case-gallery">
-                    ${shots.slice(1).map((s, i) => `
+                    ${shots.slice(galleryFrom).map((s, i) => `
                         <figure class="case-shot">
-                            <button type="button" class="case-zoom" data-zoom="${i + 1}" aria-label="Enlarge: ${esc(s.alt)}">
+                            <button type="button" class="case-zoom" data-zoom="${i + galleryFrom}" aria-label="Enlarge: ${esc(s.alt)}">
                                 <img src="${esc(s.src)}" alt="${esc(s.alt)}" loading="lazy">
                             </button>
                         </figure>`).join('')}
@@ -243,9 +262,10 @@
             </nav>
 
             <div class="case-mast">
-                <div class="card-plaque case-plaque">${window.icon(project.icon, { size: 24 })}</div>
+                <div class="case-plaque">${W ? W.appIconHtml(project, { size: 52 }) : window.icon(project.icon, { size: 24 })}</div>
                 <div class="case-eyebrow">
                     <span>Case study</span>
+                    ${W && plats.length ? `<span>·</span>${W.platformGlyphs(project, { labels: true, size: 12 })}` : ''}
                     <span>·</span><span>${esc(category)}</span>
                     ${project.year ? `<span>·</span><span>${esc(project.year)}</span>` : ''}
                     ${project.role ? `<span>·</span><span>${esc(project.role)}</span>` : ''}
@@ -257,8 +277,11 @@
             <p class="case-lead">${esc(project.desc)}</p>
 
             <div class="case-actions">
-                ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" class="btn btn--primary magnetic" data-cursor="Visit">
-                    ${window.icon('external', { raw: true, size: 17 })} Visit live</a>` : ''}
+                ${primary && primary.type !== 'web' ? `<a href="${esc(primary.url)}" ${primary.type === 'download' ? 'download' : 'target="_blank" rel="noopener noreferrer"'} class="btn btn--primary magnetic" data-cursor="Get">
+                    ${window.icon(primary.type === 'download' ? 'download' : (primary.icon || 'external'), { raw: true, size: 17 })}
+                    ${esc(primary.type === 'download' ? `Download for ${(window.PLATFORMS[primary.platform] || {}).short || 'your device'}` : `${primary.pre} ${primary.label}`)}</a>` : ''}
+                ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" class="btn ${primary && primary.type !== 'web' ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Visit">
+                    ${window.icon('external', { raw: true, size: 17 })} ${plats.includes('web') || !plats.length ? 'Visit live' : 'Website'}</a>` : ''}
                 ${repo ? `<a href="${esc(repo)}" target="_blank" rel="noopener noreferrer" class="btn btn--ghost magnetic" data-cursor="Code">
                     ${window.icon('github', { raw: true, size: 17 })} View code</a>` : ''}
             </div>
@@ -279,6 +302,7 @@
         <div class="u-shell">
             <div class="case-body">
                 <article class="case-prose" id="caseArticle">
+                    ${W && W.getItHtml ? W.getItHtml(project) : ''}
                     ${sections}
                     <div class="case-extra" id="caseChangelog"></div>
                     ${window.Widgets ? window.Widgets.reactionsHtml(project.slug || slug) : ''}
@@ -314,6 +338,10 @@
                             ${project.role ? `<div><dt>Role</dt><dd>${esc(project.role)}</dd></div>` : ''}
                             ${project.status ? `<div><dt>Status</dt><dd>${esc(project.status === 'wip' ? 'In progress' : project.status.charAt(0).toUpperCase() + project.status.slice(1))}</dd></div>` : ''}
                             <div><dt>Type</dt><dd>${esc(category)}</dd></div>
+                            ${plats.length ? `<div><dt>Runs on</dt><dd>${esc(plats.map((k) => window.PLATFORMS[k].short).join(', '))}</dd></div>` : ''}
+                            <div id="caseVersion" class="u-hidden"><dt>Latest</dt><dd>—</dd></div>
+                            <div id="caseDownloads" class="u-hidden"><dt>Downloads</dt><dd>—</dd></div>
+                            <div id="casePerf" class="u-hidden"><dt>Lighthouse</dt><dd>—</dd></div>
                             <div id="caseStatus" class="u-hidden"><dt>Live check</dt><dd></dd></div>
                             <div id="ghStars" class="u-hidden"><dt>Stars</dt><dd>—</dd></div>
                         </dl>
@@ -333,14 +361,31 @@
         }
         runTickers(root);
 
-        if (repo && window.fetchGitHubStats) {
-            window.fetchGitHubStats(repo).then((s) => {
-                const row = document.getElementById('ghStars');
-                if (!row || !s || !s.stars) return;
-                row.querySelector('dd').textContent = s.stars.toLocaleString();
-                row.classList.remove('u-hidden');
-            });
+        // Live facts: the Worker's meta first, github.js as the fallback.
+        const fillRow = (id, text) => {
+            const row = document.getElementById(id);
+            if (!row || !text) return;
+            row.querySelector('dd').textContent = text;
+            row.classList.remove('u-hidden');
+        };
+        const fillMeta = () => {
+            const M = window.Meta;
+            if (!M) return;
+            const r = M.release(project);
+            if (r) fillRow('caseVersion', `v${r.version}${r.date ? ` · ${W.shortAgo(r.date)}` : ''}`);
+            const d = M.downloads(project);
+            if (d) fillRow('caseDownloads', window.formatCount(d));
+            const ps = M.psi(project);
+            if (ps && Number.isFinite(ps.performance)) fillRow('casePerf', `${ps.performance} performance`);
+            const st = M.stars(project);
+            if (st) fillRow('ghStars', st.toLocaleString());
+        };
+        if (window.Meta) window.Meta.load().then(fillMeta);
+        if (repo && !(window.Meta && window.EDGE) && window.fetchGitHubStats) {
+            window.fetchGitHubStats(repo).then((gs) => { if (gs && gs.stars) fillRow('ghStars', gs.stars.toLocaleString()); });
         }
+        const getit = root.querySelector('.getit');
+        if (getit) requestAnimationFrame(() => getit.classList.add('is-in'));
 
         if (window.Widgets) {
             window.Widgets.mountChangelog(document.getElementById('caseChangelog'), repo);

@@ -4,34 +4,34 @@
 
      · renderProjects() the work area — skeleton → empty → grid / list /
                         index / timeline (the last two live in js/views.js)
-     · filters/sort     derived from the data, never hardcoded
+     · filters/sort     category, platform, search — all derived from data
      · search           every word must match somewhere, including the
                         AI-written search terms, so "multiplayer" finds work
                         whose title never says it
-     · stats + stack    both computed from the real projects
-     · live status      server-checked up/down chips on every card
-     · detail sheet     live preview, GitHub stats, changelog, reactions,
-                        related projects, per-project theming
+     · cards v2         media-first: each project on the device it runs on
+     · hero figures     projects, platforms, downloads, stars, Lighthouse
+     · stack band       the real tech list, ranked by use
+     · live metrics     window.Meta (the Worker) first, github.js as fallback
+     · detail sheet     device gallery, "Get it" install panel with QR,
+                        Lighthouse rings, a year of commits, changelog,
+                        reactions, related projects, per-project theming
      · deep links       #project-slug opens the matching project
 
-   Shared helpers (esc, safeUrl, toneVars, projectSlug, categoryLabel, EDGE)
-   live in js/core.js so the standalone pages use the very same code.
-
-   No Firestore access happens here; it reads whatever window.getProjects()
-   hands over. That separation is what lets the whole UI be swapped without
-   touching the data layer.
+   Shared helpers live in js/core.js and the reusable pieces (frames, rings,
+   install panel) in js/widgets.js, so the case-study page uses the same code.
+   No Firestore access happens here; it reads window.getProjects().
    =========================================================================== */
 
 (() => {
     const grid = document.getElementById('grid');
     const filterBox = document.getElementById('filters');
-    const statsBox = document.getElementById('stats');
     const stackBox = document.getElementById('stackGrid');
     const countEl = document.getElementById('resultCount');
 
     const esc = window.esc;
     const categoryLabel = window.categoryLabel;
     const W = () => window.Widgets || null;
+    const M = () => window.Meta || null;
 
     const starById = {};
     const langById = {};
@@ -47,6 +47,7 @@
     const storedView = (() => { try { return localStorage.getItem('view'); } catch { return null; } })();
     const state = window.PState = {
         filter: params.get('cat') || 'all',
+        platform: (window.PLATFORMS && window.PLATFORMS[params.get('on')]) ? params.get('on') : 'all',
         search: params.get('q') || '',
         sort: params.get('sort') || 'newest',
         view: VIEWS.includes(params.get('view')) ? params.get('view')
@@ -56,10 +57,11 @@
 
     /* Mirror the query back into the URL, omitting anything at its default so
        the common case stays a clean link. The hash (an open project) is left
-       untouched — the two coexist as `/?cat=game#some-project`. */
+       untouched — the two coexist as `/?on=android#some-project`. */
     function syncUrl() {
         const next = new URLSearchParams();
         if (state.search.trim()) next.set('q', state.search.trim());
+        if (state.platform !== 'all') next.set('on', state.platform);
         if (state.filter !== 'all') next.set('cat', state.filter);
         if (state.sort !== 'newest') next.set('sort', state.sort);
         if (state.view !== 'grid') next.set('view', state.view);
@@ -102,26 +104,36 @@
         } catch { return ''; }
     }
 
+    /* Stars from the Worker's meta, else whatever github.js found. */
+    const starsOf = (p) => {
+        const s = M() ? M().stars(p) : null;
+        return s !== null && s !== undefined ? s : (starById[p.id] ?? null);
+    };
+
     /* =====================================================================
-       Query pipeline: filter → search → sort
+       Query pipeline: platform → category → search → sort
        ===================================================================== */
 
     /* Everything a visitor might type to find a project. searchTerms are
        written by the admin AI tools — synonyms and concepts that aren't in
        the copy itself, which is what makes search feel semantic without a
-       model running on every keystroke. */
+       model running on every keystroke. Platform names count too, so
+       "android" or "windows" works from the search box. */
     const haystack = (p) => [
-        p.title, p.desc, p.longDesc, p.role, p.year, categoryLabel(p.category),
+        p.title, p.tagline, p.desc, p.longDesc, p.role, p.year, categoryLabel(p.category),
+        ...window.platformsOf(p).map((k) => `${window.PLATFORMS[k].label} ${window.PLATFORMS[k].noun}`),
         ...(p.tags || []), ...(p.searchTerms || []), ...(p.highlights || [])
     ].filter(Boolean).join(' ').toLowerCase();
 
-    function matches(p, { filter = state.filter, search = state.search } = {}) {
+    function matches(p, { filter = state.filter, search = state.search, platform = state.platform } = {}) {
+        if (platform !== 'all' && !window.platformsOf(p).includes(platform)) return false;
         if (filter !== 'all' && (p.category || 'other') !== filter) return false;
         const words = String(search).toLowerCase().trim().split(/\s+/).filter(Boolean);
         if (!words.length) return true;
         const hay = haystack(p);
         return words.every((w) => hay.includes(w));
     }
+    window.projectMatches = matches;
 
     function visibleProjects() {
         const list = projects().filter((p) => matches(p));
@@ -134,7 +146,7 @@
                     return (b.createdAt || 0) - (a.createdAt || 0);
                 }
                 case 'az':     return String(a.title || '').localeCompare(String(b.title || ''));
-                case 'stars':  return (starById[b.id] ?? -1) - (starById[a.id] ?? -1);
+                case 'stars':  return (starsOf(b) ?? -1) - (starsOf(a) ?? -1);
                 case 'oldest': return (a.createdAt || 0) - (b.createdAt || 0);
                 case 'order':  return (a.order ?? 9999) - (b.order ?? 9999);
                 default:       return (b.createdAt || 0) - (a.createdAt || 0);
@@ -146,18 +158,19 @@
     window.visibleProjects = visibleProjects;
 
     /* =====================================================================
-       Card
-       ===================================================================== */
+       Card v2 — media first: the project on the device it runs on, then
+       identity, then the facts (stars, downloads, speed, version).
 
-    /* The card uses the "primary link" pattern: the title is the only real
+       The card keeps the "primary link" pattern: the title is the only real
        control for opening the project, and it stretches an invisible overlay
        across the whole card. Everything else (Visit, Code, admin) sits above
-       that overlay. This keeps one accessible name per action and avoids
-       nesting interactive elements inside a role="button" container. */
+       that overlay, so there is one accessible name per action.
+       ===================================================================== */
+
     function cardHtml(p, index) {
         const id = esc(p.id);
         const tags = (p.tags || []).filter(Boolean);
-        const shown = tags.slice(0, 4);
+        const shown = tags.slice(0, 3);
         const overflow = tags.length - shown.length;
         const picked = state.compare.includes(String(p.id));
 
@@ -180,29 +193,43 @@
         const title = esc(p.title);
         const preview = window.safeUrl(p.previewVideo);
         const slug = window.projectSlug(p);
+        const w = W();
+        const plats = window.platformsOf(p);
+        const kind = w ? (window.PLATFORMS[plats[0]] || window.PLATFORMS.web).frame : 'web';
+        const firstDl = (Array.isArray(p.downloads) ? p.downloads : []).find((d) => window.safeUrl(d && d.url));
 
         return `
-        <article class="card ${picked ? 'is-picked' : ''}" data-tilt
+        <article class="card card--v2 card--${kind}" data-tilt
                  data-id="${id}"
                  data-category="${esc(p.category || 'other')}"
+                 data-platforms="${esc(plats.join(' '))}"
                  ${repo ? `data-repo="${esc(repo)}"` : ''}
                  ${preview ? `data-preview="${esc(preview)}"` : ''}
                  data-reveal="card" style="${window.toneVars(p.color)}--delay:${Math.min(index, 9) * 55}ms">
             <i class="card-ink" aria-hidden="true"></i>
             ${admin}${star}
 
-            <div class="card-plaque">${window.icon(p.icon, { size: 24 })}</div>
+            <div class="card-media" aria-hidden="true">
+                <div class="card-stage">${w ? w.frameHtml(p, { w: 720 }) : ''}</div>
+            </div>
 
             <div class="card-body">
                 <div class="card-head">
-                    <h3 class="card-title"><button type="button" class="card-open" data-open="${id}" data-cursor="Open">${title}</button></h3>
-                    ${window.statusBadge(p.status)}
-                    <span class="card-live" data-status-slot></span>
+                    ${w ? w.appIconHtml(p, { size: 36, cls: 'card-icon' }) : ''}
+                    <div class="card-names">
+                        <h3 class="card-title"><button type="button" class="card-open" data-open="${id}" data-cursor="Open">${title}</button></h3>
+                        <div class="card-sub">
+                            ${w ? w.platformGlyphs(p, { size: 13 }) : ''}
+                            ${window.statusBadge(p.status)}
+                            <span class="card-live" data-status-slot></span>
+                        </div>
+                    </div>
                 </div>
-                <p class="card-desc u-clamp-2">${esc(p.desc)}</p>
+                <p class="card-desc u-clamp-2">${esc(p.tagline || p.desc)}</p>
+                <div class="card-metrics" data-metrics-slot>${w ? w.metricsHtml(p, { compact: true }) : ''}</div>
                 ${shown.length ? `<div class="card-tags">
                     ${shown.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}
-                    ${overflow > 0 ? `<span class="tag" title="${esc(tags.slice(4).join(', '))}">+${overflow}</span>` : ''}
+                    ${overflow > 0 ? `<span class="tag" title="${esc(tags.slice(3).join(', '))}">+${overflow}</span>` : ''}
                 </div>` : ''}
             </div>
 
@@ -212,9 +239,12 @@
             </div>
 
             <div class="card-actions">
-                ${link ? `<a class="card-act card-act--go" href="${esc(link)}" target="_blank" rel="noopener noreferrer"
+                ${firstDl ? `<a class="card-act card-act--go" href="${esc(window.safeUrl(firstDl.url))}" download
+                    data-cursor="Get" aria-label="Download ${title} for ${esc((window.PLATFORMS[firstDl.platform] || {}).label || 'your device')}">
+                    ${window.icon('download', { raw: true, size: 14 })}<span>Get</span></a>`
+                : (link ? `<a class="card-act card-act--go" href="${esc(link)}" target="_blank" rel="noopener noreferrer"
                     data-cursor="Visit" aria-label="Visit ${title} live">
-                    ${window.icon('external', { raw: true, size: 14 })}<span>Visit</span></a>` : ''}
+                    ${window.icon('external', { raw: true, size: 14 })}<span>Visit</span></a>` : '')}
                 ${repo ? `<a class="card-act" href="${esc(repo)}" target="_blank" rel="noopener noreferrer"
                     data-cursor="Code" aria-label="View the code for ${title}">
                     ${window.icon('github', { raw: true, size: 14 })}<span>Code</span></a>` : ''}
@@ -247,11 +277,16 @@
 
         const hasSearch = !!state.search.trim();
         const hasFilter = state.filter !== 'all';
+        const hasPlatform = state.platform !== 'all';
         const offers = [];
 
+        if (hasPlatform) {
+            const n = all.filter((p) => matches(p, { platform: 'all' })).length;
+            if (n) offers.push({ act: 'all-platforms', label: 'Every platform', n });
+        }
         if (hasSearch && hasFilter) {
             const n = all.filter((p) => matches(p, { filter: 'all' })).length;
-            if (n) offers.push({ act: 'all-cats', label: `Search every category`, n });
+            if (n) offers.push({ act: 'all-cats', label: 'Search every category', n });
         }
         if (hasSearch) {
             const n = all.filter((p) => matches(p, { search: '' })).length;
@@ -267,18 +302,19 @@
                 });
             }
         } else if (hasFilter) {
-            offers.push({ act: 'all-cats', label: 'Show every category', n: all.length });
+            offers.push({ act: 'all-cats', label: 'Show every category', n: all.filter((p) => matches(p, { filter: 'all' })).length });
         }
 
         // Popular tech as a gentle nudge.
         const tally = {};
         all.forEach((p) => (p.tags || []).forEach((t) => { tally[t] = (tally[t] || 0) + 1; }));
         const ideas = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
+        const where = hasPlatform ? ` for ${window.PLATFORMS[state.platform].label}` : '';
 
         return `
             <div class="empty">
                 ${emptyArt()}
-                <h3>Nothing matches ${hasSearch ? `“${esc(state.search.trim())}”` : 'that'}</h3>
+                <h3>Nothing matches ${hasSearch ? `“${esc(state.search.trim())}”` : 'that'}${esc(where)}</h3>
                 <p>${offers.length ? 'Closest ways back:' : 'Try a different word, or start over.'}</p>
                 ${offers.length ? `<div class="empty-offers">${offers.slice(0, 4).map((o) => `
                     <button type="button" class="chip" data-empty-act="${o.act}" ${o.value ? `data-value="${esc(o.value)}"` : ''}>
@@ -306,8 +342,9 @@
         const act = btn.dataset.emptyAct;
         const searchEl = document.getElementById('search');
         if (act === 'all-cats') state.filter = 'all';
+        if (act === 'all-platforms') state.platform = 'all';
         if (act === 'clear-search' || act === 'reset') { state.search = ''; if (searchEl) searchEl.value = ''; }
-        if (act === 'reset') state.filter = 'all';
+        if (act === 'reset') { state.filter = 'all'; state.platform = 'all'; }
         if (act === 'search') { state.search = btn.dataset.value || ''; if (searchEl) searchEl.value = state.search; }
         render();
     }
@@ -334,9 +371,10 @@
 
         if (countEl) {
             const total = projects().length;
+            const where = state.platform !== 'all' ? ` · ${window.PLATFORMS[state.platform].noun.toLowerCase()}` : '';
             countEl.textContent = list.length === total
                 ? `${total} project${total === 1 ? '' : 's'}`
-                : `${list.length} of ${total}`;
+                : `${list.length} of ${total}${where}`;
         }
 
         if (window.Motion) {
@@ -365,7 +403,7 @@
        rearranging rather than the grid blinking. */
     function render() {
         if (!loaded()) {
-            grid.innerHTML = Array.from({ length: 8 }, () => '<div class="skeleton"></div>').join('');
+            grid.innerHTML = Array.from({ length: 6 }, () => '<div class="skeleton skeleton--v2"><i></i><b></b><b></b></div>').join('');
             return;
         }
         renderFilters();
@@ -378,6 +416,7 @@
 
         if (movePill) movePill();
         if (window.Views) window.Views.syncCompare();
+        if (window.Showcase) window.Showcase.sync();
 
         if (!deepLinkDone) {
             deepLinkDone = true;
@@ -388,7 +427,8 @@
     window.renderProjects = render;
 
     /* =====================================================================
-       Filters — derived from the categories actually in use
+       Filters — derived from the categories actually in use (within the
+       chosen platform, so the counts are always honest)
        ===================================================================== */
 
     /* The travelling indicator behind the active filter chip, created lazily
@@ -398,10 +438,13 @@
     function renderFilters() {
         if (!filterBox) return;
         const counts = {};
-        projects().forEach((p) => {
+        const pool = projects().filter((p) => matches(p, { filter: 'all', search: '' }));
+        pool.forEach((p) => {
             const c = p.category || 'other';
             counts[c] = (counts[c] || 0) + 1;
         });
+        // A category that vanished under the platform filter can't stay selected.
+        if (state.filter !== 'all' && !counts[state.filter]) state.filter = 'all';
         const cats = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
 
         const chip = (key, label, count) =>
@@ -409,7 +452,7 @@
                 ${esc(label)}<b>${count}</b>
             </button>`;
 
-        filterBox.innerHTML = chip('all', 'All', projects().length)
+        filterBox.innerHTML = chip('all', 'All', pool.length)
             + cats.map((c) => chip(c, categoryLabel(c), counts[c])).join('');
 
         // Re-created markup means the pill's element is gone; rebuild it.
@@ -426,11 +469,15 @@
     }
 
     window.setFilter = (cat) => { state.filter = cat; render(); };
+    window.setPlatform = (key) => {
+        state.platform = (key && window.PLATFORMS[key]) ? key : 'all';
+        render();
+    };
     window.setSort = async (mode) => {
         state.sort = mode;
         const sel = document.getElementById('sortSelect');
         if (sel && sel.value !== mode) sel.value = mode;
-        if (mode === 'stars') await hydrateAllStats();
+        if (mode === 'stars' && !(window.EDGE && M() && M().isReady())) await hydrateAllStats();
         render();
     };
     window.setSearch = (text) => { state.search = text; render(); };
@@ -441,7 +488,7 @@
             b.classList.toggle('is-active', b.dataset.view === state.view);
             b.setAttribute('aria-pressed', String(b.dataset.view === state.view));
         });
-        const thumb = document.querySelector('.segment .thumb');
+        const thumb = document.querySelector('.toolbar .segment .thumb');
         if (thumb) thumb.style.transform = `translateX(${at * 36}px)`;
     }
 
@@ -455,48 +502,57 @@
     window.cycleView = () => window.setView(VIEWS[(VIEWS.indexOf(state.view) + 1) % VIEWS.length]);
 
     /* =====================================================================
-       Stats + hero figures
+       Hero figures — each one is a real, checkable number, and a figure we
+       can't vouch for is hidden rather than shown as zero.
        ===================================================================== */
 
     function renderStats() {
         const list = projects();
-        if (!statsBox) return;
-        statsBox.classList.toggle('u-hidden', !list.length);
         if (!list.length) return;
 
-        const stars = Object.values(starById).reduce((a, b) => a + b, 0);
+        const platforms = new Set();
         const techs = new Set();
-        list.forEach((p) => (p.tags || []).forEach((t) => {
-            const s = String(t).trim().toLowerCase();
-            if (s) techs.add(s);
-        }));
-        const cats = new Set(list.map((p) => p.category || 'other')).size;
+        list.forEach((p) => {
+            window.platformsOf(p).forEach((k) => platforms.add(k));
+            (p.tags || []).forEach((t) => { const k = String(t).trim().toLowerCase(); if (k) techs.add(k); });
+        });
+        const t = M() ? M().totals(list) : { stars: null, downloads: 0, perf: null };
+        const stars = t.stars !== null ? t.stars : (Object.keys(starById).length ? Object.values(starById).reduce((a, b) => a + b, 0) : null);
+        const checked = Object.keys(statusById).length;
 
-        // Numbers roll only once they are actually on screen — a counter that
-        // finishes before anyone sees it might as well be static text.
-        const set = (id, val) => {
+        /* In priority order; a figure only earns a place when it says
+           something — "1 platform" or "2 stars" is worse than no figure.
+           At most five, so the strip stays one line on a laptop. */
+        const figures = [
+            ['projects',  'hsProjects',  list.length,              true],
+            ['platforms', 'hsPlatforms', platforms.size,           platforms.size >= 2],
+            ['downloads', 'hsDownloads', t.downloads,              t.downloads >= 10],
+            ['stars',     'hsStars',     stars,                    stars >= 10],
+            ['perf',      'hsPerf',      t.perf,                   t.perf !== null && t.perfCount >= 2],
+            ['live',      'hsLive',      liveCount(list),          checked > 0],
+            ['tech',      'hsTech',      techs.size,               techs.size >= 3]
+        ];
+        let shown = 0;
+        figures.forEach(([cell, id, val, ok]) => {
+            const box = document.querySelector(`[data-hstat="${cell}"]`);
+            const show = ok && shown < 5;
+            if (box) box.classList.toggle('u-hidden', !show);
+            if (!show) return;
+            shown++;
             const el = document.getElementById(id);
             if (!el) return;
             if (window.Motion && window.Motion.tickerInView) window.Motion.tickerInView(el, val);
             else el.textContent = val;
-        };
-        set('statProjects', list.length);
-        set('statStars', stars);
-        set('statTech', techs.size);
-        set('statCats', cats);
-
-        set('figProjects', list.length);
-        set('figTech', techs.size);
-        set('figLive', liveCount(list));
+        });
     }
 
-    /* "Live right now" means exactly that once the server has checked: links
-       that answered. Until then, the projects marked live. */
+    /* "Live right now" counts real answers once the server has checked. */
     function liveCount(list) {
         const checked = list.filter((p) => statusById[p.id]);
         if (!checked.length) return list.filter((p) => p.status === 'live').length;
         return checked.filter((p) => statusById[p.id].up).length;
     }
+    window.liveProjectCount = () => liveCount(projects());
 
     /* =====================================================================
        Stack band — the real tech list, ranked by how often it appears
@@ -557,31 +613,52 @@
     }
 
     /* =====================================================================
-       GitHub hydration
+       Metrics — the Worker's meta when it is there (one cached request for
+       everything); github.js per card only as the off-edge fallback.
        ===================================================================== */
 
+    function paintMetrics(root = grid) {
+        if (!W()) return;
+        root.querySelectorAll('[data-id]').forEach((el) => {
+            const p = projects().find((x) => String(x.id) === el.dataset.id);
+            const slot = el.querySelector('[data-metrics-slot]');
+            if (p && slot) slot.innerHTML = W().metricsHtml(p, { compact: true });
+        });
+    }
+
     async function hydrateCardStats() {
-        const cards = Array.from(grid.querySelectorAll('.card[data-repo]'));
+        const metaReady = M() && M().isReady();
+        if (window.EDGE && metaReady && Object.keys(projects()).length && projects().some((p) => M().get(p.id))) {
+            paintMetrics();
+            renderStats();
+            return;
+        }
+        if (window.EDGE && !metaReady) return;           // metaready will call back
+
+        // Fallback: browser GitHub calls (cached 6h), as before.
+        const cards = Array.from(grid.querySelectorAll('[data-repo]'));
         await Promise.allSettled(cards.map(async (card) => {
             const stats = await window.fetchGitHubStats(card.dataset.repo);
             if (!stats) return;
             const id = card.dataset.id;
             starById[id] = stats.stars;
             if (stats.language) langById[id] = stats.language;
-
-            const slot = card.querySelector('.card-gh');
-            if (!slot) return;
-            const year = slot.textContent.trim();
-            if (stats.stars > 0) {
-                slot.innerHTML = `${year ? `${esc(year)} <s class="card-gh-sep"></s> ` : ''}`
-                    + `${window.icon('star', { raw: true, size: 12 })} ${stats.stars}`;
-            } else if (stats.language) {
-                slot.innerHTML = `<s class="card-gh-lang" style="background:${window.langColor(stats.language)}"></s> ${esc(stats.language)}`;
+            const slot = card.querySelector('[data-metrics-slot]');
+            if (slot && stats.stars > 0 && !slot.querySelector('.mchip')) {
+                slot.innerHTML = `<span class="mchips"><span class="mchip" title="GitHub stars">${window.icon('star', { raw: true, size: 12 })}${window.formatCount(stats.stars)}</span></span>`;
             }
         }));
         renderStats();
         if (window.isAdmin) flagMissingRepos();
     }
+
+    window.addEventListener('metaready', () => {
+        if (!loaded()) return;
+        paintMetrics();
+        renderStats();
+        if (window.Showcase) window.Showcase.sync({ force: true });
+        if (state.sort === 'stars') render();
+    });
 
     async function hydrateAllStats() {
         await Promise.allSettled(projects().map(async (p) => {
@@ -591,7 +668,10 @@
             if (s) { starById[p.id] = s.stars; if (s.language) langById[p.id] = s.language; }
         }));
     }
-    window.projectStars = (id) => starById[id];
+    window.projectStars = (id) => {
+        const p = projects().find((x) => String(x.id) === String(id));
+        return p ? starsOf(p) : starById[id];
+    };
 
     /* Admin only: a repo GitHub positively says is gone gets a visible flag.
        Visitors never see this — it's a to-do, not a disclaimer. */
@@ -635,7 +715,7 @@
     }
 
     /* =====================================================================
-       Detail sheet
+       Detail sheet v2
        ===================================================================== */
 
     const sheet = document.getElementById('detailSheet');
@@ -651,12 +731,17 @@
         const deploy = window.deployInfo ? window.deployInfo(link) : null;
         const slug = window.projectSlug(p);
         const picked = state.compare.includes(String(p.id));
+        const w = W();
+        const plats = window.platformsOf(p);
 
-        const media = embed
+        // The live site runs in the first slide — but only for things that
+        // are web pages. An app's landing page is not the app.
+        const live = embed
             ? `<iframe src="${esc(embed)}" loading="lazy" title="${esc(p.title)} demo"
                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                        allowfullscreen></iframe>`
-            : (link
+            : (link && (plats.includes('web') || !plats.length) && !(statusById[p.id] && !statusById[p.id].up)
+                && !(M() && M().get(p.id) && M().get(p.id).web && M().get(p.id).web.frameable === false)
                 ? `<iframe src="${esc(link)}" loading="lazy" title="${esc(p.title)} live preview"
                            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>`
                 : '');
@@ -664,8 +749,10 @@
         const highlights = Array.isArray(p.highlights) ? p.highlights.filter((h) => String(h).trim()) : [];
         const tags = (p.tags || []).filter(Boolean);
         const status = statusById[p.id];
-
-        const related = W() && W().relatedProjects ? W().relatedProjects(p, projects(), 3) : [];
+        const meta = M() ? M().get(p.id) : null;
+        const related = w && w.relatedProjects ? w.relatedProjects(p, projects(), 3) : [];
+        const rel = M() ? M().release(p) : null;
+        const dl = M() ? M().downloads(p) : 0;
 
         /* The actions live in a sticky header, not at the bottom of the sheet.
            Visiting the project is the single most likely thing anyone wants to
@@ -675,7 +762,7 @@
                 ${p.caseStudy ? `<a href="case.html?p=${encodeURIComponent(slug)}" data-case="${esc(slug)}" class="btn btn--primary magnetic" data-cursor="Read">
                     ${window.icon('doc', { raw: true, size: 17 })} Case study</a>` : ''}
                 ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" class="btn ${p.caseStudy ? 'btn--ghost' : 'btn--primary'} magnetic" data-cursor="Visit">
-                    ${window.icon('external', { raw: true, size: 17 })} Visit live</a>` : ''}
+                    ${window.icon('external', { raw: true, size: 17 })} ${plats.includes('web') || !plats.length ? 'Visit live' : 'Website'}</a>` : ''}
                 ${repo ? `<a href="${esc(repo)}" target="_blank" rel="noopener noreferrer" class="btn btn--ghost magnetic" data-cursor="Code">
                     ${window.icon('github', { raw: true, size: 17 })} View code</a>` : ''}
                 <button class="btn btn--quiet" data-share="${esc(p.id)}">
@@ -686,17 +773,33 @@
                     ${window.icon('pencil', { raw: true, size: 16 })} Edit</button>` : ''}
             </div>`;
 
+        // A row of quick facts — only the ones that are true for this project.
+        const facts = [
+            rel && rel.version ? `<div class="dfact"><b>v${esc(rel.version)}</b><span>${rel.date ? `released ${esc(window.relativeTime(new Date(rel.date).toISOString()))}` : 'latest release'}</span></div>` : '',
+            dl ? `<div class="dfact"><b>${window.formatCount(dl)}</b><span>downloads</span></div>` : '',
+            meta && meta.github && meta.github.stars ? `<div class="dfact"><b>${window.formatCount(meta.github.stars)}</b><span>GitHub stars</span></div>` : '',
+            meta && meta.github && meta.github.pushedAt ? `<div class="dfact"><b>${esc(w.shortAgo(meta.github.pushedAt))}</b><span>last commit</span></div>` : '',
+            meta && meta.store && meta.store.play && meta.store.play.rating ? `<div class="dfact"><b>★ ${Number(meta.store.play.rating).toFixed(1)}</b><span>Google Play</span></div>` : '',
+            meta && meta.store && meta.store.appstore && meta.store.appstore.rating ? `<div class="dfact"><b>★ ${Number(meta.store.appstore.rating).toFixed(1)}</b><span>App Store</span></div>` : '',
+            meta && meta.store && meta.store.microsoft && meta.store.microsoft.rating ? `<div class="dfact"><b>★ ${Number(meta.store.microsoft.rating).toFixed(1)}</b><span>Microsoft Store</span></div>` : '',
+            meta && meta.github && meta.github.license ? `<div class="dfact"><b>${esc(meta.github.license)}</b><span>license</span></div>` : ''
+        ].filter(Boolean);
+
+        const psi = meta && meta.web && meta.web.psi;
+        const weeks = meta && meta.github && meta.github.commitWeeks;
+
         return `
             <header class="detail-top" style="${window.toneVars(p.color)}">
                 <div class="detail-ident">
-                    <div class="card-plaque" data-vt="plaque">${window.icon(p.icon, { size: 24 })}</div>
+                    <div class="detail-icon" data-vt="plaque">${w ? w.appIconHtml(p, { size: 50 }) : ''}</div>
                     <div class="detail-names">
                         <h2 class="detail-title" data-vt="title">${esc(p.title)}</h2>
                         <div class="detail-meta">
+                            ${w ? w.platformGlyphs(p, { labels: true, size: 12 }) : ''}
                             ${p.category ? `<span>${esc(categoryLabel(p.category))}</span>` : ''}
                             ${status && p.status === 'live' ? '' : window.statusBadge(p.status)}
-                            ${status && W() ? W().statusChip(status) : ''}
-                            ${deploy ? `<span>${window.icon(deploy.icon, { raw: true, size: 12 })} ${esc(deploy.name)}</span>` : ''}
+                            ${status && w ? w.statusChip(status) : ''}
+                            ${deploy && (plats.includes('web') || !plats.length) ? `<span>${window.icon(deploy.icon, { raw: true, size: 12 })} ${esc(deploy.name)}</span>` : ''}
                             ${p.year ? `<span>${window.icon('calendar', { raw: true, size: 12 })} ${esc(p.year)}</span>` : ''}
                             ${p.role ? `<span>${window.icon('sparkles', { raw: true, size: 12 })} ${esc(p.role)}</span>` : ''}
                         </div>
@@ -705,16 +808,18 @@
                 ${actions}
             </header>
 
-            <div class="detail-media" style="${window.toneVars(p.color)}">
-                <div class="fallback">
-                    <div class="card-plaque">${window.icon(p.icon, { size: 24 })}</div>
-                    <p>Preview can't be embedded — use <strong>Visit live</strong> above to open it.</p>
-                </div>
-                ${media}
+            <div class="detail-media detail-media--v2" style="${window.toneVars(p.color)}">
+                ${w ? w.galleryHtml(p, { live }) : ''}
             </div>
 
             <div class="sheet-body">
+                ${p.tagline ? `<p class="detail-tagline">${esc(p.tagline)}</p>` : ''}
                 <p class="detail-lead">${esc(p.desc)}</p>
+
+                ${facts.length ? `<div class="dfacts">${facts.join('')}</div>` : ''}
+
+                ${w ? w.getItHtml(p) : ''}
+
                 ${p.longDesc ? `<div class="detail-prose">${esc(p.longDesc)}</div>` : ''}
 
                 ${highlights.length ? `
@@ -723,60 +828,64 @@
                         ${highlights.map((h) => `<li>${window.icon('check', { raw: true, size: 15 })}<span>${esc(h)}</span></li>`).join('')}
                     </ul>` : ''}
 
+                ${psi || (weeks && weeks.some(Boolean)) ? `
+                    <div class="dhealth">
+                        ${psi ? `<div class="dhealth-col"><div class="detail-sub">Lighthouse <span class="getit-count">mobile</span></div>${w.ringsHtml(psi)}</div>` : ''}
+                        ${weeks && weeks.some(Boolean) ? `<div class="dhealth-col"><div class="detail-sub">Activity</div>${w.commitStripHtml(weeks)}</div>` : ''}
+                    </div>` : ''}
+
                 ${tags.length ? `
                     <div class="detail-sub">Built with</div>
                     <div class="detail-tech">
-                        ${tags.map((t) => `<span class="tech tmark-host">${W() && W().techMark ? W().techMark(t, { size: 22 }) : ''}<span>${esc(t)}</span></span>`).join('')}
+                        ${tags.map((t) => `<span class="tech tmark-host">${w && w.techMark ? w.techMark(t, { size: 22 }) : ''}<span>${esc(t)}</span></span>`).join('')}
                     </div>` : ''}
 
                 <div id="ghStats" class="ghstats u-hidden" style="margin-top:24px"></div>
                 <div id="ghLangs"></div>
                 <div id="detailChangelog" class="detail-changelog"></div>
 
-                ${W() && W().reactionsHtml ? W().reactionsHtml(slug) : ''}
+                ${w && w.reactionsHtml ? w.reactionsHtml(slug) : ''}
 
                 ${related.length ? `
                     <div class="detail-related">
                         <div class="detail-sub">More like this</div>
-                        ${W().relatedHtml(related, { link: () => null })}
+                        ${w.relatedHtml(related, { link: () => null })}
                     </div>` : ''}
             </div>`;
     }
 
     function fillDetailAsync(p, id) {
         const repo = window.resolveRepoUrl ? window.resolveRepoUrl(p) : null;
+        if (W() && W().mountGallery) W().mountGallery(body);
 
-        // GitHub stats + language breakdown, async and non-blocking.
-        if (repo && window.fetchGitHubStats) {
-            window.fetchGitHubStats(repo).then((s) => {
-                if (String(currentDetailId) !== String(id) || !s) return;
-                starById[id] = s.stars;
+        // Stars/forks + language breakdown: meta first, github.js fallback.
+        if (repo && M()) {
+            M().github(p).then((g) => {
+                if (String(currentDetailId) !== String(id) || !g) return;
+                starById[id] = g.stars;
                 const row = document.getElementById('ghStats');
-                if (!row) return;
-                row.innerHTML = `
-                    <span class="ghstat">${window.icon('star', { raw: true, size: 13 })} <b data-tick="${s.stars}">0</b> stars</span>
-                    <span class="ghstat">${window.icon('fork', { raw: true, size: 13 })} <b data-tick="${s.forks}">0</b> forks</span>
-                    ${s.updatedAt ? `<span class="ghstat">${window.icon('clock', { raw: true, size: 13 })} updated <b>${window.relativeTime(s.updatedAt)}</b></span>` : ''}`;
-                row.classList.remove('u-hidden');
-                row.querySelectorAll('[data-tick]').forEach((el) => {
-                    const n = Number(el.dataset.tick);
-                    if (window.Motion && window.Motion.tickerInView) window.Motion.tickerInView(el, n, { root: sheet.querySelector('.sheet-panel') });
-                    else el.textContent = n.toLocaleString();
-                });
-            });
-        }
-        if (repo && window.fetchGitHubLanguages) {
-            window.fetchGitHubLanguages(repo).then((langs) => {
-                if (String(currentDetailId) !== String(id) || !langs.length) return;
+                if (row && !body.querySelector('.dfacts')) {
+                    row.innerHTML = `
+                        <span class="ghstat">${window.icon('star', { raw: true, size: 13 })} <b data-tick="${g.stars}">0</b> stars</span>
+                        <span class="ghstat">${window.icon('fork', { raw: true, size: 13 })} <b data-tick="${g.forks}">0</b> forks</span>
+                        ${g.pushedAt ? `<span class="ghstat">${window.icon('clock', { raw: true, size: 13 })} updated <b>${window.relativeTime(new Date(g.pushedAt).toISOString())}</b></span>` : ''}`;
+                    row.classList.remove('u-hidden');
+                    row.querySelectorAll('[data-tick]').forEach((el) => {
+                        const n = Number(el.dataset.tick);
+                        if (window.Motion && window.Motion.tickerInView) window.Motion.tickerInView(el, n, { root: sheet.querySelector('.sheet-panel') });
+                        else el.textContent = n.toLocaleString();
+                    });
+                }
+                const langs = (g.languages || []).slice(0, 6);
                 const box = document.getElementById('ghLangs');
-                if (!box) return;
-                const top = langs.slice(0, 6);
-                box.innerHTML = `
-                    <div class="detail-sub">Language breakdown</div>
-                    <div class="langbar">${top.map((l, i) =>
-                        `<span style="width:${l.pct}%;background:${window.langColor(l.name)};animation-delay:${i * 90}ms"></span>`).join('')}</div>
-                    <div class="langlegend">${top.map((l) =>
-                        `<span><s style="background:${window.langColor(l.name)}"></s>${esc(l.name)} ${l.pct.toFixed(1)}%</span>`).join('')}</div>`;
+                if (box && langs.length) {
+                    box.innerHTML = `
+                        <div class="detail-sub">Language breakdown</div>
+                        <div class="langbar">${langs.map((l, i) =>
+                            `<span style="width:${l.pct}%;background:${window.langColor(l.name)};animation-delay:${i * 90}ms"></span>`).join('')}</div>
+                        <div class="langlegend">${langs.map((l) =>
+                            `<span><s style="background:${window.langColor(l.name)}"></s>${esc(l.name)} ${Number(l.pct).toFixed(1)}%</span>`).join('')}</div>`;
+                }
             });
         }
 
@@ -786,10 +895,21 @@
             else log.classList.add('u-hidden');
         }
         if (W() && W().mountReactions) W().mountReactions(body);
+
+        // Rings and the activity strip draw in once they scroll into view.
+        const panel = sheet.querySelector('.sheet-panel');
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach((e) => {
+                if (!e.isIntersecting) return;
+                e.target.classList.add('is-in');
+                io.unobserve(e.target);
+            });
+        }, { root: panel, threshold: 0.3 });
+        body.querySelectorAll('.rings, .cstrip, .getit').forEach((el) => io.observe(el));
     }
 
     /* Opens a project. When it was opened from a visible card, the card's
-       plaque and title morph into the sheet's (View Transitions); anything
+       icon and title morph into the sheet's (View Transitions); anything
        else — palette, deep link, prev/next — opens normally. */
     window.openProject = (id, { from = null } = {}) => {
         const p = projects().find((x) => String(x.id) === String(id));
@@ -800,6 +920,8 @@
         const source = from || (!wasOpen ? grid.querySelector(`[data-id="${CSS.escape(String(id))}"]`) : null);
         const morph = source && canTransition() && source.getBoundingClientRect().bottom > 0
             && source.getBoundingClientRect().top < window.innerHeight;
+        const srcIcon = () => source.querySelector('.card-icon, .card-plaque, .ix-mark, .tl-plaque, .spot-icon');
+        const srcTitle = () => source.querySelector('.card-open, .ix-title, .tl-title, .spot-title');
 
         const swap = () => {
             body.innerHTML = detailHtml(p);
@@ -807,8 +929,8 @@
             if (morph) {
                 body.querySelector('[data-vt="plaque"]').style.viewTransitionName = 'vt-plaque';
                 body.querySelector('[data-vt="title"]').style.viewTransitionName = 'vt-title';
-                source.querySelector('.card-plaque, .ix-mark, .tl-plaque')?.style.setProperty('view-transition-name', 'none');
-                source.querySelector('.card-open, .ix-title, .tl-title')?.style.setProperty('view-transition-name', 'none');
+                srcIcon()?.style.setProperty('view-transition-name', 'none');
+                srcTitle()?.style.setProperty('view-transition-name', 'none');
                 sheet.classList.add('vt-instant');
             }
             window.openSheet(sheet);
@@ -820,8 +942,8 @@
         };
 
         if (morph) {
-            source.querySelector('.card-plaque, .ix-mark, .tl-plaque')?.style.setProperty('view-transition-name', 'vt-plaque');
-            source.querySelector('.card-open, .ix-title, .tl-title')?.style.setProperty('view-transition-name', 'vt-title');
+            srcIcon()?.style.setProperty('view-transition-name', 'vt-plaque');
+            srcTitle()?.style.setProperty('view-transition-name', 'vt-title');
             document.documentElement.classList.add('vt-sheet');
             const vt = document.startViewTransition(swap);
             vt.finished.finally(() => {
@@ -847,6 +969,7 @@
         window.closeSheet(sheet);
         currentDetailId = null;
         if (window.applyProjectTheme) window.applyProjectTheme(null);
+        // Stop any live iframe immediately rather than after the fade.
         setTimeout(() => { if (body && !sheet.classList.contains('is-open')) body.innerHTML = ''; }, 380);
         try { history.replaceState(null, '', location.pathname + location.search); } catch { /* file:// */ }
     };
@@ -913,13 +1036,13 @@
             sessionStorage.setItem(window.HANDOFF_KEY ? window.HANDOFF_KEY(slug) : `case-handoff:${slug}`,
                 JSON.stringify({ ...p, slug }));
         } catch { /* storage full */ }
-        const host = fromEl.closest('.card, .detail-top, .ix-row, .tl-item');
+        const host = fromEl.closest('.card, .detail-top, .ix-row, .tl-item, .spot-tile');
         if (!host) return;
         document.querySelectorAll('[style*="case-title"], [style*="case-plaque"]').forEach((el) => {
             el.style.removeProperty('view-transition-name');
         });
-        host.querySelector('.card-open, .detail-title, .ix-title, .tl-title')?.style.setProperty('view-transition-name', 'case-title');
-        host.querySelector('.card-plaque, .ix-mark, .tl-plaque')?.style.setProperty('view-transition-name', 'case-plaque');
+        host.querySelector('.card-open, .detail-title, .ix-title, .tl-title, .spot-title')?.style.setProperty('view-transition-name', 'case-title');
+        host.querySelector('.card-icon, .detail-icon, .card-plaque, .ix-mark, .tl-plaque, .spot-icon')?.style.setProperty('view-transition-name', 'case-plaque');
     }
     document.addEventListener('click', (e) => {
         const a = e.target.closest('a[data-case]');
@@ -946,7 +1069,7 @@
         const cmp = e.target.closest('[data-compare]');
         if (cmp) { e.stopPropagation(); window.toggleCompare && window.toggleCompare(cmp.dataset.compare); return; }
 
-        // Real links (Visit / Code / Case study) are left alone entirely.
+        // Real links (Visit / Code / Case study / Get) are left alone entirely.
         if (e.target.closest('.card-act, a[href]')) return;
 
         const open = e.target.closest('[data-open]');
@@ -954,7 +1077,7 @@
 
         // Clicking anywhere else on the card counts as opening it — the title
         // button's stretched overlay handles most of this, but padding and the
-        // plaque sit outside it.
+        // media sit outside it.
         const card = e.target.closest('[data-id]');
         if (card) window.openProject(card.dataset.id, { from: card });
     });
@@ -1016,7 +1139,7 @@
     }
 
     /* Reflect URL-seeded state in the controls before the first paint, so a
-       shared link like /?cat=game&sort=stars shows those controls already set. */
+       shared link like /?on=android&sort=stars shows those controls already set. */
     (function syncControls() {
         const searchEl = document.getElementById('search');
         if (searchEl) searchEl.value = state.search;
