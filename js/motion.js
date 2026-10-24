@@ -35,7 +35,9 @@
             frameRunning = true;
             requestAnimationFrame(function loop(t) {
                 frameJobs.forEach((job) => job(t));
-                requestAnimationFrame(loop);
+                // Nothing animating: let the loop sleep until the next job.
+                if (frameJobs.size) requestAnimationFrame(loop);
+                else frameRunning = false;
             });
         }
         return () => frameJobs.delete(fn);
@@ -148,24 +150,46 @@
        Card tilt — spring-damped so it never snaps, plus the sheen origin
        ===================================================================== */
 
+    // Card rects are measured once per hover and re-measured after a scroll
+    // or resize, instead of forcing a style flush on every pointer event.
+    let rectEpoch = 0;
+    const bumpRects = () => { rectEpoch++; };
+    window.addEventListener('scroll', bumpRects, { passive: true });
+    window.addEventListener('resize', bumpRects, { passive: true });
+
     function tilt(root = document) {
         root.querySelectorAll('[data-tilt]:not([data-tilt-on])').forEach((el) => {
             el.dataset.tiltOn = '1';
 
             // Sheen position is cheap and worth having even without tilt.
-            el.addEventListener('pointermove', (e) => {
-                const r = el.getBoundingClientRect();
-                const fx = (e.clientX - r.left) / r.width;
-                const fy = (e.clientY - r.top) / r.height;
-                el.style.setProperty('--mx', `${fx * 100}%`);
-                el.style.setProperty('--my', `${fy * 100}%`);
+            // Each write restyles the card's whole subtree, so pointer events
+            // (often 2–4 per frame) are folded into one write per frame, and
+            // the icon parallax vars go straight onto the icons that read them.
+            const icons = el.querySelectorAll('.appicon');
+            let fx = 0.5, fy = 0.5, queued = 0;
+            let rect = null, rectAt = -1;
+            const box = () => {
+                if (!rect || rectAt !== rectEpoch) { rect = el.getBoundingClientRect(); rectAt = rectEpoch; }
+                return rect;
+            };
+            const paint = () => {
+                queued = 0;
+                el.style.setProperty('--mx', `${(fx * 100).toFixed(1)}%`);
+                el.style.setProperty('--my', `${(fy * 100).toFixed(1)}%`);
                 // Unitless −1…1, for layered parallax inside the card (app icons).
-                el.style.setProperty('--nx', ((fx - 0.5) * 2).toFixed(3));
-                el.style.setProperty('--ny', ((fy - 0.5) * 2).toFixed(3));
+                const nx = ((fx - 0.5) * 2).toFixed(3), ny = ((fy - 0.5) * 2).toFixed(3);
+                icons.forEach((ic) => { ic.style.setProperty('--nx', nx); ic.style.setProperty('--ny', ny); });
+            };
+            el.addEventListener('pointerenter', () => { rect = null; });
+            el.addEventListener('pointermove', (e) => {
+                const r = box();
+                fx = (e.clientX - r.left) / r.width;
+                fy = (e.clientY - r.top) / r.height;
+                if (!queued) queued = requestAnimationFrame(paint);
             });
             el.addEventListener('pointerleave', () => {
-                el.style.setProperty('--nx', '0');
-                el.style.setProperty('--ny', '0');
+                if (queued) { cancelAnimationFrame(queued); queued = 0; }
+                icons.forEach((ic) => { ic.style.setProperty('--nx', '0'); ic.style.setProperty('--ny', '0'); });
             });
 
             if (reduced() || !FINE.matches) return;
@@ -180,18 +204,20 @@
                     `perspective(1100px) rotateX(${state.rx.toFixed(3)}deg) rotateY(${state.ry.toFixed(3)}deg) translateZ(0)`;
                 if (!state.active && Math.abs(state.rx) < 0.01 && Math.abs(state.ry) < 0.01) {
                     el.style.transform = '';
+                    el.style.willChange = '';
                     if (stop) { stop(); stop = null; }
                 }
             };
 
             el.addEventListener('pointerenter', () => {
                 state.active = true;
+                el.style.willChange = 'transform';      // own layer only while tilting
                 if (!stop) stop = onFrame(run);
             });
-            el.addEventListener('pointermove', (e) => {
-                const r = el.getBoundingClientRect();
-                const px = (e.clientX - r.left) / r.width - 0.5;
-                const py = (e.clientY - r.top) / r.height - 0.5;
+            el.addEventListener('pointermove', () => {
+                // fx/fy were just set by the sheen listener above.
+                const px = fx - 0.5;
+                const py = fy - 0.5;
                 state.ty = clamp(px * 11, -6.5, 6.5);
                 state.tx = clamp(-py * 11, -6.5, 6.5);
             });
@@ -225,8 +251,9 @@
         }, { passive: true });
 
         onFrame(() => {
-            rx = lerp(rx, mx, 0.16);
-            ry = lerp(ry, my, 0.16);
+            if (Math.abs(mx - rx) < 0.05 && Math.abs(my - ry) < 0.05) return;   // settled
+            rx = lerp(rx, mx, 0.24);
+            ry = lerp(ry, my, 0.24);
             ring.style.transform = `translate3d(${rx.toFixed(2)}px, ${ry.toFixed(2)}px, 0)`;
         });
 
@@ -394,31 +421,63 @@
 
     /* =======================================================================
        Display weight follows scroll speed — headings get heavier the faster
-       you move, then relax. One custom property; CSS adds it to the weight.
+       you move, then relax. CSS adds --vw to each heading's weight.
+
+       Performance matters here more than anywhere: this runs on every scroll
+       frame. Writing --vw on <html> made the browser restyle the WHOLE page
+       (~40 ms) and re-lay-out every heading on every frame, which was most
+       of the scroll jank and the laggy cursor. So instead:
+         · the value is written only on display headings that are on screen
+           (an IntersectionObserver keeps that list),
+         · it moves in steps of 20 — a weight change smaller than that isn't
+           visible, and most frames now write nothing at all,
+         · the frame job unsubscribes as soon as everything is back at rest.
        ===================================================================== */
+
+    const WEIGHT_TARGETS = '.hero-name, .sec-title, .contact-line, .footer-word';
 
     function weightOnScroll() {
         if (reduced()) return;
-        const root = document.documentElement;
+        const visible = new Set();
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach((e) => {
+                if (e.isIntersecting) visible.add(e.target);
+                else { visible.delete(e.target); e.target.style.removeProperty('--vw'); }
+            });
+        });
+        document.querySelectorAll(WEIGHT_TARGETS).forEach((el) => io.observe(el));
+
         let last = window.scrollY;
-        let target = 0, current = 0;
+        let target = 0, current = 0, written = 0;
+        let stop = null;
+
+        const write = (step) => {
+            if (step === written) return;
+            written = step;
+            visible.forEach((el) => {
+                if (step) el.style.setProperty('--vw', String(step));
+                else el.style.removeProperty('--vw');
+            });
+        };
+
+        const tick = () => {
+            target *= 0.9;
+            current = lerp(current, target, 0.12);
+            if (current < 1 && target < 1) {
+                current = 0; target = 0;
+                write(0);
+                if (stop) { stop(); stop = null; }
+                return;
+            }
+            write(Math.round(current / 20) * 20);
+        };
 
         window.addEventListener('scroll', () => {
             const now = window.scrollY;
-            target = clamp(Math.abs(now - last) * 4.2, 0, 220);
+            target = Math.max(target, clamp(Math.abs(now - last) * 4.2, 0, 220));
             last = now;
+            if (!stop) stop = onFrame(tick);
         }, { passive: true });
-
-        onFrame(() => {
-            target *= 0.9;
-            const next = lerp(current, target, 0.12);
-            if (Math.abs(next - current) < 0.4 && next < 1) {
-                if (current !== 0) { current = 0; root.style.setProperty('--vw', '0'); }
-                return;
-            }
-            current = next;
-            root.style.setProperty('--vw', current.toFixed(0));
-        });
     }
 
     /* =======================================================================
@@ -440,13 +499,17 @@
 
         window.addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; idle = 0; }, { passive: true });
 
+        // pointerover fires for every child crossed; reading computed style
+        // forces a style flush, so only do it when the host actually changes.
+        let lastHost = null;
         document.addEventListener('pointerover', (e) => {
             const host = e.target.closest && e.target.closest('.card, .ix-row, .tl-item, .rel-card');
-            if (host) {
+            if (host && host !== lastHost) {
                 const cs = getComputedStyle(host);
                 box.style.setProperty('--ta', cs.getPropertyValue('--tone-a'));
                 box.style.setProperty('--tb', cs.getPropertyValue('--tone-b'));
             }
+            lastHost = host;
             active = !!host;
             box.classList.toggle('is-on', active);
         });
@@ -503,14 +566,21 @@
             lastScroll = now;
         }, { passive: true });
 
-        onFrame(() => {
+        const step = () => {
             velocity *= 0.92;                          // decay back to base drift
             const base = hovering ? 0.14 : 0.55;
             offset -= base + velocity * 0.5;
             if (offset <= -half) offset += half;       // wrap seamlessly
             if (offset > 0) offset -= half;
             track.style.transform = `translate3d(${offset.toFixed(2)}px, 0, 0)`;
-        });
+        };
+        // Only tick while it's on screen — otherwise it's a style write every
+        // frame for the whole visit.
+        let stop = null;
+        new IntersectionObserver(([e]) => {
+            if (e.isIntersecting && !stop) stop = onFrame(step);
+            else if (!e.isIntersecting && stop) { stop(); stop = null; }
+        }).observe(el);
     }
 
     /* =======================================================================
@@ -695,13 +765,17 @@
             last = now;
         }, { passive: true });
 
+        // The grid gets its own GPU layer only while it is actually skewing —
+        // otherwise every frame repaints all the cards. Dropped again at rest
+        // (a permanent layer this tall would just cost memory).
         onFrame(() => {
             velocity *= 0.9;
             current = lerp(current, velocity, 0.18);
             if (Math.abs(current) < 0.005) {
-                if (el.style.transform) el.style.transform = '';
+                if (el.style.transform) { el.style.transform = ''; el.style.willChange = ''; }
                 return;
             }
+            if (!el.style.willChange) el.style.willChange = 'transform';
             el.style.transform = `skewY(${current.toFixed(3)}deg)`;
         });
     }

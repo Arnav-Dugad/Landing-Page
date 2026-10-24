@@ -747,10 +747,6 @@
 .card--v2 .card-star { top: 14px; right: 14px; }
 .card--v2 .card-mark { box-shadow: var(--shadow-1); }
 .card--v2 .card-flag { bottom: auto; top: 14px; right: auto; left: 50%; transform: translateX(-50%); }
-@media (hover: hover) and (pointer: fine) {
-    .card--v2 .card-media { transform: translateZ(10px); }
-    .card--v2 .card-head { transform: translateZ(22px); }
-}
 @media (hover: none) {
     .card--v2 .card-actions { position: static; padding: 0 22px 18px; }
     .card--v2 .card-foot { padding-bottom: 12px; }

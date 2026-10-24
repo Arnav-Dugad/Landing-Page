@@ -76,6 +76,12 @@
 
     function draw(time) {
         ctx.clearRect(0, 0, w, h);
+        // Untinted dots (nearly all of them) share one fill colour and vary only
+        // globalAlpha — building and parsing an rgba() string per dot per frame
+        // was most of the backdrop's cost.
+        const inkFill = `rgb(${INK[0]},${INK[1]},${INK[2]})`;
+        let fill = inkFill;
+        ctx.fillStyle = fill;
 
         // Pointer chases with inertia so the field lags the cursor slightly.
         pointer.x += (pointer.tx - pointer.x) * 0.14;
@@ -105,9 +111,9 @@
                 let tint = 0;
 
                 // 2 — pointer field
-                if (pointer.live) {
-                    const px = bx - pointer.x;
-                    const py = by - pointer.y;
+                const px = bx - pointer.x;
+                const py = by - pointer.y;
+                if (pointer.live && px < FIELD && px > -FIELD && py < FIELD && py > -FIELD) {
                     const dist = Math.hypot(px, py);
                     if (dist < FIELD) {
                         const f = ease(1 - dist / FIELD);
@@ -140,20 +146,18 @@
 
                 if (alpha <= 0.012) continue;
 
-                const c = tint > 0.01
-                    ? [
-                        Math.round(INK[0] + (ACCENT[0] - INK[0]) * tint),
-                        Math.round(INK[1] + (ACCENT[1] - INK[1]) * tint),
-                        Math.round(INK[2] + (ACCENT[2] - INK[2]) * tint)
-                    ]
-                    : INK;
+                const next = tint > 0.01
+                    ? `rgb(${Math.round(INK[0] + (ACCENT[0] - INK[0]) * tint)},${Math.round(INK[1] + (ACCENT[1] - INK[1]) * tint)},${Math.round(INK[2] + (ACCENT[2] - INK[2]) * tint)})`
+                    : inkFill;
+                if (next !== fill) { fill = next; ctx.fillStyle = fill; }
+                ctx.globalAlpha = Math.min(alpha, 0.62) * ALPHA;
 
                 ctx.beginPath();
-                ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${Math.min(alpha, 0.62) * ALPHA})`;
                 ctx.arc(bx + dx, by + dy, RADIUS * scale, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
+        ctx.globalAlpha = 1;
     }
 
     /* ---- Wiring --------------------------------------------------------- */
@@ -219,9 +223,22 @@
     let visible = !document.hidden;
     document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
 
+    // At rest only the slow ambient wave moves (one cycle ≈ 9 s), so it is
+    // drawn every other frame; the pointer, ripples and scroll get every frame.
+    let calmFrames = 0, odd = false, lastShift = scrollShift;
+    const tick = (t) => {
+        if (!visible) return;
+        const settling = Math.abs(pointer.tx - pointer.x) > 0.3 || Math.abs(pointer.ty - pointer.y) > 0.3;
+        const busy = ripples.length || settling || scrollShift !== lastShift;
+        lastShift = scrollShift;
+        calmFrames = busy ? 0 : calmFrames + 1;
+        odd = !odd;
+        if (calmFrames > 30 && odd) return;
+        draw(t);
+    };
     const start = () => {
-        if (window.onFrame) window.onFrame((t) => { if (visible) draw(t); });
-        else requestAnimationFrame(function loop(t) { if (visible) draw(t); requestAnimationFrame(loop); });
+        if (window.onFrame) window.onFrame(tick);
+        else requestAnimationFrame(function loop(t) { tick(t); requestAnimationFrame(loop); });
     };
 
     // motion.js defines onFrame; if load order ever changes, fall back gracefully.

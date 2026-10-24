@@ -316,14 +316,21 @@
     box-shadow: var(--shadow-1);
     cursor: pointer;
     overflow: hidden;
-    transform-style: preserve-3d;
-    will-change: transform;
+    /* No translateZ depth on the parts and no permanent will-change: overflow
+       clipping flattens 3D anyway, so they only bought GPU layers — about ten
+       per card, 500+ on the page. Motion.tilt promotes a card while it tilts. */
     transition: box-shadow var(--d-3) var(--e-expo), border-color var(--d-3) var(--e-expo);
 }
 .card:hover { box-shadow: var(--shadow-3); border-color: var(--line-strong); }
 
-/* Pointer-tracked sheen — the light source follows the cursor across the card. */
+/* Pointer-tracked sheen — the light source follows the cursor across the card.
+   --mx/--my change every pointer frame. Registered as non-inherited, a change
+   restyles only the card and the two layers that opt in with `inherit` —
+   not the ~90 elements inside it. */
+@property --mx { syntax: '*'; inherits: false; }
+@property --my { syntax: '*'; inherits: false; }
 .card::before {
+    --mx: inherit; --my: inherit;
     content: "";
     position: absolute; inset: 0;
     background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%),

@@ -263,8 +263,7 @@
         s.setProperty('--accent-veil', `color-mix(in srgb, var(--tone-${k}-a) 18%, transparent)`);
         s.setProperty('--shadow-accent',
             `0 10px 30px -10px color-mix(in srgb, var(--tone-${k}-a) 52%, transparent)`);
-        s.setProperty('--wash-a',
-            `radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--tone-${k}-a) 26%, transparent), transparent 68%)`);
+        s.setProperty('--wash-a', `color-mix(in srgb, var(--tone-${k}-a) 20%, transparent)`);
 
         // The lattice paints raw RGB, so the tone has to be resolved to numbers.
         const rgb = hexToRgb(getComputedStyle(root).getPropertyValue(`--tone-${k}-a`));
@@ -312,7 +311,7 @@
         s.setProperty('--accent-soft', `rgb(${base.join(' ')} / ${dark ? 0.16 : 0.12})`);
         s.setProperty('--accent-veil', `rgb(${base.join(' ')} / .2)`);
         s.setProperty('--shadow-accent', `0 10px 30px -10px rgb(${base.join(' ')} / .5)`);
-        s.setProperty('--wash-a', `radial-gradient(circle at 30% 30%, rgb(${base.join(' ')} / .26), transparent 68%)`);
+        s.setProperty('--wash-a', `rgb(${base.join(' ')} / .2)`);
         s.setProperty('--field-accent', base.join(', '));
         root.classList.add('has-project-theme');
     }

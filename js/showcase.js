@@ -157,12 +157,17 @@
 
         if (reduced() || !FINE.matches) return;
         // Cursor parallax on the whole plane — springy, never snapping.
+        // The transform is written straight onto the plane: custom properties
+        // on the wall would be inherited by all ~46 tiles and restyle every
+        // one of them each frame (that made the cursor itself stutter).
         let tx = 0, ty = 0, x = 0, y = 0, stop = null;
         const run = () => {
             x += (tx - x) * 0.06;
             y += (ty - y) * 0.06;
-            wall.style.setProperty('--px', x.toFixed(3));
-            wall.style.setProperty('--py', y.toFixed(3));
+            const plane = wall.querySelector('.wall-plane');
+            if (plane) {
+                plane.style.transform = `rotateX(${(22 - y * 3).toFixed(2)}deg) rotateY(${(-24 + x * 4).toFixed(2)}deg) rotateZ(9deg)`;
+            }
             if (Math.abs(tx - x) < 0.001 && Math.abs(ty - y) < 0.001 && stop) { stop(); stop = null; }
         };
         window.addEventListener('pointermove', (e) => {

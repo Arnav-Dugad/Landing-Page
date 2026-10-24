@@ -387,7 +387,7 @@
     });
 
     /* Three layers — ground, mark, gloss — that drift apart under the
-       pointer (the host's --nx/--ny, written by Motion.tilt). */
+       pointer (--nx/--ny, written onto the icon by Motion.tilt). */
     function appIconHtml(p, { size = 40, cls = '' } = {}) {
         const src = window.safeUrl(p && p.appIcon);
         const glyph = window.icon(p.icon, { size: Math.round(size * 0.48) });

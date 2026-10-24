@@ -84,6 +84,7 @@
     initial-value: 0px;
 }
 .card > .card-ink {
+    --mx: inherit; --my: inherit;       /* non-inherited, see components.css */
     position: absolute; inset: 0;
     z-index: 2;
     padding: 1.5px;
@@ -793,9 +794,7 @@ html.vt-sheet::view-transition-new(root) { animation: vt-fade-in .32s var(--e-ou
    project is open; these make the change read as deliberate.
    --------------------------------------------------------------------------- */
 
-.bd-wash span:nth-child(1) {
-    background: var(--wash-a, radial-gradient(circle at 30% 30%, rgba(209,68,36,.20), transparent 68%));
-}
+.bd-wash span:nth-child(1) { --c: var(--wash-a, rgba(209,68,36,.15)); }
 html.has-project-theme .bd-wash { opacity: calc(var(--wash-opacity) * 1.5); }
 html.has-project-theme .cur-ring.is-hot { background: var(--accent-deep); border-color: var(--accent-deep); }
 html.has-project-theme .progress { background: linear-gradient(90deg, var(--accent-deep), var(--accent-lift)); }

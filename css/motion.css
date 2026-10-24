@@ -16,8 +16,10 @@
                 transform var(--d-5) var(--e-expo),
                 filter var(--d-4) var(--e-out);
     transition-delay: var(--delay, 0ms);
-    will-change: transform, opacity;
 }
+/* No will-change here: running transitions are composited anyway, and a
+   permanent hint kept every reveal target (each card, its body, every header)
+   on its own GPU layer for the whole visit, dragging overlapping content up. */
 [data-reveal].is-in { opacity: 1; transform: none; filter: none; }
 
 [data-reveal="up"]     { transform: translateY(30px); }
@@ -85,20 +87,6 @@
     /* Word i lights when progress passes i/n, with a soft two-word ramp. */
     opacity: clamp(.26, calc((var(--p, 0) * (var(--n) + 2) - var(--i)) / 2), 1);
     transition: opacity .18s linear;
-}
-
-/* ---------------------------------------------------------------------------
-   Card depth — the plaque and title sit above the card surface, so tilting
-   the card parallaxes them instead of moving the whole face as one plane.
-   --------------------------------------------------------------------------- */
-
-@media (hover: hover) and (pointer: fine) {
-    .card-plaque { transform: translateZ(34px); }
-    .card:hover .card-plaque { transform: translateZ(46px) rotate(-7deg) scale(1.08); }
-    .card-head   { transform: translateZ(20px); }
-    .card-actions { transform: translateZ(28px); }
-    .card:hover .card-actions,
-    .card:focus-within .card-actions { transform: translateZ(28px); }
 }
 
 /* ---------------------------------------------------------------------------
