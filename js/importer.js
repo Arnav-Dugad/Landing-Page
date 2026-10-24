@@ -666,7 +666,7 @@
         go.innerHTML = `${icon('x', 15)} Stop`;
         go.classList.add('is-stop');
 
-        let ok = 0, failed = 0;
+        let ok = 0, failed = 0, noCopy = 0;
         const provider = providerNow();
         for (const full of picked) {
             if (discAbort.signal.aborted) break;
@@ -677,14 +677,21 @@
                 const body = { urls: [repo.url, repo.homepage].filter(Boolean), provider, ai: true };
                 const model = modelNow(provider);
                 if (model) body.model = model;
-                const final = await ingest(body, (ev) => { if (ev.status === 'run' && ev.label) setRow(full, 'run', ev.label); }, discAbort.signal);
+                let aiFailed = false;
+                const final = await ingest(body, (ev) => {
+                    if (ev.stage === 'ai' && ev.status === 'error') aiFailed = true;
+                    if (ev.status === 'run' && ev.label) setRow(full, 'run', ev.label);
+                }, discAbort.signal);
                 const id = await window.saveProjectToDb({ ...(final.project || {}), auto: true }, { quiet: true });
                 if (!id) throw new Error('Saving was refused');
                 if (typeof id === 'string' && window.writeHistory) {
                     window.writeHistory({ projectId: id, kind: 'import', summary: `Imported from GitHub (${repo.name})`, changes: [] });
                 }
                 repo.inPortfolio = true;
-                setRow(full, 'ok', 'Published');
+                // Published either way — but say so when the copy is facts-only,
+                // so "Finish imports with AI" can be run later.
+                setRow(full, 'ok', aiFailed ? 'Published — copy not written yet (AI was unavailable)' : 'Published');
+                if (aiFailed) noCopy++;
                 ok++;
             } catch (e) {
                 if (e.name === 'AbortError') { setRow(full, 'idle', 'Stopped'); break; }
@@ -698,6 +705,9 @@
         if (ok) {
             if (window.Micro) window.Micro.burst(go, { count: 30, spread: 130 });
             if (window.celebrate) window.celebrate();
+        }
+        if (noCopy && window.toastWithAction) {
+            window.toastWithAction(`${noCopy} project${noCopy === 1 ? '' : 's'} published without AI copy`, 'Finish with AI', () => window.finishImports && window.finishImports(), 12000);
         }
         window.toast(ok
             ? `Published ${ok} project${ok === 1 ? '' : 's'}${failed ? ` — ${failed} failed` : ''}`

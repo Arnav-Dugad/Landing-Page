@@ -1457,6 +1457,9 @@ a.is-done .getit-go::after, a.is-done .getit-row-go::after, a.is-done.getbar-btn
     font-variant-numeric: lining-nums tabular-nums;
 }
 .relcard-ver .flap { gap: 3px; }
+/* Pre-release tags ("0.25.0-preview.1") stay on one line at a smaller size. */
+.relcard-ver.is-long { font-size: clamp(1.15rem, 2.2vw, 1.5rem); }
+.relcard-ver.is-long .flap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .relcard-ver .flap:not(.is-static) .flap-c {
     position: relative;
     min-width: .72em; padding: .08em .06em;

@@ -631,3 +631,42 @@ body.has-ctray .adock { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
     .md-ring { animation: none; border-top-color: var(--accent); }
     .am-menu { transform: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Dock nudge — one quiet line above the dock while imports need their copy
+   --------------------------------------------------------------------------- */
+
+.dock-nudge {
+    position: fixed;
+    left: 20px;
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    z-index: calc(var(--z-nav) - 2);
+    display: inline-flex; align-items: center; gap: 9px;
+    max-width: calc(100vw - 40px);
+    height: 38px; padding: 0 6px 0 14px;
+    border-radius: var(--r-full);
+    background: var(--paper-raised);
+    border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow-2);
+    font-size: var(--t-xs); color: var(--ink-70);
+    animation: adock-in var(--d-4) var(--e-spring) both;
+    transition: border-color var(--d-2) var(--e-out), transform var(--d-2) var(--e-spring);
+}
+.dock-nudge:hover { border-color: var(--accent); transform: translateY(-1px); }
+.dock-nudge svg { color: var(--accent); flex: none; }
+.dock-nudge span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-nudge b {
+    flex: none;
+    height: 28px; padding: 0 12px;
+    display: inline-flex; align-items: center;
+    border-radius: var(--r-full);
+    background: var(--ink); color: var(--paper);
+    font-weight: 500;
+}
+.dock-nudge:disabled { opacity: .8; cursor: progress; }
+.dock-nudge:disabled svg { animation: spin 1.4s linear infinite; }
+body.has-ctray .dock-nudge { bottom: calc(158px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 640px) {
+    .dock-nudge { left: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 24px); }
+}
+@media (prefers-reduced-motion: reduce) { .dock-nudge, .dock-nudge:disabled svg { animation: none; } }

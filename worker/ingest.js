@@ -161,6 +161,10 @@ function parseReadme(md, slug, branch) {
         if (!s || s.startsWith('data:')) return '';
         try {
             if (/^https?:\/\//i.test(s)) {
+                // GitHub's signed image links (private-user-images…?jwt=) expire within
+                // minutes; the asset's permanent address is github.com/user-attachments.
+                const signed = s.match(/^https:\/\/private-user-images\.githubusercontent\.com\/\d+\/\d+-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.\w+/i);
+                if (signed) return `https://github.com/user-attachments/assets/${signed[1]}`;
                 const u = new URL(s);
                 // github.com/<o>/<r>/blob/<b>/path → raw
                 const m = u.pathname.match(/^\/([^/]+)\/([^/]+)\/(?:blob|raw)\/([^/]+)\/(.+)$/);
@@ -282,6 +286,20 @@ function guessIcon(hay, platforms, category, head) {
     if (CATEGORY_ICON[category]) return CATEGORY_ICON[category];
     for (const [re, k] of KEYWORD_ICON) if (re.test(hay)) return k;
     return PLATFORM_ICON[platforms[0]] || 'rocket';
+}
+
+/* "Pitch — Football, beautifully" → { name: 'Pitch', tagline: 'Football, beautifully' }
+   "Arnav Island 0.25 — handed over" → { name: 'Arnav Island', hadVersion: true } */
+export function splitHeadline(h) {
+    let name = String(h || '').replace(/[*_`#]/g, '').replace(/\s+/g, ' ').trim();
+    let tagline = '';
+    const m = name.match(/^(.{2,60}?)\s+[—–|:]\s+(.{3,})$/)
+        || name.match(/^(.{2,40}?):\s+(.{3,})$/)
+        || name.match(/^(.{2,40}?)\s+-\s+(.{3,})$/);
+    if (m) { name = m[1].trim(); tagline = m[2].trim(); }
+    const before = name;
+    name = name.replace(/\s+v?\d+(\.\d+)+([-.+][\w.]+)?$/i, '').trim();
+    return { name, tagline, hadVersion: name !== before };
 }
 
 /* "UsageNotch-Windows" → "UsageNotch"; "gaming-history-site" → "Gaming History";
@@ -589,7 +607,10 @@ async function run(env, body, send) {
     // Tiny images (badges, icons that slipped through) don't belong in a gallery.
     const galleryItems = checked.filter((x) => !x.d || (x.d.w >= 240 && x.d.h >= 160)).slice(0, 8);
     const gallery = galleryItems.map((x) => x.url);
-    const appIcon = (listingList.find((l) => l.icon) || {}).icon || (site && site.icon) || '';
+    // A github.io page without its own icon reports GitHub's — that's not
+    // the app's icon, so it doesn't count.
+    const notGithubIcon = (u) => u && !/^https?:\/\/([a-z0-9-]+\.)?githubassets\.com\//i.test(u);
+    const appIcon = [(listingList.find((l) => l.icon) || {}).icon, site && site.icon].find(notGithubIcon) || '';
     const storeCover = (listingList.find((l) => l.cover) || {}).cover || '';
     // The site's social image is just another candidate — it's often a logo.
     const coverCandidates = [...new Set([storeCover, ...galleryItems.map((x) => x.url), site && site.image].filter(Boolean))];
@@ -607,7 +628,19 @@ async function run(env, body, send) {
     /* -- assemble the deterministic draft ------------------------------------ */
     const primaryStore = listingList[0] || null;
     const siteTitle = site ? cleanSiteTitle(site.title || site.rawTitle, site.siteName) : '';
-    const baseTitle = (primaryStore && primaryStore.name) || readmeInfo.title || (repo && prettyName(repo.name)) || siteTitle || 'Untitled project';
+    // A README headline is often "Name — tagline" or a release headline
+    // ("Arnav Island 0.25 — handed over"). Split it, drop versions, and only
+    // trust it as the name when it shares a word with the repo's name.
+    const headline = splitHeadline(readmeInfo.title);
+    const repoName = repo ? prettyName(repo.name) : '';
+    const sharesWord = (a, b) => {
+        const words = (x) => new Set(String(x).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2));
+        const wb = words(b);
+        return [...words(a)].some((w) => wb.has(w));
+    };
+    const headName = headline.name && (!repoName || sharesWord(headline.name, repoName)) ? headline.name : '';
+    const baseTitle = (primaryStore && primaryStore.name) || headName || repoName || siteTitle || 'Untitled project';
+    const baseTagline = headName && !headline.hadVersion && !/^(web|android|windows|ios|iphone|mac(os)?|linux|app|desktop|mobile)$/i.test(headline.tagline) ? clip(headline.tagline, 120) : '';
     const baseDesc = clip((repo && repo.description) || (site && site.description) || (primaryStore && primaryStore.description) || '', 160);
 
     const techSet = new Map();
@@ -630,11 +663,15 @@ async function run(env, body, send) {
     const storesMap = {};
     for (const s of stores) if (['play', 'microsoft', 'appstore', 'chrome', 'itch', 'firefox'].includes(s.kind)) storesMap[s.kind] = s.url;
 
-    const link = (site && site.ok && site.finalUrl) || (siteUrl || '') || (primaryStore && primaryStore.url) || (releases && releases.latest && releases.latest.url) || '';
+    // `link` is the live product. A GitHub page (repo or release) is not one —
+    // downloads already cover apps without a website.
+    const isGithubPage = (u) => /^https?:\/\/(www\.)?github\.com\//i.test(String(u || ''));
+    const link = [site && site.ok && site.finalUrl, siteUrl, primaryStore && primaryStore.url]
+        .find((u) => u && !isGithubPage(u)) || '';
 
     const draft = {
         title: baseTitle,
-        tagline: '',
+        tagline: baseTagline,
         desc: baseDesc,
         longDesc: '',
         highlights: [],

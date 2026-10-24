@@ -62,7 +62,9 @@
         return { label: (P && P.label) || PLATFORM_FALLBACK[k][0], icon: (P && P.icon) || PLATFORM_FALLBACK[k][1] };
     };
 
-    window.isAdmin = false;   // the auth listener in firebase.js owns this
+    // The auth listener in firebase.js owns this — and may already have set
+    // it before this script was loaded on demand (js/data.js).
+    window.isAdmin = window.isAdmin === true;
 
     /* Categories live in js/core.js so the case-study, résumé and Now pages
        label them exactly the way the editor does. */
@@ -1316,7 +1318,9 @@
     }
 
     const lockBtn = document.getElementById('adminLock');
-    if (lockBtn) lockBtn.addEventListener('click', window.toggleAdmin);
+    // js/data.js binds the padlock up front and calls window.toggleAdmin by
+    // name, so it picks this one up once loaded.
+    if (lockBtn && !lockBtn.dataset.bound) lockBtn.addEventListener('click', () => window.toggleAdmin());
 
     document.querySelectorAll('[data-new-project]').forEach((btn) => {
         btn.addEventListener('click', () => window.newProject());

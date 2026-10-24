@@ -882,7 +882,11 @@ html.has-project-theme .progress { background: linear-gradient(90deg, var(--acce
 
 .hero-name .ln { position: relative; }
 .js .hero-name[data-draw]:not(.is-drawn) .ln {
-    color: transparent;
+    /* A faint watermark rather than fully transparent: the stroke still
+       traces over it, but the browser counts the name as painted right away
+       (it's the largest element on the page — fully transparent text pushed
+       Largest Contentful Paint out to ~4.6 s). */
+    color: color-mix(in srgb, var(--ink) 10%, transparent);
     /* Failsafe: if the script never runs to completion, show the name. */
     animation: name-failsafe 0s linear 5s forwards;
 }
@@ -944,3 +948,21 @@ html.has-project-theme .progress { background: linear-gradient(90deg, var(--acce
     .js .hero-name[data-draw] .ln { color: var(--ink); animation: none; }
     .trail { display: none; }
 }
+
+/* Health check — grouped findings above the per-project list */
+.hc-block {
+    margin-bottom: 16px; padding: 14px 16px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    background: var(--paper);
+}
+.hc-block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.hc-block-head b { font-size: var(--t-sm); font-weight: 600; color: var(--ink); }
+.hc-block-head .btn { height: 34px; padding: 0 14px; font-size: var(--t-xs); }
+.hc-block p { font-size: var(--t-xs); color: var(--ink-50); line-height: 1.6; }
+.hc-dupe { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: var(--t-xs); color: var(--ink-50); }
+.hc-block-head + .hc-dupe { border-top: 0; }
+.hc-dupe b { color: var(--ink); font-weight: 500; }
+.hc-dupe em { font-style: normal; color: var(--ink-35); }
+.hc-dupe-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.hc-dupe-acts .btn { height: 30px; padding: 0 12px; font-size: var(--t-2xs); }

@@ -167,6 +167,7 @@
         return [
             { icon: 'github', label: 'Discover repos', hint: 'your GitHub work that isn’t here yet', run: () => call('openDiscover') },
             { icon: 'refresh', label: 'Refresh metrics', hint: 'stars, downloads, versions, uptime', run: () => call('refreshAllMetrics') },
+            { icon: 'sparkles', label: 'Finish imports with AI', hint: 'write missing taglines and write-ups', run: () => call('finishImports') },
             { icon: 'history', label: 'Releases & history', hint: 'what changed, and when', run: () => openHistory() },
             '-',
             { icon: 'sparkles', label: 'AI studio', run: () => call('openAiStudio') },
@@ -516,6 +517,7 @@
 
     const withoutId = (p) => { const { id, slug, ...rest } = p; return rest; };
 
+    window.toggleHiddenProject = (id) => toggleHidden(id);
     async function toggleHidden(id) {
         const p = find(id);
         if (!p) return;
@@ -562,6 +564,103 @@
         }
     }
     window.reimportProject = reimport;
+
+    /* =====================================================================
+       Finish imports — fill in the copy that a facts-only import left empty.
+       Only EMPTY fields are filled; anything written (or locked) stays.
+       ===================================================================== */
+
+    const FILL_FIELDS = ['tagline', 'desc', 'longDesc', 'highlights', 'searchTerms', 'galleryAlt',
+        'problem', 'approach', 'challenges', 'outcome', 'category', 'icon'];
+    const isEmpty = (v) => (Array.isArray(v) ? !v.filter((x) => String(x || '').trim()).length : !String(v ?? '').trim());
+    const needsCopy = (p) => p.auto === true
+        && (isEmpty(p.longDesc) || isEmpty(p.tagline) || isEmpty(p.highlights) || isEmpty(p.desc));
+    window.projectsNeedingCopy = () => projects().filter(needsCopy);
+
+    let finishing = false;
+    async function finishImports() {
+        if (finishing) return;
+        const list = projects().filter(needsCopy);
+        if (!list.length) { window.toast('Every imported project already has its write-up', 'success'); return; }
+        const ok = await window.confirmAction({
+            title: `Write the missing copy for ${list.length} project${list.length === 1 ? '' : 's'}?`,
+            message: 'Each project is re-read from its sources and AI writes the tagline, write-up, highlights and search terms. Only empty fields are filled — nothing you wrote or locked changes. About 15 seconds per project.',
+            confirm: 'Write it'
+        });
+        if (!ok) return;
+
+        finishing = true;
+        paintNudge();
+        const progress = window.progressToast(`Writing copy — 0 of ${list.length}`);
+        let done = 0, filled = 0, failed = 0;
+        const provider = window.Ai && window.Ai.getProvider ? window.Ai.getProvider() : 'claude';
+        try {
+            for (const p of list) {
+                const repo = p.repo || (window.resolveRepoUrl && window.resolveRepoUrl(p));
+                const urls = ((p.sources || []).length ? p.sources : [repo, p.link]).filter(Boolean).slice(0, 5);
+                progress.update(`Writing copy for ${p.title} — ${done + 1} of ${list.length}`, done / list.length);
+                if (!urls.length) { failed++; done++; continue; }
+                try {
+                    let aiFailed = false;
+                    const final = await window.Importer.ingest({ urls, provider, ai: true, existing: withoutId(p) }, (ev) => {
+                        if (ev.stage === 'ai' && ev.status === 'error') aiFailed = true;
+                    });
+                    const draft = final.project || {};
+                    const locked = new Set(p.locked || []);
+                    const merged = { ...withoutId(p) };
+                    let changed = 0;
+                    for (const k of FILL_FIELDS) {
+                        if (locked.has(k) || !isEmpty(p[k]) || isEmpty(draft[k])) continue;
+                        merged[k] = draft[k];
+                        changed++;
+                    }
+                    // A rich README earns a published case study.
+                    if (!p.caseStudy && draft.caseStudy === true && !isEmpty(merged.problem) && !locked.has('caseStudy')) {
+                        merged.caseStudy = true; changed++;
+                    }
+                    if (aiFailed && !changed) { failed++; }
+                    else if (changed) {
+                        const changes = window.diffProjects ? window.diffProjects(withoutId(p), merged) : [];
+                        if (await window.updateProjectInDb(p.id, merged, { quiet: true })) {
+                            filled++;
+                            if (window.writeHistory) window.writeHistory({ projectId: p.id, kind: 'import', summary: `Copy written — ${changed} field${changed === 1 ? '' : 's'} filled`, changes });
+                        } else failed++;
+                    }
+                } catch (e) {
+                    console.error('finish import', p.title, e);
+                    failed++;
+                }
+                done++;
+                progress.update(null, done / list.length);
+            }
+        } finally {
+            progress.close();
+            finishing = false;
+            paintNudge();
+        }
+        if (filled && window.Micro && window.Micro.burst) window.Micro.burst(dock, {});
+        window.toast(filled
+            ? `Wrote copy for ${filled} project${filled === 1 ? '' : 's'}${failed ? ` · ${failed} couldn’t be finished — try again later` : ''}`
+            : 'Nothing could be written — check the AI keys in AI studio', filled ? 'success' : 'error');
+    }
+    window.finishImports = finishImports;
+
+    /* The nudge: a single quiet line above the dock while there's work to do. */
+    const nudge = document.createElement('button');
+    nudge.type = 'button';
+    nudge.className = 'dock-nudge u-hidden';
+    dock.after(nudge);
+    nudge.addEventListener('click', () => finishImports());
+    function paintNudge() {
+        const n = window.isAdmin ? projects().filter(needsCopy).length : 0;
+        nudge.classList.toggle('u-hidden', !n);
+        nudge.disabled = finishing;
+        nudge.innerHTML = finishing
+            ? `${window.icon('sparkles', { raw: true, size: 14 })}<span>Writing copy…</span>`
+            : `${window.icon('sparkles', { raw: true, size: 14 })}<span>${n} import${n === 1 ? '' : 's'} missing a write-up</span><b>Finish with AI</b>`;
+    }
+    window.addEventListener('adminchange', paintNudge);
+    setInterval(() => { if (window.isAdmin) paintNudge(); }, 4000);
 
     /* =====================================================================
        Releases & history

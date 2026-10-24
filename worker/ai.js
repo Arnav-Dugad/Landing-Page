@@ -549,16 +549,38 @@ export function availableProvider(env, prefer) {
     return order.find((p) => !!env[PROVIDERS[p].secret]) || null;
 }
 
+/* Every provider with a key, preferred first. */
+export function availableProviders(env, prefer) {
+    return [prefer, 'claude', 'gemini', 'openai']
+        .filter((p, i, a) => p && PROVIDERS[p] && a.indexOf(p) === i && !!env[PROVIDERS[p].secret]);
+}
+
+/* One structured call. If the preferred provider fails — a free-tier rate
+   limit, an outage, a timeout or unparseable output — the next provider with
+   a key gets the same request, so one provider's bad day never silently
+   downgrades an import to a facts-only draft. The last error is thrown only
+   when every provider has failed. */
 export async function structured(env, { prefer, model, system, user, schema, maxTokens = 16000 }) {
-    const provider = availableProvider(env, prefer);
-    if (!provider) throw new HttpError(503, 'No AI provider key is configured');
-    const meta = PROVIDERS[provider];
-    const useModel = provider === prefer && typeof model === 'string' && MODEL_RE.test(model) ? model : meta.defaultModel;
-    const text = await CALLERS[provider]({
-        apiKey: env[meta.secret], model: useModel, system,
-        messages: [{ role: 'user', content: user }], schema, maxTokens
-    });
-    return { provider, label: meta.label, model: useModel, data: parseJson(text, meta.label) };
+    const order = availableProviders(env, prefer);
+    if (!order.length) throw new HttpError(503, 'No AI provider key is configured');
+    let lastError = null;
+    for (const provider of order) {
+        const meta = PROVIDERS[provider];
+        const useModel = provider === prefer && typeof model === 'string' && MODEL_RE.test(model) ? model : meta.defaultModel;
+        try {
+            const text = await CALLERS[provider]({
+                apiKey: env[meta.secret], model: useModel, system,
+                messages: [{ role: 'user', content: user }], schema, maxTokens
+            });
+            const data = parseJson(text, meta.label);
+            const fellBack = provider !== order[0];
+            return { provider, label: fellBack ? `${meta.label} (after ${PROVIDERS[order[0]].label} failed)` : meta.label, model: useModel, data };
+        } catch (e) {
+            lastError = e;
+            console.error('structured', provider, e && e.message);
+        }
+    }
+    throw lastError;
 }
 
 /* ===========================================================================

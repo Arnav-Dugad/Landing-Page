@@ -14,12 +14,13 @@
        window.writeHistory(entry)     → Promise<boolean>   (admin)
        window.loadHistory(opts)       → Promise<entry[]>   (admin)
 
-   The classic scripts run before this module, so window.renderProjects and
-   window.toast already exist by the time the first snapshot lands.
+   Loaded on demand by js/data.js (idle time, sign-in, or sending a
+   message), so none of the SDK sits on the critical path. The project list
+   itself comes from the Worker; this module only supplies it for the
+   admin's live listener or on hosts without the Worker.
    =========================================================================== */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 import {
     getAuth, signInAnonymously, onAuthStateChanged,
     signInWithEmailAndPassword, signOut
@@ -40,7 +41,21 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-try { getAnalytics(app); } catch { /* analytics is optional */ }
+// Analytics pulls in ~160 KB of gtag: load it on the visitor's first
+// interaction, or after 8 s if they just read — never during first paint.
+(() => {
+    let started = false;
+    const start = () => {
+        if (started) return;
+        started = true;
+        ['pointerdown', 'keydown', 'scroll'].forEach((ev) => window.removeEventListener(ev, start));
+        import("https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js")
+            .then(({ getAnalytics }) => { try { getAnalytics(app); } catch { /* optional */ } })
+            .catch(() => { /* blocked by an extension — fine */ });
+    };
+    ['pointerdown', 'keydown', 'scroll'].forEach((ev) => window.addEventListener(ev, start, { once: true, passive: true }));
+    setTimeout(start, 8000);
+})();
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -50,8 +65,7 @@ const projectsCol = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 
 const projectDoc = (id) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'projects', id);
 
 let user = null;
-let projects = [];
-let loaded = false;
+const currentProjects = () => (window.getProjects ? window.getProjects() : []);
 
 const statusEl = document.getElementById('connStatus');
 const setStatus = (text, tone) => {
@@ -62,14 +76,19 @@ const setStatus = (text, tone) => {
 
 /* -------- Auth ---------------------------------------------------------- */
 
+let authReady = false;
+
 (async function initAuth() {
     setStatus('Connecting');
     try {
-        await signInAnonymously(auth);
+        await auth.authStateReady();
+        authReady = true;
+        // Reuse the visitor's existing anonymous session when there is one.
+        if (!auth.currentUser) await signInAnonymously(auth);
     } catch (err) {
+        authReady = true;
         console.error('Auth failed:', err);
-        loaded = true;                       // stop the skeletons spinning forever
-        window.renderProjects && window.renderProjects();
+        window.markProjectsLoaded && window.markProjectsLoaded();   // stop the skeletons spinning forever
 
         const needsSetup = err.code === 'auth/configuration-not-found'
             || err.code === 'auth/admin-restricted-operation'
@@ -89,49 +108,23 @@ const setStatus = (text, tone) => {
    Admin state is therefore derived from Firebase, never from a client flag. */
 let subscribed = false;
 let counted = false;
-let edgeFailed = false;
-
-/* Firestore's free tier allows 50k reads a day, and a realtime listener on
-   the project list costs one read per project per visitor. On the Worker,
-   visitors instead get the list from /api/projects (cached at the edge, so
-   thousands of visits cost Firestore a handful of reads), falling back to
-   the snapshot shipped with the site. Starts immediately — no need to wait
-   for the anonymous sign-in to show the work. */
-(async function loadForVisitors() {
-    if (!window.EDGE) return;
-    for (const url of ['/api/projects', '/data/projects-snapshot.json']) {
-        try {
-            const res = await fetch(url, { headers: { accept: 'application/json' } });
-            if (!res.ok) continue;
-            const json = await res.json();
-            if (!Array.isArray(json.projects)) continue;
-            if (subscribed && loaded) return;            // the admin's live listener won
-            projects = json.projects
-                .map(({ slug, ...p }) => p)
-                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            loaded = true;
-            window.renderProjects && window.renderProjects();
-            return;
-        } catch { /* try the next source */ }
-    }
-    // Neither worked: fall back to a direct listener.
-    edgeFailed = true;
-    if (user && !subscribed) { subscribed = true; subscribe(); }
-})();
 
 onAuthStateChanged(auth, (u) => {
     user = u;
 
     if (!u) {
         // Signed out (e.g. the admin left) — drop straight back to a visitor.
+        // Before the persisted session is restored this fires with null too;
+        // initAuth handles that case, so don't sign in twice.
         if (window.isAdmin) { window.isAdmin = false; window.applyAdminState && window.applyAdminState(); }
-        signInAnonymously(auth).catch((e) => console.error('Re-auth failed:', e));
+        if (authReady) signInAnonymously(auth).catch((e) => console.error('Re-auth failed:', e));
         return;
     }
 
     setStatus('Live', 'ok');
 
     const nowAdmin = !u.isAnonymous;
+    if (window.rememberAdmin) window.rememberAdmin(nowAdmin);
     if (window.isAdmin !== nowAdmin) {
         window.isAdmin = nowAdmin;
         window.applyAdminState && window.applyAdminState();
@@ -139,7 +132,7 @@ onAuthStateChanged(auth, (u) => {
 
     // Visitors read projects through the Worker (see loadForVisitors); only
     // the admin — or a host without the Worker — holds a realtime listener.
-    if ((nowAdmin || !window.EDGE || edgeFailed) && !subscribed) { subscribed = true; subscribe(); }
+    if ((nowAdmin || !window.EDGE || window.edgeProjectsFailed) && !subscribed) { subscribed = true; subscribe(); }
     if (!counted) { counted = true; countVisit(); }
 });
 
@@ -171,6 +164,7 @@ window.adminSignIn = async (email, password) => {
 window.adminSignOut = async () => {
     try {
         await signOut(auth);            // onAuthStateChanged re-auths anonymously
+        if (window.rememberAdmin) window.rememberAdmin(false);
         window.toast('Signed out', 'info');
         return true;
     } catch (e) {
@@ -194,14 +188,12 @@ window.adminIdToken = async () => {
 function subscribe() {
     const q = query(projectsCol(), orderBy('createdAt', 'desc'));
     onSnapshot(q, (snap) => {
-        projects = [];
-        snap.forEach((d) => projects.push({ id: d.id, ...d.data() }));
-        loaded = true;
-        window.renderProjects && window.renderProjects();
+        const list = [];
+        snap.forEach((d) => list.push(window.normalizeProject({ id: d.id, ...d.data() })));
+        window.setProjects(list);
     }, (err) => {
         console.error('Firestore error:', err);
-        loaded = true;
-        window.renderProjects && window.renderProjects();
+        window.markProjectsLoaded && window.markProjectsLoaded();
         setStatus('Data error', 'warn');
     });
 }
@@ -299,7 +291,7 @@ window.updateProjectInDb = async (id, data, { quiet = false } = {}) => {
     try {
         // setDoc with merge:false so fields the editor cleared are actually
         // removed; createdAt is preserved from the doc we already hold.
-        const existing = projects.find((p) => String(p.id) === String(id));
+        const existing = currentProjects().find((p) => String(p.id) === String(id));
         await setDoc(projectDoc(id), {
             ...clean(data),
             createdAt: existing?.createdAt || Date.now(),
@@ -317,7 +309,7 @@ window.updateProjectInDb = async (id, data, { quiet = false } = {}) => {
 window.deleteProjectFromDb = async (id) => {
     if (!user) return false;
     // Snapshot the doc before it goes, so the toast can offer a real undo.
-    const backup = projects.find((p) => String(p.id) === String(id));
+    const backup = currentProjects().find((p) => String(p.id) === String(id));
     try {
         await deleteDoc(projectDoc(id));
         if (backup && window.toastWithAction) {
@@ -570,5 +562,4 @@ window.loadHistory = async ({ max = 120 } = {}) => {
 
 /* -------- Accessors ------------------------------------------------------ */
 
-window.getProjects = () => projects;
-window.projectsLoaded = () => loaded;
+/* getProjects / projectsLoaded live in js/data.js. */

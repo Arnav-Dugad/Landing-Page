@@ -392,7 +392,7 @@
         const src = window.safeUrl(p && p.appIcon);
         const glyph = window.icon(p.icon, { size: Math.round(size * 0.48) });
         if (src) {
-            return `<span class="appicon ${cls}" style="--ai:${size}px;${window.toneVars(p.color)}"><span class="ai-mark"><img src="${esc(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-appicon>${glyph}</span><i class="ai-gloss" aria-hidden="true"></i></span>`;
+            return `<span class="appicon ${cls}" style="--ai:${size}px;${window.toneVars(p.color)}"><span class="ai-mark"><img src="${esc(window.imgUrl(src, size))}" data-orig="${esc(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-appicon>${glyph}</span><i class="ai-gloss" aria-hidden="true"></i></span>`;
         }
         return `<span class="appicon appicon--glyph ${cls}" style="--ai:${size}px;${window.toneVars(p.color)}"><span class="ai-mark">${glyph}</span><i class="ai-gloss" aria-hidden="true"></i></span>`;
     }
@@ -409,12 +409,14 @@
        loading straight away: a page full of frames would otherwise open
        dozens of slow requests at once and starve everything else on the
        origin — including the page's own scripts on HTTP/1.1. */
-    function screenImg(src, { alt = '', shot = false, eager = false } = {}) {
+    function screenImg(src, { alt = '', shot = false, eager = false, w = 640 } = {}) {
         if (!src) return '';
+        const sized = window.imgUrl ? window.imgUrl(src, w) : src;
+        const orig = sized !== src ? ` data-orig="${esc(src)}"` : '';
         if (shot) {
-            return `<img class="df-img" data-shot-src="${esc(src)}" alt="${esc(alt)}" decoding="async" data-shot referrerpolicy="no-referrer">`;
+            return `<img class="df-img" data-shot-src="${esc(sized)}"${orig} alt="${esc(alt)}" decoding="async" data-shot referrerpolicy="no-referrer">`;
         }
-        return `<img class="df-img" src="${esc(src)}" alt="${esc(alt)}" ${eager ? '' : 'loading="lazy"'} decoding="async"
+        return `<img class="df-img" src="${esc(sized)}"${orig} alt="${esc(alt)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async"
                      referrerpolicy="no-referrer">`;
     }
 
@@ -491,7 +493,7 @@
         const kind = opts.kind || media.kind;
         const screen = opts.inner !== undefined
             ? opts.inner
-            : `${screenFallback(p, kind)}${screenImg(media.src, { alt: media.alt, shot: media.shot, eager: opts.eager })}`;
+            : `${screenFallback(p, kind)}${screenImg(media.src, { alt: media.alt, shot: media.shot, eager: opts.eager, w: kind === 'phone' ? Math.min(240, (opts.w || 480) / 2) : (opts.w || 800) / 2 })}`;
         const tone = window.toneVars(p.color);
 
         if (kind === 'phone') {
@@ -1012,7 +1014,7 @@
                 </span>
                 ${it.isNew ? '<span class="relcard-new">New</span>' : ''}
             </header>
-            <div class="relcard-ver">${it.isNew ? flapHtml(`v${it.tag}`) : `<span class="flap is-static">v${esc(it.tag)}</span>`}</div>
+            <div class="relcard-ver${String(it.tag || '').length > 8 ? ' is-long' : ''}">${it.isNew ? flapHtml(`v${it.tag}`) : `<span class="flap is-static">v${esc(it.tag)}</span>`}</div>
             <p class="relcard-when">${it.date ? `${esc(new Date(it.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }))} · ${esc(shortAgo(it.date))}` : ''}</p>
             ${notes.length ? `<ul class="relcard-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : `<p class="relcard-notes is-empty">${esc(it.name || 'A new version is out.')}</p>`}
             <footer class="relcard-foot">

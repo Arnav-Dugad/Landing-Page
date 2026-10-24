@@ -57,7 +57,7 @@
                         if (!r.ok) continue;
                         const j = await r.json();
                         if (Array.isArray(j.projects)) {
-                            return j.projects.map((p) => ({ ...p, slug: p.slug || window.slugify(p.title) }));
+                            return j.projects.map((p) => { const n = window.normalizeProject(p); return { ...n, slug: window.slugify(n.title) }; });
                         }
                     } catch { /* next source */ }
                 }
@@ -66,7 +66,7 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             return (json.documents || []).map((d) => {
-                const data = unwrapDoc(d.fields || {});
+                const data = window.normalizeProject(unwrapDoc(d.fields || {}));
                 return { ...data, id: d.name.split('/').pop(), slug: window.slugify(data.title) };
             });
         })();

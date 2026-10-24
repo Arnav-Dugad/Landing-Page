@@ -57,6 +57,99 @@
         .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     window.projectSlug = (p) => window.slugify(p && p.title) || String((p && p.id) || '');
 
+    /* Right-sized images. Screenshots come straight from GitHub at full size
+       (one was 476 KB for a 360px card), so they go through wsrv.nl — a free,
+       open-source image CDN on Cloudflare — resized to the slot they fill and
+       re-encoded as WebP. `w` is the CSS width; device pixel ratio is applied
+       here. Never for SVGs (vector, tiny) or when the page isn't on a public
+       host (the CDN couldn't reach localhost). If the CDN fails, the global
+       error handler below swaps in the original, so nothing can break. */
+    const PUBLIC_HOST = /(^|\.)arnavdugad\.in$|\.workers\.dev$|\.github\.io$/i.test(location.hostname);
+    window.imgUrl = (src, w = 640) => {
+        if (!src) return src;
+        let u;
+        try { u = new URL(src, location.href); } catch { return src; }
+        // SVG is vector; GIF may be animated (the CDN would flatten it).
+        if (!/^https?:$/.test(u.protocol) || /\.(svg|gif)$/i.test(u.pathname) || u.hostname === 'wsrv.nl') return src;
+        if (u.origin === location.origin && !PUBLIC_HOST) return src;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const width = Math.min(1600, Math.max(48, Math.round((w * dpr) / 40) * 40));
+        return `https://wsrv.nl/?url=${encodeURIComponent(u.href)}&w=${width}&we&output=webp&q=80`;
+    };
+    // <img src="${imgUrl(x)}" data-orig="${x}">: one retry with the original.
+    document.addEventListener('error', (e) => {
+        const img = e.target;
+        if (!img || img.tagName !== 'IMG' || !img.dataset.orig) return;
+        const orig = img.dataset.orig;
+        delete img.dataset.orig;
+        if (img.src !== orig) img.src = orig;
+    }, true);
+
+    /* Cleans importer-made records on read, so pages, cards, share cards and
+       feeds all agree — and so the next save writes the clean values back:
+         · "Name — tagline" titles (README headlines) split into title + tagline
+         · version numbers dropped from titles ("Arnav Island 0.25" → "Arnav Island")
+         · a GitHub repo/release page is not a live site, so it is not the link
+       Hand-made projects (auto !== true) keep their titles exactly as written. */
+    const PLATFORM_WORD = /^(web|android|windows|ios|iphone|mac(os)?|linux|app|desktop|mobile)$/i;
+    window.normalizeProject = (raw) => {
+        const p = { ...raw };
+        if (/^https?:\/\/(www\.)?github\.com\//i.test(String(p.link || ''))) p.link = '';
+        // GitHub's signed image links (private-user-images…?jwt=) expire within
+        // minutes; the asset's permanent address is github.com/user-attachments.
+        const stable = (u) => {
+            const m = typeof u === 'string' && u.match(/^https:\/\/private-user-images\.githubusercontent\.com\/\d+\/\d+-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.\w+/i);
+            return m ? `https://github.com/user-attachments/assets/${m[1]}` : u;
+        };
+        ['cover', 'coverDark', 'appIcon'].forEach((k) => { if (p[k]) p[k] = stable(p[k]); });
+        if (Array.isArray(p.gallery)) p.gallery = p.gallery.map(stable);
+        // GitHub's own logo is not the app's icon (a github.io page's default).
+        if (/^https?:\/\/([a-z0-9-]+\.)?githubassets\.com\//i.test(String(p.appIcon || ''))) delete p.appIcon;
+        // github.com/<owner>/<repo>/blob/<branch>/<path> → the file itself.
+        const toRaw = (u) => {
+            const m = typeof u === 'string' && u.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/(?:blob|raw)\/([^/]+)\/([^?#]+)/i);
+            return m ? `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}/${m[4]}` : u;
+        };
+        ['cover', 'coverDark', 'appIcon'].forEach((k) => { if (p[k]) p[k] = toRaw(p[k]); });
+        if (Array.isArray(p.gallery)) p.gallery = p.gallery.map(toRaw);
+        // Two builds with the same label ("Android APK" twice for Island and Island
+        // Lite) are told apart by their file names.
+        if (Array.isArray(p.downloads) && p.downloads.length > 1) {
+            const counts = {};
+            p.downloads.forEach((d) => { counts[d && d.label] = (counts[d && d.label] || 0) + 1; });
+            p.downloads = p.downloads.map((d) => {
+                if (!d || counts[d.label] < 2) return d;
+                const file = decodeURIComponent(String(d.url || '').split('/').pop().split('?')[0]);
+                const ext = (file.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+                const name = file.replace(/\.[a-z0-9]+$/i, '')
+                    .replace(/[-_ .]?v?\d+(\.\d+)+([-.][\w.]+)?/gi, '')
+                    .replace(/[-_]+/g, ' ').trim();
+                return name ? { ...d, label: `${name}${ext ? ` (${ext.toUpperCase()})` : ''}` } : d;
+            });
+        }
+        // "Island: a Dynamic Island-style overlay…" → "A Dynamic Island-style overlay…"
+        if (p.auto === true && typeof p.desc === 'string' && p.title) {
+            const esc = String(p.title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const stripped = p.desc.replace(new RegExp(`^\\s*${esc}\\s*(?:[:\\u2014\\u2013|]|\\s-)\\s*`, 'i'), '');
+            if (stripped !== p.desc && stripped.length > 20) p.desc = stripped.charAt(0).toUpperCase() + stripped.slice(1);
+        }
+        if (p.auto === true && typeof p.title === 'string') {
+            let name = p.title.replace(/\s+/g, ' ').trim();
+            let tagline = '';
+            const m = name.match(/^(.{2,60}?)\s+[—–|:]\s+(.{3,})$/)
+                || name.match(/^(.{2,40}?):\s+(.{3,})$/)
+                || name.match(/^(.{2,40}?)\s+-\s+(.{3,})$/);
+            if (m) { name = m[1].trim(); tagline = m[2].trim(); }
+            const before = name;
+            name = name.replace(/\s+v?\d+(\.\d+)+([-.+][\w.]+)?$/i, '').trim();
+            if (name && name !== p.title) {
+                p.title = name;
+                if (!p.tagline && tagline && name === before && !PLATFORM_WORD.test(tagline)) p.tagline = tagline.slice(0, 120);
+            }
+        }
+        return p;
+    };
+
     /* -------- Categories ----------------------------------------------------
        Stored as slugs ("threed", "dataviz"); grouped so a list this long stays
        navigable in the editor's native select. */

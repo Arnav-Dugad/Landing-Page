@@ -224,7 +224,7 @@
             media = W.frameHtml(project, { w: 1400, eager: true });
         } else if (shots.length) {
             media = `<button type="button" class="case-zoom" data-zoom="0" aria-label="Enlarge: ${esc(shots[0].alt)}">
-                   <img src="${esc(shots[0].src)}" alt="${esc(shots[0].alt)}" loading="eager"></button>`;
+                   <img src="${esc(window.imgUrl(shots[0].src, 300))}" data-orig="${esc(shots[0].src)}" alt="${esc(shots[0].alt)}" loading="eager" fetchpriority="high" decoding="async"></button>`;
         }
         // Phones already show up to three screens up top; the gallery picks up after them.
         const galleryFrom = kind === 'phone' ? Math.min(3, shots.length) : 1;
@@ -245,7 +245,7 @@
                     ${shots.slice(galleryFrom).map((s, i) => `
                         <figure class="case-shot">
                             <button type="button" class="case-zoom" data-zoom="${i + galleryFrom}" aria-label="Enlarge: ${esc(s.alt)}">
-                                <img src="${esc(s.src)}" alt="${esc(s.alt)}" loading="lazy">
+                                <img src="${esc(window.imgUrl(s.src, 640))}" data-orig="${esc(s.src)}" alt="${esc(s.alt)}" loading="lazy" decoding="async">
                             </button>
                         </figure>`).join('')}
                 </div>` : '')

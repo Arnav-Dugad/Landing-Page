@@ -37,6 +37,14 @@
             + (window.platformsOf(p).some((k) => k !== 'web') ? 2 : 0);
     }
 
+    /* A site the uptime check says is down shouldn't lead the page (its
+       "Open it" button would go nowhere) — it drops out of the spotlight and
+       to the back of the wall until it's back. */
+    const isDown = (p) => {
+        const s = (window.projectStatus && window.projectStatus(p.id)) || (M() && M().get(p.id) && M().get(p.id).web);
+        return !!s && s.up === false && !window.platformsOf(p).some((k) => k !== 'web');
+    };
+
     let lastKey = '';
 
     function sync({ force = false } = {}) {
@@ -44,7 +52,7 @@
         if (!list.length) return;
         // Rebuild only when the set of projects (or their media) changed —
         // re-rendering the wall on every filter click would restart it.
-        const key = list.map((p) => `${p.id}:${p.updatedAt || ''}:${p.featured ? 1 : 0}`).join('|') + (M() && M().isReady() ? ':m' : '');
+        const key = list.map((p) => `${p.id}:${p.updatedAt || ''}:${p.featured ? 1 : 0}:${isDown(p) ? 'd' : ''}`).join('|') + (M() && M().isReady() ? ':m' : '');
         paintPlatbar();
         if (key === lastKey && !force) return;
         lastKey = key;
@@ -61,7 +69,7 @@
     let wallBuilt = false;
 
     function wallItems(list) {
-        const ranked = list.slice().sort((a, b) => showScore(b) - showScore(a));
+        const ranked = list.slice().sort((a, b) => (isDown(a) ? 1 : 0) - (isDown(b) ? 1 : 0) || showScore(b) - showScore(a));
         // Interleave platforms so a column never reads as one kind of thing.
         const byKind = {};
         ranked.forEach((p) => {
@@ -333,8 +341,10 @@
     let cycleTimer = null;
 
     function featuredSet(list) {
-        const marked = list.filter((p) => p.featured);
-        const pool = (marked.length >= 2 ? marked : list).slice()
+        const live = list.filter((p) => !isDown(p));
+        const usable = live.length >= 2 ? live : list;
+        const marked = usable.filter((p) => p.featured);
+        const pool = (marked.length >= 2 ? marked : usable).slice()
             .sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || showScore(b) - showScore(a));
         return pool.slice(0, 5);
     }

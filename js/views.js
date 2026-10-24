@@ -143,7 +143,7 @@
         if (preview && isVideo(preview)) {
             return `<video src="${esc(preview)}" muted loop playsinline autoplay preload="auto"></video>`;
         }
-        if (preview) return `<img src="${esc(preview)}" alt="">`;
+        if (preview) return `<img src="${esc(window.imgUrl(preview, 300))}" data-orig="${esc(preview)}" alt="">`;
         // The index view peeks at the project on its own device.
         if (el.classList.contains('ix-row') && window.Widgets) {
             const kind = (window.PLATFORMS[window.platformsOf(p)[0]] || window.PLATFORMS.web).frame;
@@ -527,29 +527,62 @@
     const healthSheet = document.getElementById('healthSheet');
     const healthBody = document.getElementById('healthBody');
 
+    /* Same repo, or same live address, on the same platform → one of them is
+       a duplicate. (UsageNotch for Windows and for Android share a site but
+       are different apps, so different platforms never count.) */
+    function findDuplicates(list) {
+        const key = (u) => String(u || '').toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, '');
+        const plats = (p) => (window.platformsOf ? window.platformsOf(p) : ['web']).join(',');
+        const groups = new Map();
+        list.forEach((p) => {
+            const repo = window.resolveRepoUrl(p);
+            [repo && `repo:${key(repo)}`, p.link && `link:${key(p.link)}`].filter(Boolean).forEach((k) => {
+                if (!groups.has(k)) groups.set(k, []);
+                groups.get(k).push(p);
+            });
+        });
+        const seen = new Set();
+        const out = [];
+        for (const [k, ps] of groups) {
+            const uniq = ps.filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i);
+            const same = uniq.filter((p) => plats(p) === plats(uniq[0]));
+            if (same.length < 2) continue;
+            const sig = same.map((p) => p.id).sort().join('|');
+            if (seen.has(sig)) continue;
+            seen.add(sig);
+            out.push({ why: k.startsWith('repo:') ? 'same GitHub repo' : 'same live address', projects: same });
+        }
+        return out;
+    }
+
     window.openHealth = async () => {
         if (!window.isAdmin || !healthSheet) return;
         healthBody.innerHTML = '<div class="skeleton" style="min-height:220px"></div>';
         window.openSheet(healthSheet);
 
-        const status = window.Widgets && window.Widgets.loadStatus ? await window.Widgets.loadStatus() : {};
+        // Stored metrics only — no per-project GitHub calls from the browser
+        // (fifty of those would spend most of GitHub's hourly allowance).
+        const [status] = await Promise.all([
+            window.Widgets && window.Widgets.loadStatus ? window.Widgets.loadStatus() : {},
+            window.Meta && window.Meta.load ? window.Meta.load().catch(() => null) : null
+        ]);
         const list = projects();
-        const rows = await Promise.all(list.map(async (p) => {
+        const metaOf = (p) => (window.Meta && window.Meta.get ? window.Meta.get(p.id) : null);
+        const rows = list.map((p) => {
             const repo = window.resolveRepoUrl(p);
+            const m = metaOf(p);
             let repoState = 'none';
-            if (repo) {
-                const s = await window.fetchGitHubStats(repo);
-                const missing = window.githubRepoMissing(repo);
-                repoState = s ? 'ok' : (missing === true ? 'missing' : 'unknown');
-            }
-            const live = status[p.id] || null;
-            const liveState = !window.safeUrl(p.link) ? 'none' : (live ? (live.up ? 'up' : 'down') : 'unchecked');
-            const score = (repoState === 'missing' ? 2 : 0) + (liveState === 'down' ? 2 : 0)
-                + (repoState === 'unknown' ? 0.5 : 0) + (liveState === 'none' ? 0.3 : 0);
-            return { p, repoState, liveState, live, score };
-        }));
+            if (repo) repoState = !m ? 'unknown' : (m.github ? 'ok' : 'missing');
+            const live = (status && status[p.id]) || (m && m.web) || null;
+            const liveState = !window.safeUrl(p.link) ? 'none'
+                : (live && typeof live.up === 'boolean' ? (live.up ? 'up' : 'down') : 'unchecked');
+            const score = (repoState === 'missing' ? 2 : 0) + (liveState === 'down' ? 2 : 0) + (repoState === 'unknown' ? 0.5 : 0);
+            return { p, repo, repoState, liveState, live, score };
+        });
         rows.sort((a, b) => b.score - a.score || String(a.p.title).localeCompare(String(b.p.title)));
 
+        const dupes = findDuplicates(list);
+        const noCopy = window.projectsNeedingCopy ? window.projectsNeedingCopy() : [];
         const problems = rows.filter((r) => r.repoState === 'missing' || r.liveState === 'down').length;
         const pill = (cls, text) => `<span class="hc-pill hc-pill--${cls}">${text}</span>`;
         const repoPill = { ok: pill('ok', 'Repo OK'), missing: pill('bad', 'Repo missing'), unknown: pill('meh', 'Repo unchecked'), none: pill('meh', 'No repo') };
@@ -557,28 +590,56 @@
             up: pill('ok', `Up${r.live && r.live.ms ? ` · ${r.live.ms} ms` : ''}`),
             down: pill('bad', `Down${r.live && r.live.code ? ` · ${r.live.code}` : (r.live && r.live.error ? ` · ${esc(r.live.error)}` : '')}`),
             unchecked: pill('meh', 'Not checked yet'),
-            none: pill('meh', 'No live link')
+            none: pill('meh', 'App — no website')
         })[r.liveState];
 
-        healthBody.innerHTML = `
-            <p class="hc-sum">${problems
-                ? `<b>${problems}</b> project${problems === 1 ? ' needs' : 's need'} attention.`
-                : '<b>All clear.</b> Every repo exists and every live link answered.'}
-                ${window.githubRateLimited() ? ' GitHub\'s hourly limit was hit, so some repos are unchecked — try again later.' : ''}</p>
-            <ul class="hc-list">${rows.map((r) => `
+        const summary = [
+            problems && `<b>${problems}</b> project${problems === 1 ? ' needs' : 's need'} attention`,
+            dupes.length && `<b>${dupes.length}</b> possible duplicate${dupes.length === 1 ? '' : 's'}`,
+            noCopy.length && `<b>${noCopy.length}</b> missing a write-up`
+        ].filter(Boolean);
+
+        const parts = [`<p class="hc-sum">${summary.length
+            ? `${summary.join(' · ')}.`
+            : '<b>All clear.</b> Every repo exists, every live link answered, every project has its copy.'}</p>`];
+
+        if (noCopy.length) {
+            parts.push(`<div class="hc-block">
+                <div class="hc-block-head"><b>Missing a write-up</b>
+                    <button type="button" class="btn btn--primary" data-hc-finish>${window.icon('sparkles', { raw: true, size: 14 })} Finish with AI</button></div>
+                <p>${noCopy.slice(0, 12).map((p) => esc(p.title)).join(', ')}${noCopy.length > 12 ? ` and ${noCopy.length - 12} more` : ''}</p>
+            </div>`);
+        }
+        if (dupes.length) {
+            parts.push(`<div class="hc-block"><div class="hc-block-head"><b>Possible duplicates</b></div>${dupes.map((d) => `
+                <div class="hc-dupe">
+                    <span>${d.projects.map((p) => `<b>${esc(p.title)}</b>${p.hidden ? ' <em>(hidden)</em>' : ''}`).join(' and ')} — ${d.why}</span>
+                    <span class="hc-dupe-acts">${d.projects.filter((p) => !p.hidden).map((p) =>
+                        `<button type="button" class="btn btn--quiet" data-hc-hide="${esc(p.id)}">Hide “${esc(p.title)}”</button>`).join('')}</span>
+                </div>`).join('')}</div>`);
+        }
+        parts.push(`<ul class="hc-list">${rows.map((r) => `
                 <li class="${r.score >= 2 ? 'is-bad' : ''}" style="${window.toneVars(r.p.color)}">
                     <span class="card-plaque">${window.icon(r.p.icon, { size: 15 })}</span>
                     <b>${esc(r.p.title)}</b>
                     <span class="hc-pills">${repoPill[r.repoState]}${livePill(r)}</span>
-                    <button type="button" class="btn btn--quiet" data-hc-edit="${esc(r.p.id)}">${window.icon('pencil', { raw: true, size: 14 })} Fix</button>
-                </li>`).join('')}</ul>`;
+                    ${r.liveState === 'down' && r.repo && window.startRehost
+                        ? `<button type="button" class="btn btn--quiet" data-hc-rehost="${esc(r.p.id)}">${window.icon('cloud', { raw: true, size: 14 })} Rehost</button>`
+                        : `<button type="button" class="btn btn--quiet" data-hc-edit="${esc(r.p.id)}">${window.icon('pencil', { raw: true, size: 14 })} Fix</button>`}
+                </li>`).join('')}</ul>`);
+        healthBody.innerHTML = parts.join('');
     };
 
     if (healthSheet) {
         healthSheet.addEventListener('click', (e) => {
             if (e.target === healthSheet || e.target.closest('[data-close]')) { window.closeSheet(healthSheet); return; }
             const edit = e.target.closest('[data-hc-edit]');
-            if (edit) { window.closeSheet(healthSheet); window.editProject(edit.dataset.hcEdit); }
+            if (edit) { window.closeSheet(healthSheet); window.editProject(edit.dataset.hcEdit); return; }
+            const hide = e.target.closest('[data-hc-hide]');
+            if (hide && window.toggleHiddenProject) { window.toggleHiddenProject(hide.dataset.hcHide).then(() => setTimeout(() => window.openHealth(), 600)); return; }
+            const rehost = e.target.closest('[data-hc-rehost]');
+            if (rehost && window.startRehost) { window.closeSheet(healthSheet); window.startRehost(rehost.dataset.hcRehost); return; }
+            if (e.target.closest('[data-hc-finish]') && window.finishImports) { window.closeSheet(healthSheet); window.finishImports(); }
         });
     }
     document.getElementById('healthOpen')?.addEventListener('click', () => window.openHealth());
