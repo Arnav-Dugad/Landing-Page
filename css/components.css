@@ -620,7 +620,7 @@
     visibility: hidden;
     transition: opacity var(--d-3) var(--e-out), visibility var(--d-3);
 }
-.sheet.is-open { opacity: 1; visibility: visible; }
+.sheet.is-open { opacity: 1; visibility: visible; transition: opacity var(--d-3) var(--e-out), visibility 0s; }
 
 .sheet-panel {
     position: relative;
@@ -1052,7 +1052,9 @@
     opacity: 0; visibility: hidden;
     transition: opacity var(--d-2) var(--e-out), visibility var(--d-2);
 }
-.palette.is-open { opacity: 1; visibility: visible; }
+/* Visible at once when opening (only the fade animates): an element that is
+   still visibility:hidden can't take focus, so typing after ⌘K went nowhere. */
+.palette.is-open { opacity: 1; visibility: visible; transition: opacity var(--d-2) var(--e-out), visibility 0s; }
 
 .palette-box {
     width: min(640px, 100%);

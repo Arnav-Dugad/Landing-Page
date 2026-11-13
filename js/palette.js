@@ -22,28 +22,30 @@
     /* -------- Command sources ------------------------------------------- */
 
     function build() {
-        const projects = window.listProjects ? window.listProjects() : [];
+        const smart = (p) => (window.Meta && window.Meta.score ? window.Meta.score(p) : 0) + (p.featured ? 1000 : 0);
+        const projects = (window.listProjects ? window.listProjects() : []).slice().sort((a, b) => smart(b) - smart(a));
         const cmds = [];
 
-        projects.forEach((p) => cmds.push({
+        projects.forEach((p, i) => cmds.push({
             group: 'Projects',
             icon: window.normaliseIcon(p.icon),
             label: p.title,
-            sub: p.desc,
-            keywords: [p.category, ...(p.tags || [])].filter(Boolean).join(' '),
+            sub: p.tagline || p.desc,
+            keywords: [window.categoryLabel(p.category), ...(p.tags || [])].filter(Boolean).join(' '),
             hint: 'Open',
+            start: i < 6,                    // the first screen shows the best few
             run: () => window.openProject(p.id)
         }));
 
         cmds.push(
             { group: 'Navigate', icon: 'arrow-up',  label: 'Go to top',     keywords: 'home hero start', run: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
-            { group: 'Navigate', icon: 'grid',      label: 'Go to work',    keywords: 'projects portfolio grid', run: go('work') },
+            { group: 'Navigate', icon: 'grid',      label: 'Go to projects', keywords: 'work portfolio grid all', start: true, run: go('work') },
             ...(document.getElementById('releases') && !document.getElementById('releases').hidden
                 ? [{ group: 'Navigate', icon: 'rocket', label: 'Latest releases', keywords: 'new version update changelog shipped', run: go('releases') }]
                 : []),
-            { group: 'Navigate', icon: 'info',      label: 'Go to about',   keywords: 'bio story who', run: go('about') },
+            { group: 'Navigate', icon: 'info',      label: 'Go to about',   keywords: 'bio story who', start: true, run: go('about') },
             { group: 'Navigate', icon: 'layers',    label: 'Go to stack',   keywords: 'tech tools skills', run: go('stack') },
-            { group: 'Navigate', icon: 'send',      label: 'Go to contact', keywords: 'email reach hire', run: go('contact') },
+            { group: 'Navigate', icon: 'send',      label: 'Go to contact', keywords: 'email reach hire', start: true, run: go('contact') },
             { group: 'Navigate', icon: 'pulse',     label: 'What I’m doing now', keywords: 'now current reading learning building', run: () => { location.href = 'now.html'; } },
             { group: 'Navigate', icon: 'doc',       label: 'Résumé', sub: 'Printable, generated from the projects', keywords: 'cv resume pdf hire print', run: () => { location.href = 'resume.html'; } },
             { group: 'Navigate', icon: 'news',      label: 'RSS feed', keywords: 'rss atom subscribe feed json', run: () => { location.href = '/feed.xml'; } }
@@ -62,6 +64,7 @@
                 cmds.push({
                     group: 'Platforms', icon: def.icon, label: `Show ${def.noun.toLowerCase()}`,
                     sub: `${platCounts[k]} project${platCounts[k] === 1 ? '' : 's'}`,
+                    start: platCounts[k] >= 5,
                     keywords: `platform ${k} ${def.label} ${def.noun} apps`,
                     run: () => { window.setPlatform(k); go('work')(); }
                 });
@@ -90,13 +93,12 @@
         });
         cats.forEach((c) => cmds.push({
             group: 'Filter', icon: 'filter',
-            label: `Filter: ${c.charAt(0).toUpperCase() + c.slice(1)}`,
-            keywords: `category ${c}`,
+            label: `Type: ${window.categoryLabel(c)}`,
+            keywords: `category filter ${c}`,
             run: () => { window.setFilter(c); go('work')(); }
         }));
 
-        [['smart', 'Recommended'], ['newest', 'Newest first'], ['oldest', 'Oldest first'], ['stars', 'Most starred'],
-         ['az', 'A–Z'], ['featured', 'Featured first']].forEach(([key, label]) => {
+        [['smart', 'Recommended'], ['newest', 'Newest first'], ['stars', 'Most starred'], ['az', 'A–Z']].forEach(([key, label]) => {
             cmds.push({
                 group: 'Sort', icon: 'sort', label: `Sort: ${label}`,
                 keywords: `order arrange ${key}`,
@@ -115,13 +117,13 @@
         }
 
         cmds.push(
-            { group: 'Actions', icon: 'dice',    label: 'Surprise me',        sub: 'Open a random project', keywords: 'random lucky shuffle', run: () => window.randomProject() },
+            { group: 'Actions', icon: 'dice',    label: 'Surprise me',        sub: 'Open a random project', keywords: 'random lucky shuffle', start: true, run: () => window.randomProject() },
             { group: 'Actions', icon: 'mail',    label: 'Copy email address', keywords: 'contact clipboard', run: () => {
                 navigator.clipboard?.writeText('arnavdugad@gmail.com')
                     .then(() => window.toast('Email copied to clipboard', 'success'))
                     .catch(() => window.toast('Could not copy', 'error'));
             } },
-            { group: 'Actions', icon: 'send',    label: 'Send me a message',  keywords: 'contact form hire email', run: () => window.openContact() },
+            { group: 'Actions', icon: 'send',    label: 'Send me a message',  keywords: 'contact form hire email', start: true, run: () => window.openContact() },
             { group: 'Actions', icon: 'wave',    label: 'Toggle sound',       keywords: 'audio mute volume', run: () => window.toggleSound() },
             { group: 'Actions', icon: 'github',  label: 'Open GitHub profile', keywords: 'code repos source', run: () => window.open('https://github.com/Arnav-Dugad', '_blank', 'noopener') },
             { group: 'Actions', icon: 'linkedin', label: 'Open LinkedIn',      keywords: 'social profile work', run: () => window.open('https://www.linkedin.com/in/arnav-dugad/', '_blank', 'noopener') },
@@ -174,15 +176,29 @@
         return i === query.length ? Math.max(1, 200 - gaps) : 0;
     }
 
+    // Shorten at a word, never mid-word.
+    const clip = (text, n) => {
+        const t = String(text || '').trim();
+        if (t.length <= n) return t;
+        const cut = t.slice(0, n + 1).replace(/\s+\S*$/, '');
+        return `${(cut || t.slice(0, n)).replace(/[,;:.\s-]+$/, '')}…`;
+    };
+
     function paint() {
         const query = input.value.toLowerCase().trim();
 
-        matches = commands
-            .map((cmd) => ({ cmd, s: score(query, cmd) }))
-            .filter((m) => m.s > 0)
-            .sort((a, b) => b.s - a.s)
-            .slice(0, 40)
-            .map((m) => m.cmd);
+        /* Nothing typed yet: a short, ordered start screen (where to go, the
+           best projects, the big platforms, two actions) instead of forty
+           rows in no particular order. Typing searches everything. */
+        const START_ORDER = ['Navigate', 'Projects', 'Platforms', 'Actions', 'Admin'];
+        matches = !query
+            ? START_ORDER.flatMap((g) => commands.filter((c) => c.group === g && (c.start || (g === 'Admin' && window.isAdmin && c.icon !== 'pencil'))))
+            : commands
+                .map((cmd) => ({ cmd, s: score(query, cmd) }))
+                .filter((m) => m.s > 0)
+                .sort((a, b) => b.s - a.s)
+                .slice(0, 40)
+                .map((m) => m.cmd);
 
         if (!matches.length) {
             list.innerHTML = `<div class="palette-empty">Nothing matches “${window.esc(input.value)}”.</div>`;
@@ -203,7 +219,7 @@
                     <span class="ic">${window.icon(cmd.icon, { raw: true, size: 15 })}</span>
                     <span class="tx">
                         <b>${window.esc(cmd.label)}</b>
-                        ${cmd.sub ? `<small>${window.esc(String(cmd.sub).slice(0, 64))}</small>` : ''}
+                        ${cmd.sub ? `<small>${window.esc(clip(cmd.sub, 72))}</small>` : ''}
                     </span>
                     ${cmd.hint ? `<span class="hint">${window.esc(cmd.hint)}</span>` : ''}
                 </button>`;
@@ -281,7 +297,10 @@
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
             e.preventDefault();
             window.paletteOpen() ? close() : open();
+            return;
         }
+        // Esc closes it wherever focus happens to be.
+        if (e.key === 'Escape' && window.paletteOpen() && document.activeElement !== input) close();
     });
 
     document.querySelectorAll('[data-palette]').forEach((btn) => {

@@ -762,3 +762,8 @@ html.vt-theme::view-transition-new(root) {
     html.mi-img img[loading="lazy"]:not(.mi-loaded):not(.mi-broken),
     html.mi-img img[data-blur]:not(.mi-loaded):not(.mi-broken) { opacity: 1; }
 }
+
+/* Touch screens: the palette's keyboard legend (↑ ↓ ↵ esc) means nothing. */
+@media (hover: none) and (pointer: coarse) {
+    .palette-foot { display: none; }
+}
