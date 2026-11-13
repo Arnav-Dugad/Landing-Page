@@ -1080,15 +1080,15 @@
                 <div class="form-grid">
                     <div class="field field--wide">
                         <label for="cName">Your name</label>
-                        <input class="input" id="cName" required placeholder="Jordan Rivera">
+                        <input class="input" id="cName" name="name" required autocomplete="name" autocapitalize="words" enterkeyhint="next" maxlength="120" placeholder="Jordan Rivera">
                     </div>
                     <div class="field field--wide">
                         <label for="cEmail">Email</label>
-                        <input class="input" id="cEmail" type="email" required placeholder="jordan@example.com">
+                        <input class="input" id="cEmail" name="email" type="email" required autocomplete="email" inputmode="email" enterkeyhint="next" maxlength="200" placeholder="jordan@example.com">
                     </div>
                     <div class="field field--wide">
                         <label for="cMessage">Message</label>
-                        <textarea class="textarea" id="cMessage" required placeholder="Tell me what you're working on…"></textarea>
+                        <textarea class="textarea" id="cMessage" name="message" required maxlength="5000" enterkeyhint="send" placeholder="Tell me what you're working on…"></textarea>
                     </div>
                 </div>
             </div>
