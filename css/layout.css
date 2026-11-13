@@ -484,7 +484,7 @@
     font-weight: 500;
     padding-top: 5px;
 }
-.principle h4 { font-size: 1.05rem; font-weight: 500; margin-bottom: 5px; }
+.principle h3, .principle h4 { font-size: 1.05rem; font-weight: 500; margin-bottom: 5px; }
 .principle p { font-size: var(--t-sm); color: var(--ink-50); }
 
 /* ---------------------------------------------------------------------------
@@ -610,10 +610,10 @@
 }
 .footer-nav { display: grid; grid-auto-flow: column; gap: 56px; }
 .footer-col { display: grid; gap: 9px; align-content: start; }
-.footer-col h5 {
+.footer-col h5, .footer-col .footer-h {
     font-family: var(--font-mono); font-size: var(--t-2xs);
     text-transform: uppercase; letter-spacing: .12em;
-    color: var(--ink-35); margin-bottom: 4px; font-weight: 500;
+    color: var(--ink-35); margin-bottom: 4px; font-weight: 500; line-height: 1.5;
 }
 .footer-col a {
     font-size: var(--t-sm); color: var(--ink-50);

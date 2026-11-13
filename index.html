@@ -133,10 +133,10 @@
 
 <!-- Section rail -->
 <aside class="rail" aria-hidden="true">
-    <button class="rail-dot" data-target="work"><span>Projects</span><i></i></button>
-    <button class="rail-dot" data-target="about"><span>About</span><i></i></button>
-    <button class="rail-dot" data-target="stack"><span>Stack</span><i></i></button>
-    <button class="rail-dot" data-target="contact"><span>Contact</span><i></i></button>
+    <button class="rail-dot" tabindex="-1" data-target="work"><span>Projects</span><i></i></button>
+    <button class="rail-dot" tabindex="-1" data-target="about"><span>About</span><i></i></button>
+    <button class="rail-dot" tabindex="-1" data-target="stack"><span>Stack</span><i></i></button>
+    <button class="rail-dot" tabindex="-1" data-target="contact"><span>Contact</span><i></i></button>
 </aside>
 
 <main>
@@ -311,7 +311,7 @@
 </section>
 
 <!-- Compare tray: appears once a project is picked for comparison. -->
-<div class="ctray" id="ctray" aria-live="polite" aria-hidden="true">
+<div class="ctray" id="ctray" aria-live="polite" aria-hidden="true" inert>
     <div class="ctray-slots" id="ctraySlots"></div>
     <div class="ctray-acts">
         <button type="button" class="btn btn--quiet" id="ctrayClear">Clear</button>
@@ -353,28 +353,28 @@
                     <div class="principle" data-reveal="up">
                         <b>01</b>
                         <div>
-                            <h4>Ship it live, or it isn't real</h4>
+                            <h3>Ship it live, or it isn't real</h3>
                             <p>Every project on this page has a working URL. A demo video is not a shipped product.</p>
                         </div>
                     </div>
                     <div class="principle" data-reveal="up" style="--delay:80ms">
                         <b>02</b>
                         <div>
-                            <h4>Motion should mean something</h4>
+                            <h3>Motion should mean something</h3>
                             <p>Animation exists to explain what changed and where things went — never to fill silence.</p>
                         </div>
                     </div>
                     <div class="principle" data-reveal="up" style="--delay:160ms">
                         <b>03</b>
                         <div>
-                            <h4>Fast beats clever</h4>
+                            <h3>Fast beats clever</h3>
                             <p>No framework here, no build step, no bundle to download. It loads because there's nothing to wait for.</p>
                         </div>
                     </div>
                     <div class="principle" data-reveal="up" style="--delay:240ms">
                         <b>04</b>
                         <div>
-                            <h4>Everything is editable</h4>
+                            <h3>Everything is editable</h3>
                             <p>The site reads from a live database, so the work updates itself the moment something changes.</p>
                         </div>
                     </div>
@@ -444,20 +444,20 @@
 
             <nav class="footer-nav" aria-label="Footer">
                 <div class="footer-col">
-                    <h5>Site</h5>
+                    <h2 class="footer-h">Site</h2>
                     <a href="#work">Work</a>
                     <a href="#about">About</a>
                     <a href="#stack">Stack</a>
                     <a href="#contact">Contact</a>
                 </div>
                 <div class="footer-col">
-                    <h5>More</h5>
+                    <h2 class="footer-h">More</h2>
                     <a href="now.html"><span data-icon="pulse" data-size="14"></span> Now</a>
                     <a href="resume.html"><span data-icon="doc" data-size="14"></span> Résumé</a>
                     <a href="/feed.xml"><span data-icon="news" data-size="14"></span> RSS feed</a>
                 </div>
                 <div class="footer-col">
-                    <h5>Elsewhere</h5>
+                    <h2 class="footer-h">Elsewhere</h2>
                     <a href="https://github.com/Arnav-Dugad" target="_blank" rel="noopener noreferrer">
                         <span data-icon="github" data-size="14"></span> GitHub</a>
                     <a href="https://www.linkedin.com/in/arnav-dugad/" target="_blank" rel="noopener noreferrer">

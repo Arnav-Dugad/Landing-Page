@@ -219,6 +219,7 @@
     tipEl.setAttribute('role', 'tooltip');
     tipEl.id = 'mi-tip';
     tipEl.innerHTML = '<span></span><i></i>';
+    tipEl.setAttribute('aria-hidden', 'true');
     document.body.appendChild(tipEl);
     const tipText = tipEl.firstElementChild;
     const tipArrow = tipEl.lastElementChild;
@@ -272,6 +273,7 @@
             el.removeAttribute('title');
         }
         tipText.textContent = text;
+        tipEl.removeAttribute('aria-hidden');
         tipEl.classList.remove('is-on');
         tipEl.style.transform = 'translate3d(-9999px, 0, 0)';
         el.setAttribute('aria-describedby', 'mi-tip');
@@ -293,6 +295,7 @@
     function hideTip() {
         clearTimeout(tipTimer);
         if (!tipFor) return;
+        tipEl.setAttribute('aria-hidden', 'true');
         warmUntil = Date.now() + 500;          // the next tip shows instantly
         restoreTitle(tipFor);
         tipFor = null;

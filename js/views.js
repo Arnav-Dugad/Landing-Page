@@ -336,6 +336,7 @@
         const on = picked.length > 0;
         tray.classList.toggle('is-on', on);
         tray.setAttribute('aria-hidden', String(!on));
+        tray.inert = !on;
         document.body.classList.toggle('has-ctray', on);
 
         slots.innerHTML = [0, 1, 2].map((i) => {

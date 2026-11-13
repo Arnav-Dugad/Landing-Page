@@ -846,7 +846,7 @@
         const sub = o.type === 'download'
             ? [P()[o.platform] && P()[o.platform].label, window.formatBytes(o.size)].filter(Boolean).join(' · ')
             : (o.type === 'store' ? `${o.pre} ${o.label}` : hostOf(o.url));
-        return `<div class="getbar" role="region" aria-label="Get ${esc(p.title)}">
+        return `<div class="getbar" role="region" aria-label="Quick download for ${esc(p.title)}">
             ${appIconHtml(p, { size: 36 })}
             <span class="getbar-tx"><b>${esc(p.title)}</b><small>${esc(sub)}</small></span>
             <a class="getbar-btn" href="${esc(o.url)}" ${o.type === 'download' ? `download data-dl="${esc(p.id)}"` : 'target="_blank" rel="noopener noreferrer"'}>
@@ -863,7 +863,7 @@
 
     function flapHtml(text) {
         const t = String(text || '');
-        return `<span class="flap" data-flap aria-label="${esc(t)}">${t.split('').map((ch, i) =>
+        return `<span class="flap" data-flap role="img" aria-label="${esc(t)}">${t.split('').map((ch, i) =>
             `<span class="flap-c" style="--i:${i}" aria-hidden="true">${esc(ch)}</span>`).join('')}</span>`;
     }
 
@@ -956,7 +956,7 @@
         if (d && d.size) cells.push(`<div class="asum-cell"><b>${esc(window.formatBytes(d.size))}</b><span>size</span></div>`);
         cells.push(`<div class="asum-cell"><b class="asum-ic">${window.icon((P()[primaryPlatform(p)] || {}).icon || 'globe', { raw: true, size: 18 })}</b><span>${esc((P()[primaryPlatform(p)] || {}).label || 'App')}</span></div>`);
         if (p.category) cells.push(`<div class="asum-cell"><b class="asum-ic">${window.icon(p.icon, { raw: true, size: 18 })}</b><span>${esc(window.categoryLabel(p.category))}</span></div>`);
-        return `<div class="asum" role="list">${cells.map((c) => c.replace('class="asum-cell"', 'class="asum-cell" role="listitem"')).join('')}</div>`;
+        return `<div class="asum" role="list" tabindex="0" aria-label="App facts">${cells.map((c) => c.replace('class="asum-cell"', 'class="asum-cell" role="listitem"')).join('')}</div>`;
     }
 
     function whatsNewHtml(p) {

@@ -1397,7 +1397,7 @@ a.is-done .getit-go::after, a.is-done .getit-row-go::after, a.is-done.getbar-btn
     .getbar .appicon { --ai: 36px; }
     .getbar-tx { display: grid; flex: 1; min-width: 0; }
     .getbar-tx b { font-size: var(--t-sm); font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .getbar-tx small { font-family: var(--font-mono); font-size: var(--t-2xs); color: var(--ink-35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .getbar-tx small { font-family: var(--font-mono); font-size: var(--t-2xs); color: var(--ink-50); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .getbar-btn {
         display: inline-flex; align-items: center; justify-content: center;
         min-width: 84px; height: 40px; padding: 0 20px;
