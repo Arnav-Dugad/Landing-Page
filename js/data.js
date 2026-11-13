@@ -67,9 +67,19 @@
         s.onerror = () => reject(new Error(`Could not load ${src}`));
         document.body.appendChild(s);
     });
+    // The admin's stylesheet travels with the admin's scripts.
+    const loadAdminCss = () => new Promise((resolve) => {
+        if (document.querySelector('link[data-admin-css]')) { resolve(); return; }
+        const l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = 'css/admin.css';
+        l.dataset.adminCss = '';
+        l.onload = l.onerror = () => resolve();
+        document.head.appendChild(l);
+    });
     window.loadAdmin = () => {
         if (!adminPromise) {
-            adminPromise = Promise.all(ADMIN_SCRIPTS.map(loadScript))
+            adminPromise = Promise.all([loadAdminCss(), ...ADMIN_SCRIPTS.map(loadScript)])
                 .then(() => { if (window.hydrateIcons) window.hydrateIcons(document); })
                 .catch((e) => { adminPromise = null; throw e; });
         }
