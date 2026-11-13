@@ -906,9 +906,21 @@ html.has-project-theme .progress { background: linear-gradient(90deg, var(--acce
 .hero-name .ln:nth-child(2) svg.draw text { stroke: var(--accent); }
 .hero-name.is-drawn svg.draw { opacity: 0; transition: opacity .9s var(--e-out); }
 
-/* The rest of the hero waits for the name (--choreo is set by app.js). */
-.hero [data-reveal] { transition-delay: calc(var(--delay, 0ms) + var(--choreo, 0ms)); }
-.hero .hero-badge[data-reveal] { transition-delay: calc(var(--choreo, 0ms) * .25); }
+/* The hero's entrance is pure CSS: it starts the moment the stylesheet
+   lands instead of waiting for the scripts (which now run after the first
+   paint). The copy rises in after the name has begun tracing; the badge
+   drops in first. When the reveal script later adds .is-in, nothing moves:
+   the animation has already settled on the same values. */
+.hero [data-reveal] {
+    animation: hero-rise .9s var(--e-expo) both;
+    animation-delay: calc(var(--delay, 0ms) + 780ms);
+}
+.hero .hero-badge[data-reveal] { animation-name: hero-drop; animation-delay: 220ms; }
+@keyframes hero-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes hero-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .hero [data-reveal] { animation: none; opacity: 1; transform: none; }
+}
 
 /* ---------------------------------------------------------------------------
    Cursor trail — dots in the hovered project's duotone

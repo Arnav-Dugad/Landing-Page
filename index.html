@@ -69,6 +69,22 @@
 <link rel="stylesheet" href="css/showcase.css">
 <link rel="stylesheet" href="css/micro.css">
 <!-- css/admin.css loads with the admin tools (js/data.js); visitors never need it. -->
+<link rel="preload" href="js/icons.js" as="script">
+<link rel="preload" href="js/core.js" as="script">
+<link rel="preload" href="js/theme.js" as="script">
+<link rel="preload" href="js/motion.js" as="script">
+<link rel="preload" href="js/backdrop.js" as="script">
+<link rel="preload" href="js/github.js" as="script">
+<link rel="preload" href="js/widgets.js" as="script">
+<link rel="preload" href="js/meta.js" as="script">
+<link rel="preload" href="js/qr.js" as="script">
+<link rel="preload" href="js/data.js" as="script">
+<link rel="preload" href="js/render.js" as="script">
+<link rel="preload" href="js/views.js" as="script">
+<link rel="preload" href="js/showcase.js" as="script">
+<link rel="preload" href="js/palette.js" as="script">
+<link rel="preload" href="js/app.js" as="script">
+<link rel="preload" href="js/micro.js" as="script">
 
 <script type="application/ld+json">
 {
@@ -1105,28 +1121,31 @@
 <!-- Classic scripts define the UI surface; data.js feeds it projects.
      Order matters: icons → core → motion → backdrop → github → widgets →
      meta → data → render → views → showcase → palette → app → micro. -->
-<!-- Deferred, in order: the browser paints the page before running them
-     (as blocking scripts, all ~20 ran before the first frame — on a slow
-     phone that was seconds of blank screen). -->
-<script src="js/icons.js" defer></script>
-<script src="js/core.js" defer></script>
-<script src="js/theme.js" defer></script>
-<script src="js/motion.js" defer></script>
-<script src="js/backdrop.js" defer></script>
-<script src="js/github.js" defer></script>
-<script src="js/widgets.js" defer></script>
-<script src="js/meta.js" defer></script>
-<script src="js/qr.js" defer></script>
-<!-- data.js fetches the projects and lazy-loads the rest: Firebase when the
-     page is idle (or on sign-in / sending a message), and the admin tools
-     (enrich, admin, ai, importer, admin-dock, reorder) only for the admin. -->
-<script src="js/data.js" defer></script>
-<script src="js/render.js" defer></script>
-<script src="js/views.js" defer></script>
-<script src="js/showcase.js" defer></script>
-<script src="js/palette.js" defer></script>
-<script src="js/app.js" defer></script>
-<script src="js/micro.js" defer></script>
+<!-- The page paints first, then its scripts run — in order. They're
+     preloaded in the <head>, so the network starts at once; only their
+     execution waits for the first frame. (Run straight away, even deferred,
+     all ~20 executed before anything was drawn — on a slow phone, seconds of
+     blank screen.) data.js fetches the projects; the admin tools and Firebase
+     load later, on demand. -->
+<script>
+(function () {
+    var list = ['js/icons.js', 'js/core.js', 'js/theme.js', 'js/motion.js', 'js/backdrop.js', 'js/github.js', 'js/widgets.js', 'js/meta.js', 'js/qr.js', 'js/data.js', 'js/render.js', 'js/views.js', 'js/showcase.js', 'js/palette.js', 'js/app.js', 'js/micro.js'];
+    function run() {
+        list.forEach(function (src) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.async = false;            // keep the order
+            document.body.appendChild(s);
+        });
+    }
+    // After the first frame has been painted — or after a moment regardless,
+    // since a tab opened in the background never paints until it's shown.
+    var started = false;
+    function go() { if (!started) { started = true; run(); } }
+    requestAnimationFrame(function () { setTimeout(go, 0); });
+    setTimeout(go, 500);
+})();
+</script>
 
 </body>
 </html>
