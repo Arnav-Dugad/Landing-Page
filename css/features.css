@@ -1121,3 +1121,10 @@ html:not(.is-admin) #connStatus { display: none; }
     text-transform: uppercase;
     color: var(--ink-35);
 }
+
+/* Touch screens: the colour wash drifts over 26–38s loops and the grain
+   steps once a second; nobody sees either move on a phone, but both cost
+   frames there. They stay, still. */
+@media (hover: none) {
+    .bd-wash span, .bd-grain { animation: none; }
+}

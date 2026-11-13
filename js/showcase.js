@@ -155,6 +155,12 @@
             if (tile) window.openProject(tile.dataset.open, { from: tile });
         });
 
+        // ~46 moving tiles in 3D cost frames even when scrolled away; the
+        // columns only drift while the hero is on screen.
+        if ('IntersectionObserver' in window) {
+            new IntersectionObserver(([e]) => wall.classList.toggle('is-offscreen', !e.isIntersecting)).observe(wall);
+        }
+
         if (reduced() || !FINE.matches) return;
         // Cursor parallax on the whole plane — springy, never snapping.
         // The transform is written straight onto the plane: custom properties

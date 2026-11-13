@@ -294,8 +294,6 @@ s { text-decoration: none; }
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--ink-35); }
 
-/* Page is locked only while the intro curtain is on screen. */
-body.is-loading { overflow: hidden; }
 
 /* Connection pill states, written by js/firebase.js. */
 [data-tone="ok"]   { color: var(--pine); }

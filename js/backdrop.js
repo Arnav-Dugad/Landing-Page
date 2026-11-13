@@ -165,14 +165,19 @@
     readPalette();
     resize();
     window.addEventListener('resize', resize, { passive: true });
+    /* Touch screens have no hovering pointer, so the field that follows it
+       never appears there — and redrawing ~1,500 dots every frame was the
+       single biggest cost on a phone. They get a still lattice, redrawn only
+       when something changes, plus a few frames for each tap's ripple. */
+    const still = () => reduced() || window.matchMedia('(hover: none)').matches;
     window.addEventListener('themechange', () => {
         readPalette();
-        if (reduced()) draw(0);          // frozen lattice still needs repainting
+        if (still()) draw(0);            // a still lattice still needs repainting
     });
     // An open project re-tints the lattice in its own colour (js/core.js).
     window.addEventListener('accentchange', () => {
         readPalette();
-        if (reduced()) draw(0);
+        if (still()) draw(0);
     });
 
     // A gentle parallax: the lattice drifts a fraction of the scroll distance.
@@ -188,10 +193,18 @@
 
     window.addEventListener('pointerleave', () => { pointer.live = false; });
 
+    let rippleJob = null;
     window.addEventListener('pointerdown', (e) => {
         if (reduced()) return;
         ripples.push({ x: e.clientX, y: e.clientY, r: 0, life: 1 });
         if (ripples.length > 8) ripples.shift();
+        // Still mode: animate just until the ripple has spent itself.
+        if (still() && !rippleJob && window.onFrame) {
+            rippleJob = window.onFrame((t) => {
+                draw(t);
+                if (!ripples.length) { rippleJob(); rippleJob = null; draw(0); }
+            });
+        }
     }, { passive: true });
 
     /* Sound made visible. A hover blip is a faint, quick ring; a click is a
@@ -240,6 +253,12 @@
         if (window.onFrame) window.onFrame(tick);
         else requestAnimationFrame(function loop(t) { tick(t); requestAnimationFrame(loop); });
     };
+
+    if (still()) {
+        draw(0);
+        window.addEventListener('resize', () => draw(0), { passive: true });
+        return;
+    }
 
     // motion.js defines onFrame; if load order ever changes, fall back gracefully.
     if (window.onFrame) start();

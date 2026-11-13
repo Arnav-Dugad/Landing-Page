@@ -1,6 +1,6 @@
 /* ===========================================================================
    components.css — buttons, project cards, toolbar, stats, sheets, forms,
-   the command palette, toasts, cursor and the intro curtain.
+   the command palette, toasts and cursor.
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
@@ -1244,52 +1244,6 @@ body.is-cursor .cur-dot.is-hidden { opacity: 0; }
 }
 @media not all and (hover: hover) {
     .cur-dot, .cur-ring { display: none; }
-}
-
-/* ---------------------------------------------------------------------------
-   Intro curtain — plays once per session.
-   --------------------------------------------------------------------------- */
-
-.curtain {
-    position: fixed; inset: 0;
-    z-index: var(--z-curtain);
-    display: grid; place-items: center;
-    background: var(--paper);
-    overflow: hidden;
-}
-.curtain-word {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 8vw, 5.4rem);
-    font-weight: 350;
-    letter-spacing: -.045em;
-    color: var(--ink);
-    font-variation-settings: "SOFT" 30, "WONK" 1;
-    overflow: hidden;
-    display: flex;
-}
-.curtain-word i {
-    display: block; font-style: normal;
-    transform: translateY(110%);
-    animation: letter-rise .9s var(--e-expo) forwards;
-}
-.curtain-bar {
-    position: absolute;
-    bottom: 12%; left: 50%; translate: -50% 0;
-    width: min(220px, 50vw); height: 1px;
-    background: var(--line-strong);
-    overflow: hidden;
-}
-.curtain-bar i {
-    display: block; height: 100%; width: 100%;
-    background: var(--accent);
-    transform-origin: left;
-    transform: scaleX(0);
-    animation: grow-x 1.25s var(--e-inout) forwards;
-}
-.curtain.is-done {
-    clip-path: inset(0 0 100% 0);
-    transition: clip-path .95s var(--e-expo);
-    pointer-events: none;
 }
 
 /* ---------------------------------------------------------------------------

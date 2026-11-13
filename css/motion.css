@@ -215,5 +215,4 @@
     .bd-wash span, .bd-grain, .hero-scroll .rule::after, .hero-badge .dot::after { animation: none !important; }
     .marquee-track { transform: none !important; }
     .cur-dot, .cur-ring { display: none !important; }
-    .curtain { display: none !important; }
 }

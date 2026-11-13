@@ -1,7 +1,7 @@
 /* ===========================================================================
    app.js  (classic script)
    Application chrome: sheet management, toasts, dialogs, the contact form,
-   sound, confetti, the intro curtain, clock and keyboard shortcuts.
+   sound, confetti, clock and keyboard shortcuts.
 
    This is the last classic script to run, so it owns bootstrapping — it
    turns on the motion engine once the DOM the other modules produced exists.
@@ -549,35 +549,10 @@
         else if (k === 'r') { e.preventDefault(); window.randomProject(); }
     });
 
-    /* =====================================================================
-       Intro curtain — once per session, and never for reduced motion
-       ===================================================================== */
-
-    (function curtain() {
-        const el = document.getElementById('curtain');
-        if (!el) return;
-
-        const skip = sessionStorage.getItem('intro') === '1'
-            || (window.motionReduced && window.motionReduced());
-
-        if (skip) { el.remove(); document.body.classList.remove('is-loading'); window.introDelay = 0; return; }
-        window.introDelay = 1600;
-
-        // Stagger the letters of the name.
-        const word = el.querySelector('.curtain-word');
-        if (word) {
-            const text = word.textContent.trim();
-            word.innerHTML = text.split('').map((ch, i) =>
-                `<i style="animation-delay:${i * 42}ms">${ch === ' ' ? '&nbsp;' : window.esc(ch)}</i>`).join('');
-        }
-
-        sessionStorage.setItem('intro', '1');
-        setTimeout(() => {
-            el.classList.add('is-done');
-            document.body.classList.remove('is-loading');
-            setTimeout(() => el.remove(), 1100);
-        }, 1500);
-    })();
+    /* No intro curtain: it covered the page until every script had loaded,
+       then held for another 1.5s — on a slow phone, seconds of nothing.
+       The hero's own name-drawing entrance is the welcome now. */
+    window.introDelay = 0;
 
     /* =====================================================================
        Boot the motion engine
@@ -591,7 +566,7 @@
 
         document.querySelectorAll('[data-split]').forEach((el) => M.splitText(el));
 
-        /* Load choreography: curtain lifts → the name is traced as a stroke
+        /* Load choreography: the name is traced as a stroke
            and fills → the lead, role and buttons follow → the cards cascade
            in when they scroll into view. --choreo pushes the hero's reveal
            delays back by however long the name takes. */

@@ -328,7 +328,8 @@
     will-change: transform;
 }
 .wall-col[data-dir="down"] .wall-track { animation-direction: reverse; }
-.hero-wall:hover .wall-track { animation-play-state: paused; }
+.hero-wall:hover .wall-track,
+.hero-wall.is-offscreen .wall-track { animation-play-state: paused; }
 @keyframes wall-up { to { transform: translateY(calc(-50% - 13px)); } }
 
 .wall-tile {
@@ -549,9 +550,13 @@
         radial-gradient(90% 80% at 88% 18%, color-mix(in srgb, var(--tone-b) 26%, transparent), transparent 62%),
         radial-gradient(60% 60% at 10% 100%, var(--tone-t), transparent 70%);
     opacity: 0; visibility: hidden;
-    transition: opacity .5s var(--e-out) .1s, visibility .6s;
+    /* Waiting slides skip style, layout and their own animations entirely
+       (visibility alone still cost a phone ~15% of every frame); the switch
+       waits for the fade-out to finish. */
+    content-visibility: hidden;
+    transition: opacity .5s var(--e-out) .1s, visibility .6s, content-visibility .6s allow-discrete;
 }
-.spot-slide.is-current { opacity: 1; visibility: visible; }
+.spot-slide.is-current { opacity: 1; visibility: visible; content-visibility: visible; }
 /* The stage stays put; only the copy and the device change. */
 .spot-slide:not(.is-current) .spot-media { opacity: 0; transition: transform 1.1s var(--e-expo), opacity .25s var(--e-out); }
 .spot-slide.is-current .spot-media { opacity: 1; transition: transform 1.1s var(--e-expo), opacity .6s var(--e-out) .15s; }
