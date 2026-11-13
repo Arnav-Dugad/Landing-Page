@@ -1154,3 +1154,18 @@ html:not(.is-admin) #connStatus { display: none; }
 .attn-scan-row.has { background: var(--paper-raised); }
 .attn-scan-row.has span { color: var(--pine); }
 .attn-scan-row .btn { height: 28px; padding: 0 12px; font-size: var(--t-2xs); }
+
+/* "N new since your last visit" — returning visitors only. */
+.summary-new {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 12px;
+    border-radius: var(--r-full);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font: inherit; letter-spacing: inherit;
+    cursor: pointer;
+    animation: summary-new-in .6s var(--e-spring) both;
+}
+.summary-new:hover { background: var(--accent); color: var(--accent-ink, #fff); }
+@keyframes summary-new-in { from { opacity: 0; transform: translateY(4px) scale(.96); } }

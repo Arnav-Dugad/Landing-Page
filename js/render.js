@@ -57,8 +57,26 @@
             : LEGACY_VIEW[params.get('view')]
             || (VIEWS.includes(storedView) ? storedView : LEGACY_VIEW[storedView] || 'grid'),
         compare: (params.get('compare') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3),
-        attention: ''          // admin-only issue filter, never in the URL
+        attention: '',         // admin-only issue filter, never in the URL
+        since: 0               // "new since your last visit" filter (ms), never in the URL
     };
+
+    /* Returning visitors: what's new since they were last here. The baseline
+       is fixed for the whole session (reloads don't reset it) and the visit
+       is recorded when they leave. New projects and new releases count;
+       edits don't. */
+    const VISIT_KEY = 'lastVisit';
+    const lastVisit = (() => {
+        try {
+            const held = sessionStorage.getItem('visitBase');
+            if (held !== null) return Number(held) || 0;
+            const prev = Number(localStorage.getItem(VISIT_KEY)) || 0;
+            sessionStorage.setItem('visitBase', String(prev));
+            return prev;
+        } catch { return 0; }
+    })();
+    window.addEventListener('pagehide', () => { try { localStorage.setItem(VISIT_KEY, String(Date.now())); } catch { /* private */ } });
+    const isNewSince = (p, t) => (Number(p.createdAt) || 0) > t || (Number(p.releasedAt) || 0) > t;
 
     /* ?get=<platform> arrives from a scanned QR code (via /p/<slug>): open
        the project with that install front and centre. Read once, here —
@@ -143,6 +161,7 @@
             const check = window.AdminAttention.checks[attention];
             if (check && !check(p)) return false;
         }
+        if (state.since && !isNewSince(p, state.since)) return false;
         if (platform !== 'all' && !window.platformsOf(p).includes(platform)) return false;
         if (filter !== 'all' && (p.category || 'other') !== filter) return false;
         const words = String(search).toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -377,7 +396,7 @@
         if (act === 'all-cats') state.filter = 'all';
         if (act === 'all-platforms') state.platform = 'all';
         if (act === 'clear-search' || act === 'reset') { state.search = ''; if (searchEl) searchEl.value = ''; }
-        if (act === 'reset') { state.filter = 'all'; state.platform = 'all'; state.attention = ''; }
+        if (act === 'reset') { state.filter = 'all'; state.platform = 'all'; state.attention = ''; state.since = 0; }
         if (act === 'search') { state.search = btn.dataset.value || ''; if (searchEl) searchEl.value = state.search; }
         render();
     }
@@ -467,17 +486,24 @@
         if (state.filter !== 'all') bits.push(categoryLabel(state.filter));
         if (state.search.trim()) bits.push(`“${state.search.trim()}”`);
         if (state.attention && window.AdminAttention) bits.push(window.AdminAttention.label(state.attention));
+        if (state.since) bits.push('New since your last visit');
         const narrowed = bits.length > 0;
+        // Worth mentioning only after a real absence (an hour or more).
+        const fresh = lastVisit && Date.now() - lastVisit > 3600e3
+            ? projects().filter((p) => isNewSince(p, lastVisit)).length : 0;
         countEl.classList.toggle('is-narrowed', narrowed);
         countEl.innerHTML = narrowed
             ? `<span><b>${count}</b> of ${total} · ${bits.map(esc).join(' · ')}</span>
                <button type="button" class="summary-clear" data-empty-act="reset">${window.icon('x', { raw: true, size: 12 })} Clear filters</button>`
-            : `<span>${total} project${total === 1 ? '' : 's'}</span>`;
+            : `<span>${total} project${total === 1 ? '' : 's'}</span>
+               ${fresh ? `<button type="button" class="summary-new" data-since-visit>${window.icon('sparkles', { raw: true, size: 12 })}
+                   ${fresh} new since your last visit · ${esc(window.relativeTime ? window.relativeTime(new Date(lastVisit).toISOString()) : '')}</button>` : ''}`;
     }
     if (countEl) {
         countEl.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-empty-act]');
-            if (btn) runEmptyAct(btn);
+            if (btn) { runEmptyAct(btn); return; }
+            if (e.target.closest('[data-since-visit]')) { state.since = lastVisit; render(); }
         });
     }
 
@@ -485,7 +511,7 @@
         const list = visibleProjects();
         const view = state.view;
 
-        const key = [state.filter, state.platform, state.search.trim(), state.sort, view, state.attention].join('|');
+        const key = [state.filter, state.platform, state.search.trim(), state.sort, view, state.attention, state.since].join('|');
         if (key !== pageKey) { pageKey = key; pageLimit = pageSize(); }
         const returning = pendingReturn && pendingReturn.key === key && Date.now() - pendingReturn.at < 30 * 60 * 1000 ? pendingReturn : null;
         if (returning) pageLimit = Math.max(pageLimit, returning.limit);
