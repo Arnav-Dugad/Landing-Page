@@ -189,6 +189,16 @@
        that overlay, so there is one accessible name per action.
        ===================================================================== */
 
+    /* The words being searched for, marked where they appear, so it's clear
+       why each result matched. Works on already-escaped text. */
+    function marked(html) {
+        const words = String(state.search || '').trim().toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+        if (!words.length) return html;
+        const re = new RegExp(`(${words.map((w) => esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+        // Only touch text between tags/entities, never inside them.
+        return html.replace(/(&[a-z#0-9]+;)|([^&]+)/gi, (m, ent, text) => (ent ? ent : text.replace(re, '<mark>$1</mark>')));
+    }
+
     function cardHtml(p, index) {
         const id = esc(p.id);
         const tags = (p.tags || []).filter(Boolean);
@@ -203,10 +213,11 @@
                 <button type="button" data-card-menu="${id}" aria-haspopup="menu" title="Actions" aria-label="Actions for ${esc(p.title)}">${window.icon('more', { raw: true, size: 15 })}</button>
             </div>` : '';
 
-        const marks = [
-            p.featured ? `<span class="card-mark card-mark--star" title="Featured">${window.icon('star-fill', { raw: true, size: 12 })}</span>` : '',
-            p.caseStudy ? `<span class="card-mark card-mark--case" title="Has a case study">${window.icon('doc', { raw: true, size: 12 })}</span>` : ''
-        ].filter(Boolean).join('');
+        // One corner mark, with words: an unlabelled icon made visitors guess.
+        // (A case study already has its own button on the card.)
+        const marks = p.featured
+            ? `<span class="card-mark card-mark--star">${window.icon('star-fill', { raw: true, size: 11 })}Featured</span>`
+            : '';
         const star = marks ? `<div class="card-star">${marks}</div>` : '';
 
         const repo = window.resolveRepoUrl ? window.resolveRepoUrl(p) : null;
@@ -238,7 +249,7 @@
                 <div class="card-head">
                     ${w ? w.appIconHtml(p, { size: 36, cls: 'card-icon' }) : ''}
                     <div class="card-names">
-                        <h3 class="card-title"><button type="button" class="card-open" data-open="${id}" data-cursor="Open">${title}</button></h3>
+                        <h3 class="card-title"><button type="button" class="card-open" data-open="${id}" data-cursor="Open">${marked(title)}</button></h3>
                         <div class="card-sub">
                             ${w ? w.platformGlyphs(p, { size: 13 }) : ''}
                             ${p.hidden ? `<span class="badge badge--hidden" title="Only you can see this">${window.icon('eye', { raw: true, size: 11 })}Hidden</span>` : ''}
@@ -247,7 +258,7 @@
                         </div>
                     </div>
                 </div>
-                <p class="card-desc u-clamp-2">${esc(p.tagline || p.desc)}</p>
+                <p class="card-desc u-clamp-2">${marked(esc(p.tagline || p.desc))}</p>
                 <div class="card-metrics" data-metrics-slot>${w ? w.metricsHtml(p, { compact: true }) : ''}</div>
                 ${shown.length ? `<div class="card-tags">
                     ${shown.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}
@@ -384,6 +395,24 @@
     const PAGE_ROWS = 3;
     let pageLimit = 0;
     let pageKey = '';
+
+    /* Coming back (from a case study, or a reload) should land where you
+       were, with as many projects showing as before. The browser can't do
+       it alone: the grid fills in after its scroll restore has already run. */
+    const RETURN_KEY = 'workReturn';
+    const navType = (() => { try { return performance.getEntriesByType('navigation')[0].type; } catch { return 'navigate'; } })();
+    let pendingReturn = null;
+    if (navType === 'back_forward' || navType === 'reload') {
+        try { pendingReturn = JSON.parse(sessionStorage.getItem(RETURN_KEY) || 'null'); } catch { pendingReturn = null; }
+        if (pendingReturn && 'scrollRestoration' in history) history.scrollRestoration = 'manual';
+    }
+    window.addEventListener('pagehide', () => {
+        try {
+            sessionStorage.setItem(RETURN_KEY, JSON.stringify({
+                key: pageKey, limit: Number.isFinite(pageLimit) ? pageLimit : 9999, y: Math.round(window.scrollY), at: Date.now()
+            }));
+        } catch { /* private mode */ }
+    });
     const pageSize = () => (state.view === 'grid' ? Math.max(6, columnsInGrid() * PAGE_ROWS) : 8);
     const pagedView = () => (state.view === 'grid' || state.view === 'list') && !window.isAdmin;
 
@@ -458,6 +487,8 @@
 
         const key = [state.filter, state.platform, state.search.trim(), state.sort, view, state.attention].join('|');
         if (key !== pageKey) { pageKey = key; pageLimit = pageSize(); }
+        const returning = pendingReturn && pendingReturn.key === key && Date.now() - pendingReturn.at < 30 * 60 * 1000 ? pendingReturn : null;
+        if (returning) pageLimit = Math.max(pageLimit, returning.limit);
         // Never leave a lonely "show 2 more": a short remainder just shows.
         const cut = pagedView() && list.length - pageLimit > 2 ? pageLimit : list.length;
 
@@ -475,6 +506,12 @@
 
         paintSummary(list.length);
         paintMore(list.length ? cut : 0, list.length);
+        if (pendingReturn) {
+            const y = returning ? returning.y : 0;
+            pendingReturn = null;
+            if (y > 0) requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }));
+            if ('scrollRestoration' in history) history.scrollRestoration = 'auto';
+        }
 
         if (window.Motion) {
             if (firstPaint) {
@@ -1149,7 +1186,9 @@
             srcFrame()?.style.setProperty('view-transition-name', 'vt-frame');
             document.documentElement.classList.add('vt-sheet');
             const vt = document.startViewTransition(swap);
-            vt.finished.finally(() => {
+            // Navigating away or a second open mid-morph skips it; harmless.
+            vt.ready.catch(() => {});
+            vt.finished.catch(() => {}).finally(() => {
                 document.documentElement.classList.remove('vt-sheet');
                 sheet.classList.remove('vt-instant');
                 body.querySelectorAll('[data-vt], .dgal-slide .dframe').forEach((el) => { el.style.viewTransitionName = ''; });

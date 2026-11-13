@@ -512,8 +512,10 @@
     z-index: 2;
 }
 .card-mark {
-    display: grid; place-items: center;
-    width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 9px 0 7px; border-radius: 12px;
+    font-family: var(--font-mono); font-size: .66rem; font-weight: 500;
+    letter-spacing: .04em; text-transform: uppercase;
 }
 .card-mark--star { background: var(--amber-soft); color: var(--amber); }
 .card-mark--case { background: var(--accent-soft); color: var(--accent); }
@@ -1311,3 +1313,13 @@ body.is-cursor .cur-dot.is-hidden { opacity: 0; }
 .totop:hover { background: var(--accent); }
 .totop svg { width: 17px; height: 17px; }
 @media (max-width: 1100px) { .totop { right: 16px; bottom: 16px; } }
+
+/* Search matches inside cards (js/render.js marked()). */
+.card mark {
+    background: color-mix(in srgb, var(--amber, #E8A33D) 30%, transparent);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}

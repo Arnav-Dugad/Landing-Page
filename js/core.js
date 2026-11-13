@@ -19,6 +19,19 @@
    =========================================================================== */
 
 (() => {
+    /* Page-to-page view transitions (motion.css: @view-transition) are
+       skipped when the browser restores from history or the old page is gone;
+       the skip rejects the transition's promises, which nobody else awaits. */
+    const quiet = (e) => {
+        const vt = e && e.viewTransition;
+        if (!vt) return;
+        vt.ready.catch(() => {});
+        vt.finished.catch(() => {});
+        if (vt.updateCallbackDone) vt.updateCallbackDone.catch(() => {});
+    };
+    window.addEventListener('pagereveal', quiet);
+    window.addEventListener('pageswap', quiet);
+
     /* -------- Duotones ------------------------------------------------------ */
     window.TONES = {
         indigo: 'indigo', blue: 'blue', sky: 'sky', teal: 'teal',
