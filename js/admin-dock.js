@@ -715,14 +715,69 @@
                         ${icon(r.icon, 13)}<b>${r.n}</b> ${esc(r.label)}
                     </button>`).join('')}
             </div>
-            <span class="attn-help">${icon('info', 13)} Drag cards to reorder · <kbd>⋯</kbd> on a card to edit · press <kbd>A</kbd> to add</span>`;
+            ${active === 'noshots' && rows.find((r) => r.key === 'noshots').n ? `
+                <button type="button" class="attn-scan-btn" data-attn-scan>${icon('github', 13)} Find screenshots in their repos</button>` : ''}
+            <span class="attn-help">${icon('info', 13)} Drag cards to reorder · <kbd>⋯</kbd> on a card to edit · press <kbd>A</kbd> to add</span>
+            ${scanHtml}`;
+    }
+
+    /* Screenshot scan: ask each repo (via /api/repo-shots) whether it holds
+       likely screenshots — README images, store shots, screenshot folders —
+       and offer a one-click way into the picker for the ones that do. */
+    let scanHtml = '';
+    let scanning = false;
+    async function scanRepos() {
+        if (scanning) return;
+        const list = projects().filter((p) => window.AdminAttention.checks.noshots(p));
+        const withRepo = list.filter((p) => p.repo);
+        if (!withRepo.length) { window.toast('None of these projects has a GitHub repo set', 'info'); return; }
+        scanning = true;
+        const rows = [];
+        const paintScan = (note) => {
+            scanHtml = `<div class="attn-scan" role="status">
+                ${note ? `<p class="attn-scan-note">${esc(note)}</p>` : ''}
+                ${rows.map((r) => `<div class="attn-scan-row ${r.n ? 'has' : ''}">
+                    <b>${esc(r.p.title)}</b>
+                    <span>${r.err ? esc(r.err) : r.n ? `${r.n} likely screenshot${r.n === 1 ? '' : 's'}` : 'no images found'}</span>
+                    ${r.n ? `<button type="button" class="btn btn--quiet" data-attn-pick="${esc(r.p.id)}">Pick</button>` : ''}
+                </div>`).join('')}
+            </div>`;
+            paintAttention();
+        };
+        paintScan(`Checking ${withRepo.length} repo${withRepo.length === 1 ? '' : 's'}…`);
+        try {
+            const token = await window.adminIdToken();
+            for (const p of withRepo) {
+                try {
+                    const data = await window.edgeFetch(`/api/repo-shots?repo=${encodeURIComponent(p.repo)}`, { token });
+                    const n = ((data && data.items) || []).filter((it) => it.score >= 40).length;
+                    rows.push({ p, n });
+                } catch (e) {
+                    rows.push({ p, n: 0, err: (e && e.message) || 'couldn’t read the repo' });
+                }
+                rows.sort((a, b) => b.n - a.n);
+                paintScan(rows.length < withRepo.length ? `Checked ${rows.length} of ${withRepo.length}…` : '');
+            }
+            const found = rows.filter((r) => r.n).length;
+            window.toast(found ? `${found} project${found === 1 ? ' has' : 's have'} screenshots waiting in the repo` : 'No screenshots found in these repos', found ? 'success' : 'info');
+        } finally {
+            scanning = false;
+        }
     }
 
     attn.addEventListener('click', (e) => {
+        if (e.target.closest('[data-attn-scan]')) { scanRepos(); return; }
+        const pick = e.target.closest('[data-attn-pick]');
+        if (pick) {
+            Promise.resolve(window.editProject(pick.dataset.attnPick, { tab: 'media' }))
+                .then(() => setTimeout(() => window.openRepoShots && window.openRepoShots(), 250));
+            return;
+        }
         const btn = e.target.closest('[data-attn]');
         if (!btn || !window.setAttention) return;
         const now = (window.PState && window.PState.attention) || '';
         window.setAttention(now === btn.dataset.attn ? '' : btn.dataset.attn);
+        scanHtml = '';
         paintAttention();
         const grid = document.getElementById('grid');
         if (grid && grid.getBoundingClientRect().top > window.innerHeight * 0.6) {
