@@ -300,7 +300,7 @@
     display: grid;
     /* Wider minimum than before: at 300px the title, badge and tags were
        fighting for the same line on a 1280px screen. */
-    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
     gap: 22px;
 }
 .grid.is-list { grid-template-columns: 1fr; gap: 12px; }

@@ -721,7 +721,7 @@
    Cards v2 — media first
    --------------------------------------------------------------------------- */
 
-.grid:not(.is-list):not(.is-index):not(.is-timeline) { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.grid:not(.is-list):not(.is-index):not(.is-timeline) { grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
 
 .card--v2 { padding: 0; min-height: 0; }
 .card--v2 .card-media {

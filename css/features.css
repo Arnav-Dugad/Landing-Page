@@ -1170,7 +1170,8 @@ html:not(.is-admin) #connStatus { display: none; }
 /* "N new since your last visit" — returning visitors only. */
 .summary-new {
     display: inline-flex; align-items: center; gap: 6px;
-    height: 28px; padding: 0 12px;
+    min-height: 28px; padding: 4px 12px;
+    text-align: left; max-width: 100%;
     border-radius: var(--r-full);
     border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
     background: var(--accent-soft);
