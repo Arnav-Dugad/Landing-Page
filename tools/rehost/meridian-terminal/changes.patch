@@ -1,0 +1,132 @@
+diff --git a/app/(app)/dashboard/page.tsx b/app/(app)/dashboard/page.tsx
+index d467867..47904c0 100644
+--- a/app/(app)/dashboard/page.tsx
++++ b/app/(app)/dashboard/page.tsx
+@@ -16,7 +16,7 @@ export const metadata: Metadata = {
+  * carries real prices, breadth and sector rotation; the client store then
+  * takes over and keeps them moving without another full render.
+  */
+-export const revalidate = 15;
++export const dynamic = "force-dynamic";
+ 
+ export default async function DashboardPage() {
+   const overview = await getOverview();
+diff --git a/app/(app)/markets/page.tsx b/app/(app)/markets/page.tsx
+index 0f83ddd..2ecfb32 100644
+--- a/app/(app)/markets/page.tsx
++++ b/app/(app)/markets/page.tsx
+@@ -12,7 +12,7 @@ export const metadata: Metadata = {
+     "Indices, breadth and sector rotation across NSE, BSE, Nasdaq and NYSE, with both markets on one scale.",
+ };
+ 
+-export const revalidate = 20;
++export const dynamic = "force-dynamic";
+ 
+ export default async function MarketsPage() {
+   const overview = await getOverview();
+diff --git a/app/(app)/stock/[slug]/page.tsx b/app/(app)/stock/[slug]/page.tsx
+index a66a9a8..43a92cc 100644
+--- a/app/(app)/stock/[slug]/page.tsx
++++ b/app/(app)/stock/[slug]/page.tsx
+@@ -14,7 +14,7 @@ export function generateStaticParams() {
+   return FEATURED_SLUGS.map((slug) => ({ slug }));
+ }
+ 
+-export const revalidate = 30;
++export const dynamic = "force-dynamic";
+ export const dynamicParams = true;
+ 
+ export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+diff --git a/app/page.tsx b/app/page.tsx
+index 72cb84c..a2a1bad 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -30,7 +30,7 @@ import { DataSourceNotice } from "@/components/market/DataSourceNotice";
+  * at a minute keeps that honest without putting a provider call on every
+  * visit.
+  */
+-export const revalidate = 60;
++export const dynamic = "force-dynamic";
+ 
+ const HERO_INDICES = ["NIFTY50", "SENSEX", "SPX", "IXIC"];
+ 
+diff --git a/next.config.ts b/next.config.ts
+index 824dc16..38c3a6c 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -1,12 +1,30 @@
+ import type { NextConfig } from "next";
++import path from "node:path";
++
++// Rehost on Cloudflare Workers (local build only):
++//  · Firestore's Node build pulls in protobufjs, which generates code at
++//    runtime (forbidden on Workers) — use the browser build, which talks HTTPS.
++//  · firebase-admin is only imported when server credentials exist; there are
++//    none on this host, so it is stubbed out rather than bundled.
++const firestoreBrowser = require.resolve("@firebase/firestore").replace(/index\.node\.cjs\.js$/, "index.esm.js");
++const adminStub = path.resolve("cf-firebase-admin-stub.js");
+ 
+ const config: NextConfig = {
+   reactStrictMode: true,
+   poweredByHeader: false,
+ 
+-  // firebase-admin pulls in optional native/gRPC deps that must stay on the
+-  // Node runtime rather than being traced into the client or edge bundles.
+-  serverExternalPackages: ["firebase-admin"],
++  webpack(cfg, { isServer }) {
++    if (isServer) {
++      cfg.resolve.alias = {
++        ...(cfg.resolve.alias || {}),
++        "@firebase/firestore$": firestoreBrowser,
++        "firebase-admin/app$": adminStub,
++        "firebase-admin/auth$": adminStub,
++        "firebase-admin/firestore$": adminStub,
++      };
++    }
++    return cfg;
++  },
+ 
+   images: {
+     remotePatterns: [
+diff --git a/package.json b/package.json
+index 4d8fa54..f86b89b 100644
+--- a/package.json
++++ b/package.json
+@@ -5,7 +5,7 @@
+   "description": "Meridian — a cross-market intelligence terminal for the Indian and United States equity markets.",
+   "scripts": {
+     "dev": "next dev",
+-    "build": "next build",
++    "build": "next build --webpack",
+     "start": "next start",
+     "typecheck": "tsc --noEmit"
+   },
+@@ -14,7 +14,7 @@
+     "firebase": "12.17.1",
+     "firebase-admin": "14.2.0",
+     "motion": "13.1.0",
+-    "next": "16.3.0",
++    "next": "^16.4.5",
+     "react": "19.2.8",
+     "react-dom": "19.2.8",
+     "server-only": "^0.0.1",
+@@ -22,14 +22,16 @@
+     "zod": "4.4.3"
+   },
+   "devDependencies": {
++    "@opennextjs/cloudflare": "^1.20.17",
+     "@tailwindcss/postcss": "4.3.3",
+     "@types/node": "26.2.0",
+     "@types/react": "19.2.18",
+     "@types/react-dom": "19.2.4",
+     "tailwindcss": "4.3.3",
+-    "typescript": "5.9.3"
++    "typescript": "5.9.3",
++    "wrangler": "^4.151.3"
+   },
+   "engines": {
+     "node": ">=20.9.0"
+   }
+-}
++}
+\ No newline at end of file

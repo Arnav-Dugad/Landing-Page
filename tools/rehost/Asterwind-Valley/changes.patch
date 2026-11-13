@@ -1,0 +1,15 @@
+diff --git a/next.config.ts b/next.config.ts
+index 2f6491c..637674d 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -1,7 +1,10 @@
+ import type { NextConfig } from "next";
+ 
++// Static export for Cloudflare Workers assets (local rehost build only).
+ const nextConfig: NextConfig = {
+   reactStrictMode: true,
++  output: "export",
++  images: { unoptimized: true },
+ };
+ 
+ export default nextConfig;

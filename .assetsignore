@@ -24,3 +24,4 @@ firebase.json
 .env
 .env.*
 *.log
+tools

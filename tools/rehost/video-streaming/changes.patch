@@ -1,0 +1,66 @@
+diff --git a/next.config.mjs b/next.config.mjs
+index 8914473..dcf1491 100644
+--- a/next.config.mjs
++++ b/next.config.mjs
+@@ -1,5 +1,19 @@
+ /** @type {import('next').NextConfig} */
++import { createRequire } from 'node:module';
++const require = createRequire(import.meta.url);
++
++// Rehost on Cloudflare Workers: Firestore's Node build pulls in protobufjs,
++// which generates code at runtime (forbidden on Workers). The browser build
++// talks plain HTTPS instead.
++const firestoreBrowser = require.resolve('@firebase/firestore').replace(/index\.node\.cjs\.js$/, 'index.esm.js');
++
+ const nextConfig = {
++  webpack(config, { isServer }) {
++    if (isServer) {
++      config.resolve.alias = { ...(config.resolve.alias || {}), '@firebase/firestore$': firestoreBrowser };
++    }
++    return config;
++  },
+   reactStrictMode: true,
+   images: {
+     // YouTube serves thumbnails and avatars from these hosts.
+diff --git a/package.json b/package.json
+index 2014671..921e7bd 100644
+--- a/package.json
++++ b/package.json
+@@ -5,7 +5,7 @@
+   "description": "PRISM — a cinematic streaming platform built on the YouTube Data API.",
+   "scripts": {
+     "dev": "next dev",
+-    "build": "next build",
++    "build": "next build --webpack",
+     "start": "next start",
+     "lint": "eslint .",
+     "typecheck": "tsc --noEmit"
+@@ -15,7 +15,7 @@
+     "firebase": "^12.17.1",
+     "lucide-react": "^1.31.0",
+     "motion": "^13.1.0",
+-    "next": "^16.3.1",
++    "next": "^16.4.5",
+     "qrcode-generator": "^1.5.1",
+     "react": "^19.2.8",
+     "react-dom": "^19.2.8",
+@@ -23,13 +23,15 @@
+     "zustand": "^5.0.2"
+   },
+   "devDependencies": {
++    "@opennextjs/cloudflare": "^1.20.17",
+     "@tailwindcss/postcss": "^4.0.0",
+     "@types/node": "^22.10.2",
+     "@types/react": "^19.2.18",
+     "@types/react-dom": "^19.2.4",
+     "eslint": "^9.17.0",
+-    "eslint-config-next": "^16.3.1",
++    "eslint-config-next": "^16.4.5",
+     "tailwindcss": "^4.0.0",
+-    "typescript": "^5.7.2"
++    "typescript": "^5.7.2",
++    "wrangler": "^4.151.3"
+   }
+-}
++}
+\ No newline at end of file
