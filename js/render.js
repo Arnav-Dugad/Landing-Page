@@ -40,7 +40,9 @@
     let currentDetailId = null;
     let deepLinkDone = false;
 
-    const VIEWS = ['grid', 'list', 'index', 'timeline'];
+    // 'index' was folded into 'list'; old links that ask for it get the list.
+    const VIEWS = ['grid', 'list', 'timeline'];
+    const LEGACY_VIEW = { index: 'list' };
 
     /* View + query state. The single place the work area's contents are
        decided. Seeded from the URL so any view is a shareable link. */
@@ -52,7 +54,8 @@
         search: params.get('q') || '',
         sort: params.get('sort') || 'smart',
         view: VIEWS.includes(params.get('view')) ? params.get('view')
-            : (VIEWS.includes(storedView) ? storedView : 'grid'),
+            : LEGACY_VIEW[params.get('view')]
+            || (VIEWS.includes(storedView) ? storedView : LEGACY_VIEW[storedView] || 'grid'),
         compare: (params.get('compare') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3),
         attention: ''          // admin-only issue filter, never in the URL
     };
@@ -562,7 +565,10 @@
                 ? '<button type="button" class="chip chip--more" data-more-cats aria-expanded="true">Fewer</button>'
                 : '');
 
-        filterBox.innerHTML = chip('all', 'All', pool.length)
+        // 'Type' tells this row apart from the platform bar above it
+        // ('Websites 54' is where things run; 'Site 17' is what they are).
+        filterBox.innerHTML = '<span class="filters-label" aria-hidden="true">Type</span>'
+            + chip('all', 'All', pool.length)
             + shownCats.map((c) => chip(c, categoryLabel(c), counts[c])).join('')
             + toggle;
 

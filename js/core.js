@@ -155,7 +155,7 @@
        navigable in the editor's native select. */
     window.CATEGORY_GROUPS = [
         ['Interfaces', [
-            ['web', 'Website'], ['app', 'Web app'], ['mobile', 'Mobile app'],
+            ['web', 'Site'], ['app', 'Web app'], ['mobile', 'Mobile app'],
             ['dashboard', 'Dashboard'], ['landing', 'Landing page'], ['portfolio', 'Portfolio']
         ]],
         ['Play', [

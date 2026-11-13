@@ -1110,3 +1110,14 @@ html.has-project-theme .progress { background: linear-gradient(90deg, var(--acce
    to the admin, noise to a visitor, who just sees "Open to work". */
 html:not(.is-admin) .hero-badge s,
 html:not(.is-admin) #connStatus { display: none; }
+
+.filters-label {
+    align-self: center;
+    flex: none;
+    margin-right: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-35);
+}

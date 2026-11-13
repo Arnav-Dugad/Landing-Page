@@ -107,7 +107,6 @@
         cmds.push(
             { group: 'View', icon: 'grid',    label: 'Grid view',     keywords: 'cards tiles layout', run: () => { window.setView('grid'); go('work')(); } },
             { group: 'View', icon: 'list',    label: 'List view',     keywords: 'rows compact layout', run: () => { window.setView('list'); go('work')(); } },
-            { group: 'View', icon: 'type',    label: 'Index view',    keywords: 'typographic titles magazine list', run: () => { window.setView('index'); go('work')(); } },
             { group: 'View', icon: 'history', label: 'Timeline view', keywords: 'years chronology history when', run: () => { window.setView('timeline'); go('work')(); } },
             { group: 'View', icon: 'link',    label: 'Copy link to this view', keywords: 'share url filter saved', run: () => document.getElementById('copyView')?.click() }
         );

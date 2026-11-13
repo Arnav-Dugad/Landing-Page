@@ -410,23 +410,6 @@
             </article>`;
     }
 
-    function platformsTile(list) {
-        const counts = {};
-        list.forEach((p) => window.platformsOf(p).forEach((k) => { counts[k] = (counts[k] || 0) + 1; }));
-        const keys = Object.keys(PL()).filter((k) => counts[k]);
-        const max = Math.max(1, ...keys.map((k) => counts[k]));
-        return `
-            <article class="spot-tile spot-plats">
-                <span class="spot-kicker"><span>Runs on</span></span>
-                <ul>${keys.map((k, i) => `
-                    <li style="--w:${(counts[k] / max * 100).toFixed(1)}%;--i:${i}">
-                        <button type="button" data-spot-platform="${k}" ${keys.length < 2 ? 'disabled' : ''}>
-                            ${window.icon(PL()[k].icon, { raw: true, size: 16 })}
-                            <span>${esc(PL()[k].noun)}</span><b>${counts[k]}</b><i aria-hidden="true"></i>
-                        </button>
-                    </li>`).join('')}</ul>
-            </article>`;
-    }
 
     function uptimeTile(list) {
         return `
@@ -452,7 +435,6 @@
                     </button>`).join('')}</div>` : ''}
             </article>
             ${latestTile(list)}
-            ${platformsTile(list)}
             ${uptimeTile(list)}`;
 
         if (window.hydrateIcons) window.hydrateIcons(spot);
@@ -532,12 +514,6 @@
         spot.addEventListener('click', (e) => {
             const open = e.target.closest('[data-open]');
             if (open) { window.openProject(open.dataset.open, { from: open.closest('.spot-slide, .spot-tile') }); return; }
-            const pl = e.target.closest('[data-spot-platform]');
-            if (pl) {
-                window.setPlatform(pl.dataset.spotPlatform);
-                document.getElementById('platbar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                requestAnimationFrame(() => moveBlob(true));
-            }
         });
     }
 

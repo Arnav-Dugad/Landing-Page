@@ -607,7 +607,6 @@
         M.tilt(document);
         M.cursor();
         M.scrollChrome();
-        M.marquee(document.querySelector('.marquee'));
         M.scrollSkew(document.getElementById('grid'));
         M.weightOnScroll();
         M.trail();

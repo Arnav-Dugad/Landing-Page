@@ -668,7 +668,7 @@
 @keyframes plat-bar { from { transform: scaleX(0); } }
 
 /* Uptime */
-.spot-up { grid-column: 11 / span 2; padding: 22px 20px; display: grid; align-content: start; gap: 12px; }
+.spot-up { grid-column: 9 / span 4; padding: 22px 22px; display: grid; align-content: start; gap: 12px; }
 .spot-up-n { display: grid; gap: 4px; }
 .spot-up-n b {
     font-family: var(--font-display); font-weight: 400;
@@ -692,9 +692,8 @@
 
 @media (max-width: 1080px) {
     .spot-lead { grid-column: 1 / -1; }
-    .spot-latest { grid-column: 1 / span 6; }
-    .spot-plats { grid-column: 7 / span 3; }
-    .spot-up { grid-column: 10 / span 3; }
+    .spot-latest { grid-column: 1 / span 7; }
+    .spot-up { grid-column: 8 / span 5; }
 }
 @media (max-width: 720px) {
     .spot { gap: 14px; }
@@ -705,7 +704,11 @@
     }
     .spot-media { order: 0; transform: none !important; margin: 0 -6px; }
     .spot-slide--phone .spot-media .dframe { width: 46%; margin: 0 auto; }
-    .spot-latest, .spot-plats, .spot-up { grid-column: 1 / -1; }
+    .spot-latest, .spot-up { grid-column: 1 / -1; }
+    /* On a phone these stacked into a screen and a half of preamble before
+       the projects. The live count is in the hero figures and the latest
+       release leads "Just shipped" — only the featured work stays. */
+    .spot-latest, .spot-up { display: none; }
     .spot-dots { left: 20px; bottom: 18px; }
 }
 
@@ -1409,7 +1412,8 @@ a.is-done .getit-go::after, a.is-done .getit-row-go::after, a.is-done.getbar-btn
 }
 
 /* ---- Latest releases ------------------------------------------------------ */
-.releases { margin: 0 0 clamp(44px, 7vh, 80px); }
+/* Sits after the grid now: room above to read as its own chapter. */
+.releases { margin: clamp(56px, 9vh, 96px) 0 0; }
 .releases[hidden] { display: none; }
 .releases-head {
     display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap;
@@ -1591,4 +1595,11 @@ a.is-done .getit-go::after, a.is-done .getit-row-go::after, a.is-done.getbar-btn
                 mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent);
     }
     .detail-actions-rest { padding-right: 28px; }
+}
+
+
+/* Phones: Compare lives in the project sheet; on the card it only wrapped
+   onto a row of its own under Get / Code / Case study. */
+@media (max-width: 560px) {
+    .card-act--cmp { display: none; }
 }

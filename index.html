@@ -111,7 +111,7 @@
     <a class="nav-mark" href="#top" aria-label="Arnav Dugad — home"><i>AD</i> Arnav Dugad</a>
 
     <div class="nav-links" id="navLinks">
-        <a class="nav-link" href="#work">Work</a>
+        <a class="nav-link" href="#work">Projects</a>
         <a class="nav-link" href="#about">About</a>
         <a class="nav-link" href="#stack">Stack</a>
         <a class="nav-link" href="now.html">Now</a>
@@ -133,7 +133,7 @@
 
 <!-- Section rail -->
 <aside class="rail" aria-hidden="true">
-    <button class="rail-dot" data-target="work"><span>Work</span><i></i></button>
+    <button class="rail-dot" data-target="work"><span>Projects</span><i></i></button>
     <button class="rail-dot" data-target="about"><span>About</span><i></i></button>
     <button class="rail-dot" data-target="stack"><span>Stack</span><i></i></button>
     <button class="rail-dot" data-target="contact"><span>Contact</span><i></i></button>
@@ -176,7 +176,7 @@
 
             <div class="hero-cta" data-reveal="up" style="--delay:280ms">
                 <a href="#work" class="btn btn--primary magnetic" data-cursor="Browse">
-                    <span data-icon="arrow-down" data-size="17"></span> See the work
+                    <span data-icon="arrow-down" data-size="17"></span> See projects
                 </a>
                 <button class="btn btn--ghost magnetic" data-contact data-cursor="Write">
                     <span data-icon="send" data-size="17"></span> Get in touch
@@ -207,19 +207,6 @@
     </div>
 </section>
 
-<!-- Marquee -->
-<div class="marquee" aria-hidden="true">
-    <div class="marquee-track">
-        <span class="marquee-item">Websites <span>✳</span></span>
-        <span class="marquee-item">Windows apps <span>✳</span></span>
-        <span class="marquee-item">Android apps <span>✳</span></span>
-        <span class="marquee-item">iPhone <span>✳</span></span>
-        <span class="marquee-item">Games <span>✳</span></span>
-        <span class="marquee-item">Tools <span>✳</span></span>
-        <span class="marquee-item">Motion <span>✳</span></span>
-        <span class="marquee-item">Realtime <span>✳</span></span>
-    </div>
-</div>
 
 <!-- ======================================================================
      Work
@@ -242,15 +229,6 @@
              Rendered by js/showcase.js; stays empty (and collapses) until data. -->
         <div class="spot" id="spotlight" aria-label="Featured work"></div>
 
-        <!-- Latest releases — editorial cards from the release radar. Hidden
-             until something has shipped recently. Filled by js/showcase.js. -->
-        <section class="releases" id="releases" aria-labelledby="releasesTitle" hidden>
-            <header class="releases-head" data-reveal="up">
-                <h3 id="releasesTitle" class="releases-title">Just <em>shipped</em></h3>
-                <p class="releases-note">New versions, straight from the release radar.</p>
-            </header>
-            <div class="releases-list" id="releasesList"></div>
-        </section>
 
         <!-- Platform switcher: All / Web / Windows / Android / … (only the
              platforms that exist). Rendered by js/showcase.js. -->
@@ -272,11 +250,9 @@
                     <select id="sortSelect" aria-label="Sort projects">
                         <option value="smart">Recommended</option>
                         <option value="newest">Newest first</option>
-                        <option value="oldest">Oldest first</option>
                         <option value="stars">Most starred</option>
                         <option value="az">A–Z</option>
-                        <option value="featured">Featured first</option>
-                        <option value="order">Custom order</option>
+                        <option value="order" data-admin-only class="u-hidden">Custom order</option>
                     </select>
                     <span data-icon="chev-down" data-size="14"></span>
                 </div>
@@ -285,7 +261,6 @@
                     <span class="thumb" aria-hidden="true"></span>
                     <button data-view="grid" class="is-active" aria-label="Grid view" title="Grid"><span data-icon="grid" data-size="16"></span></button>
                     <button data-view="list" aria-label="List view" title="List"><span data-icon="list" data-size="16"></span></button>
-                    <button data-view="index" aria-label="Index view" title="Index"><span data-icon="type" data-size="16"></span></button>
                     <button data-view="timeline" aria-label="Timeline view" title="Timeline"><span data-icon="history" data-size="16"></span></button>
                 </div>
 
@@ -321,6 +296,17 @@
 
         <!-- Paging for visitors: "Show more" / "Show all" (js/render.js). -->
         <div class="more" id="gridMore" hidden></div>
+
+        <!-- Latest releases — after the browsable grid, so finding a project
+             never means scrolling past release notes. Hidden until something
+             has shipped recently. Filled by js/showcase.js. -->
+        <section class="releases" id="releases" aria-labelledby="releasesTitle" hidden>
+            <header class="releases-head" data-reveal="up">
+                <h3 id="releasesTitle" class="releases-title">Just <em>shipped</em></h3>
+                <p class="releases-note">New versions, straight from the release radar.</p>
+            </header>
+            <div class="releases-list" id="releasesList"></div>
+        </section>
     </div>
 </section>
 

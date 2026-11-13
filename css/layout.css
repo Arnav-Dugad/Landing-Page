@@ -1,6 +1,6 @@
 /* ===========================================================================
    layout.css — page architecture: backdrop, nav, hero, section rhythm,
-   marquee, about/stack/contact bands, footer, progress rail.
+   about/stack/contact bands, footer, progress rail.
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
@@ -425,37 +425,6 @@
         border-left: 0; border-top: 1px solid var(--line);
     }
 }
-
-/* ---------------------------------------------------------------------------
-   Marquee — seamless, direction follows scroll direction.
-   --------------------------------------------------------------------------- */
-
-.marquee {
-    position: relative;
-    padding-block: 22px;
-    border-block: 1px solid var(--line);
-    background: var(--paper-raised);
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-}
-.marquee-track {
-    display: flex; width: max-content;
-    will-change: transform;
-}
-.marquee-item {
-    display: inline-flex; align-items: center; gap: 14px;
-    padding-inline: 26px;
-    font-family: var(--font-display);
-    font-size: clamp(1.1rem, 1.9vw, 1.7rem);
-    font-weight: 400;
-    color: var(--ink-35);
-    letter-spacing: -.02em;
-    white-space: nowrap;
-    transition: color var(--d-2) var(--e-out);
-}
-.marquee-item:hover { color: var(--ink); }
-.marquee-item span { color: var(--accent); font-size: .6em; }
 
 /* ---------------------------------------------------------------------------
    About band

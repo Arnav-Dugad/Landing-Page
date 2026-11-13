@@ -813,7 +813,11 @@
                 if (sec.offsetTop <= line) activeId = sec.id;
             }
             railDots.forEach((d) => d.classList.toggle('is-active', d.dataset.target === activeId));
-            navLinks.forEach((a) => a.classList.toggle('is-active', a.getAttribute('href') === `#${activeId}`));
+            navLinks.forEach((a) => {
+                const on = a.getAttribute('href') === `#${activeId}`;
+                a.classList.toggle('is-active', on);
+                if (on) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current');
+            });
         };
 
         window.addEventListener('scroll', () => {
