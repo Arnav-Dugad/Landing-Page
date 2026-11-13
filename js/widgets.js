@@ -86,15 +86,19 @@
         return map[String(projectId)] || null;
     }
 
+    /* Plain words for visitors ("Live" / "Offline"); the response time and
+       the HTTP detail are for the admin. */
     function statusChip(s) {
         if (!s) return '';
+        const admin = !!window.isAdmin;
         if (s.up) {
-            const ms = Number.isFinite(s.ms) ? ` · ${Math.round(s.ms)} ms` : '';
-            return `<span class="schip schip--up" title="Responded with HTTP ${esc(s.code ?? '')} on the last check">`
-                 + `<i></i>Up${ms}</span>`;
+            const ms = Number.isFinite(s.ms) ? Math.round(s.ms) : null;
+            const tip = ms !== null ? `Checked recently — the site answered in ${ms} ms` : 'Checked recently — the site is up';
+            return `<span class="schip schip--up" title="${esc(admin ? `${tip} (HTTP ${s.code ?? '?'})` : tip)}">`
+                 + `<i></i>Live${admin && ms !== null ? ` · ${ms} ms` : ''}</span>`;
         }
         const why = s.error || (s.code ? `HTTP ${s.code}` : 'No response');
-        return `<span class="schip schip--down" title="Last check failed: ${esc(why)}"><i></i>Down</span>`;
+        return `<span class="schip schip--down" title="${esc(admin ? `Last check failed: ${why}` : 'The live site isn’t answering right now')}"><i></i>Offline</span>`;
     }
 
     /* =====================================================================
