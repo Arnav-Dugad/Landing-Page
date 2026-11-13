@@ -29,7 +29,11 @@
     function canReorder() {
         if (!window.isAdmin) return false;
         const s = window.PState || {};
-        return s.filter === 'all' && !String(s.search || '').trim();
+        // A paged grid shows only some cards; saving their order would
+        // renumber that subset over the rest (render.js never pages the admin,
+        // this is the belt to that braces).
+        return s.filter === 'all' && !String(s.search || '').trim()
+            && s.platform === 'all' && !s.attention && grid.dataset.paged !== '1';
     }
 
     /* ---- FLIP ---------------------------------------------------------- */

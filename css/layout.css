@@ -522,11 +522,13 @@
    Stack band — auto-derived from the tags on real projects.
    --------------------------------------------------------------------------- */
 
+/* Hairlines are drawn by each cell (right + bottom edges; the container
+   clips the outer ones), not by a 1px gap over a grey background, so a
+   part-filled last row ends cleanly instead of showing a grey block. */
 .stack-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1px;
-    background: var(--line);
+    background: var(--paper);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     overflow: hidden;
@@ -535,6 +537,7 @@
     position: relative;
     padding: 22px;
     background: var(--paper);
+    box-shadow: 1px 0 0 var(--line), 0 1px 0 var(--line);
     transition: background var(--d-2) var(--e-out);
     overflow: hidden;
 }

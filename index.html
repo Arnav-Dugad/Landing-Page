@@ -315,9 +315,12 @@
             </div>
         </div>
 
-        <p class="u-mono" id="resultCount" style="color:var(--ink-35);margin:20px 0 18px"></p>
+        <p class="result-line" id="resultCount" aria-live="polite"></p>
 
         <div class="grid" id="grid"></div>
+
+        <!-- Paging for visitors: "Show more" / "Show all" (js/render.js). -->
+        <div class="more" id="gridMore" hidden></div>
     </div>
 </section>
 

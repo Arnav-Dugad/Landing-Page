@@ -27,6 +27,7 @@
     const filterBox = document.getElementById('filters');
     const stackBox = document.getElementById('stackGrid');
     const countEl = document.getElementById('resultCount');
+    const moreBox = document.getElementById('gridMore');
 
     const esc = window.esc;
     const categoryLabel = window.categoryLabel;
@@ -52,7 +53,8 @@
         sort: params.get('sort') || 'smart',
         view: VIEWS.includes(params.get('view')) ? params.get('view')
             : (VIEWS.includes(storedView) ? storedView : 'grid'),
-        compare: (params.get('compare') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3)
+        compare: (params.get('compare') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3),
+        attention: ''          // admin-only issue filter, never in the URL
     };
 
     /* ?get=<platform> arrives from a scanned QR code (via /p/<slug>): open
@@ -131,7 +133,13 @@
         ...(p.tags || []), ...(p.searchTerms || []), ...(p.highlights || [])
     ].filter(Boolean).join(' ').toLowerCase();
 
-    function matches(p, { filter = state.filter, search = state.search, platform = state.platform } = {}) {
+    function matches(p, { filter = state.filter, search = state.search, platform = state.platform, attention = state.attention } = {}) {
+        // Admin only: "needs attention" narrows the grid to one kind of problem
+        // (admin-dock.js owns the checks).
+        if (attention && window.isAdmin && window.AdminAttention) {
+            const check = window.AdminAttention.checks[attention];
+            if (check && !check(p)) return false;
+        }
         if (platform !== 'all' && !window.platformsOf(p).includes(platform)) return false;
         if (filter !== 'all' && (p.category || 'other') !== filter) return false;
         const words = String(search).toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -355,7 +363,7 @@
         if (act === 'all-cats') state.filter = 'all';
         if (act === 'all-platforms') state.platform = 'all';
         if (act === 'clear-search' || act === 'reset') { state.search = ''; if (searchEl) searchEl.value = ''; }
-        if (act === 'reset') { state.filter = 'all'; state.platform = 'all'; }
+        if (act === 'reset') { state.filter = 'all'; state.platform = 'all'; state.attention = ''; }
         if (act === 'search') { state.search = btn.dataset.value || ''; if (searchEl) searchEl.value = state.search; }
         render();
     }
@@ -364,9 +372,91 @@
        Work area render
        ===================================================================== */
 
+    /* Paging. Seventy-odd cards at once made the page endless on a phone and
+       buried everything below the work. Visitors get a few rows, then choose:
+       "Show more" for the next rows or "Show all". A new query starts over.
+       The admin always gets everything: reordering saves the order of the
+       cards on the page, so it must see all of them. The compact views
+       (index, timeline) are short enough to show whole. */
+    const PAGE_ROWS = 3;
+    let pageLimit = 0;
+    let pageKey = '';
+    const pageSize = () => (state.view === 'grid' ? Math.max(6, columnsInGrid() * PAGE_ROWS) : 8);
+    const pagedView = () => (state.view === 'grid' || state.view === 'list') && !window.isAdmin;
+
+    function paintMore(shown, total) {
+        if (!moreBox) return;
+        grid.dataset.paged = shown < total ? '1' : '';
+        if (shown >= total) { moreBox.hidden = true; moreBox.innerHTML = ''; return; }
+        const next = Math.min(pageSize(), total - shown);
+        moreBox.hidden = false;
+        moreBox.innerHTML = `
+            <div class="more-meter" role="progressbar" aria-label="Projects shown" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${shown}">
+                <i style="--p:${(shown / total).toFixed(3)}"></i>
+            </div>
+            <p class="more-count">Showing <b>${shown}</b> of <b>${total}</b> projects</p>
+            <div class="more-acts">
+                <button type="button" class="btn btn--primary more-btn" data-more="page">
+                    ${window.icon('chev-down', { raw: true, size: 16 })} Show ${next} more
+                </button>
+                ${total - shown > next ? `<button type="button" class="btn btn--quiet" data-more="all">Show all ${total}</button>` : ''}
+            </div>`;
+    }
+
+    if (moreBox) {
+        moreBox.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-more]');
+            if (!btn) return;
+            const before = grid.querySelectorAll(':scope > [data-id]').length;
+            pageLimit = btn.dataset.more === 'all' ? Infinity : pageLimit + pageSize();
+            paint();
+            const added = Array.from(grid.querySelectorAll(':scope > [data-id]')).slice(before);
+            const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (!still) {
+                added.forEach((el, i) => el.animate(
+                    [{ opacity: 0, transform: 'translateY(26px) scale(.98)' }, { opacity: 1, transform: 'none' }],
+                    { duration: 560, delay: Math.min(i, 9) * 45, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }
+                ));
+            }
+            // Keyboard and screen-reader users land on the first new project
+            // rather than on a button that may have just disappeared.
+            const first = added[0] && added[0].querySelector('[data-open]');
+            if (first) first.focus({ preventScroll: true });
+        });
+    }
+
+    /* The line above the grid says what you're looking at, and offers the
+       way back whenever anything narrows it. */
+    function paintSummary(count) {
+        if (!countEl) return;
+        const total = projects().length;
+        const bits = [];
+        if (state.platform !== 'all') bits.push(window.PLATFORMS[state.platform].noun);
+        if (state.filter !== 'all') bits.push(categoryLabel(state.filter));
+        if (state.search.trim()) bits.push(`“${state.search.trim()}”`);
+        if (state.attention && window.AdminAttention) bits.push(window.AdminAttention.label(state.attention));
+        const narrowed = bits.length > 0;
+        countEl.classList.toggle('is-narrowed', narrowed);
+        countEl.innerHTML = narrowed
+            ? `<span><b>${count}</b> of ${total} · ${bits.map(esc).join(' · ')}</span>
+               <button type="button" class="summary-clear" data-empty-act="reset">${window.icon('x', { raw: true, size: 12 })} Clear filters</button>`
+            : `<span>${total} project${total === 1 ? '' : 's'}</span>`;
+    }
+    if (countEl) {
+        countEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-empty-act]');
+            if (btn) runEmptyAct(btn);
+        });
+    }
+
     function paint() {
         const list = visibleProjects();
         const view = state.view;
+
+        const key = [state.filter, state.platform, state.search.trim(), state.sort, view, state.attention].join('|');
+        if (key !== pageKey) { pageKey = key; pageLimit = pageSize(); }
+        // Never leave a lonely "show 2 more": a short remainder just shows.
+        const cut = pagedView() && list.length - pageLimit > 2 ? pageLimit : list.length;
 
         if (!list.length) {
             grid.innerHTML = emptyHtml();
@@ -375,18 +465,13 @@
         } else if (view === 'timeline' && window.Views) {
             grid.innerHTML = window.Views.timelineHtml(list, projects());
         } else {
-            grid.innerHTML = list.map(cardHtml).join('');
+            grid.innerHTML = list.slice(0, cut).map(cardHtml).join('');
         }
 
         VIEWS.forEach((v) => grid.classList.toggle(`is-${v}`, v === view));
 
-        if (countEl) {
-            const total = projects().length;
-            const where = state.platform !== 'all' ? ` · ${window.PLATFORMS[state.platform].noun.toLowerCase()}` : '';
-            countEl.textContent = list.length === total
-                ? `${total} project${total === 1 ? '' : 's'}`
-                : `${list.length} of ${total}${where}`;
-        }
+        paintSummary(list.length);
+        paintMore(list.length ? cut : 0, list.length);
 
         if (window.Motion) {
             if (firstPaint) {
@@ -426,6 +511,7 @@
         else window.Motion.flipGrid(grid, paint);
 
         if (movePill) movePill();
+        window.dispatchEvent(new Event('projectsrendered'));
         if (window.Views) window.Views.syncCompare();
         if (window.Showcase) window.Showcase.sync();
 
@@ -445,6 +531,8 @@
     /* The travelling indicator behind the active filter chip, created lazily
        once Motion is available. */
     let movePill = null;
+    const CAT_LIMIT = 7;
+    let catsOpen = false;
 
     function renderFilters() {
         if (!filterBox) return;
@@ -463,8 +551,20 @@
                 ${esc(label)}<b>${count}</b>
             </button>`;
 
+        /* Twenty-plus categories read as noise. The biggest few show; the
+           rest wait behind "+N more" (an active one always stays visible). */
+        let shownCats = catsOpen ? cats : cats.slice(0, CAT_LIMIT);
+        if (!catsOpen && state.filter !== 'all' && !shownCats.includes(state.filter)) shownCats = [...shownCats, state.filter];
+        const hiddenN = cats.length - shownCats.length;
+        const toggle = hiddenN > 0
+            ? `<button type="button" class="chip chip--more" data-more-cats aria-expanded="false">+${hiddenN} more</button>`
+            : (catsOpen && cats.length > CAT_LIMIT
+                ? '<button type="button" class="chip chip--more" data-more-cats aria-expanded="true">Fewer</button>'
+                : '');
+
         filterBox.innerHTML = chip('all', 'All', pool.length)
-            + cats.map((c) => chip(c, categoryLabel(c), counts[c])).join('');
+            + shownCats.map((c) => chip(c, categoryLabel(c), counts[c])).join('')
+            + toggle;
 
         // Re-created markup means the pill's element is gone; rebuild it.
         if (window.Motion) movePill = window.Motion.filterPill(filterBox);
@@ -472,6 +572,13 @@
 
     if (filterBox) {
         filterBox.addEventListener('click', (e) => {
+            if (e.target.closest('[data-more-cats]')) {
+                catsOpen = !catsOpen;
+                renderFilters();
+                const t = filterBox.querySelector('[data-more-cats]');
+                if (t) t.focus({ preventScroll: true });
+                return;
+            }
             const btn = e.target.closest('.chip');
             if (!btn) return;
             state.filter = btn.dataset.filter;
@@ -494,6 +601,7 @@
         render();
     };
     window.setSearch = (text) => { state.search = text; render(); };
+    window.setAttention = (key) => { state.attention = key || ''; render(); };
 
     function paintSegment() {
         const at = Math.max(0, VIEWS.indexOf(state.view));
@@ -542,7 +650,7 @@
             ['downloads', 'hsDownloads', t.downloads,              t.downloads >= 10],
             ['stars',     'hsStars',     stars,                    stars >= 10],
             ['perf',      'hsPerf',      t.perf,                   t.perf !== null && t.perfCount >= 2],
-            ['live',      'hsLive',      liveCount(list),          checked > 0],
+            ['live',      'hsLive',      liveCount(list),          checked > 0 && liveCount(list) > 0],
             ['tech',      'hsTech',      techs.size,               techs.size >= 3]
         ];
         let shown = 0;

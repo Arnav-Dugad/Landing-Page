@@ -42,7 +42,7 @@ async function loadStatus() {
 /* X-Frame-Options DENY/SAMEORIGIN, or a CSP frame-ancestors list that
    doesn't include us, means the browser will refuse our iframe. null when
    the site couldn't be reached — the client then just tries. */
-const OUR_HOSTS = ['arnavdugad.in', 'www.arnavdugad.in', 'arnav-portfolio.arnavrival12.workers.dev'];
+const OUR_HOSTS = ['arnavdugad.in', 'www.arnavdugad.in', 'arnav-portfolio.arnavrival12.workers.dev', 'arnav-portfolio.arnavd.workers.dev'];
 async function frameable(link) {
     try {
         const res = await fetch(link, { redirect: 'follow', signal: AbortSignal.timeout(6000), headers: { 'user-agent': 'Mozilla/5.0 (portfolio frame check)' } });

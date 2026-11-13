@@ -965,3 +965,148 @@ html.has-project-theme .progress { background: linear-gradient(90deg, var(--acce
 .hc-dupe em { font-style: normal; color: var(--ink-35); }
 .hc-dupe-acts { display: flex; gap: 6px; flex-wrap: wrap; }
 .hc-dupe-acts .btn { height: 30px; padding: 0 12px; font-size: var(--t-2xs); }
+
+/* ---------------------------------------------------------------------------
+   Result line — what you're looking at, and the way back out of a filter
+   --------------------------------------------------------------------------- */
+
+.result-line {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+    min-height: 30px;
+    margin: 20px 0 18px;
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-35);
+}
+.result-line b { color: var(--ink); font-weight: 500; }
+.summary-clear {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 12px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink-50);
+    font: inherit; letter-spacing: inherit;
+    cursor: pointer;
+    transition: color var(--d-2) var(--e-out), border-color var(--d-2) var(--e-out), background var(--d-2) var(--e-out);
+}
+.summary-clear:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: var(--accent-soft); }
+
+/* "+N more" categories: quieter than a real filter, so it reads as a control. */
+.chip--more {
+    border-style: dashed;
+    background: transparent;
+    color: var(--ink-50);
+    font-weight: 500;
+}
+.chip--more:hover { border-style: solid; }
+
+/* ---------------------------------------------------------------------------
+   Show more — paging for the work grid
+   --------------------------------------------------------------------------- */
+
+.more {
+    display: grid; justify-items: center; gap: 14px;
+    margin: 44px auto 8px;
+    max-width: 420px;
+    text-align: center;
+}
+.more[hidden] { display: none; }
+.more-meter {
+    width: 180px; height: 3px;
+    border-radius: 3px;
+    background: var(--line);
+    overflow: hidden;
+}
+.more-meter i {
+    display: block; height: 100%;
+    width: calc(var(--p, 0) * 100%);
+    border-radius: inherit;
+    background: var(--accent);
+    transition: width var(--d-4) var(--e-expo);
+}
+.more-count {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ink-35);
+}
+.more-count b { color: var(--ink); font-weight: 500; }
+.more-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.more-btn { min-width: 168px; }
+.more-btn svg { transition: transform var(--d-3) var(--e-spring); }
+.more-btn:hover svg { transform: translateY(2px); }
+
+/* ---------------------------------------------------------------------------
+   Needs attention — the admin's to-do strip above the grid
+   --------------------------------------------------------------------------- */
+
+.attn {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
+    margin-top: 22px;
+    padding: 12px 14px 12px 18px;
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+    border-radius: var(--r-lg, 18px);
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--paper-raised));
+}
+.attn.is-clear {
+    border-color: color-mix(in srgb, var(--pine) 26%, var(--line));
+    background: color-mix(in srgb, var(--pine-soft) 60%, var(--paper-raised));
+}
+.attn-title {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: var(--t-sm); font-weight: 600;
+    color: var(--ink);
+}
+.attn-title svg { color: var(--accent); }
+.attn.is-clear .attn-title svg { color: var(--pine); }
+.attn-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.attn-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 12px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink-70, var(--ink));
+    font-size: var(--t-xs);
+    cursor: pointer;
+    transition: transform var(--d-2) var(--e-out), border-color var(--d-2) var(--e-out), background var(--d-2) var(--e-out);
+}
+.attn-chip b { font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
+.attn-chip:hover { transform: translateY(-1px); border-color: var(--line-strong); }
+.attn-chip--down svg { color: var(--accent); }
+.attn-chip.is-active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.attn-chip.is-active b, .attn-chip.is-active svg { color: currentColor; }
+.attn-help {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: auto;
+    font-size: var(--t-2xs);
+    color: var(--ink-50);
+}
+.attn-help kbd {
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-family: var(--font-mono); font-size: .68rem;
+}
+@media (max-width: 820px) {
+    .attn-help { display: none; }
+}
+
+/* Phones: copy-link and random each cost a whole toolbar row there. Both
+   stay one tap away in the command palette (which clicks these buttons). */
+@media (max-width: 560px) {
+    #copyView, #lucky { display: none; }
+    .toolbar .selectwrap { flex: 1 1 auto; }
+    .toolbar .selectwrap select { width: 100%; }
+}
+
+/* The connection state is backend plumbing ("Connecting", "Offline"): useful
+   to the admin, noise to a visitor, who just sees "Open to work". */
+html:not(.is-admin) .hero-badge s,
+html:not(.is-admin) #connStatus { display: none; }

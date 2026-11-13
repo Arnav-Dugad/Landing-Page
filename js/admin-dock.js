@@ -663,6 +663,76 @@
     setInterval(() => { if (window.isAdmin) paintNudge(); }, 4000);
 
     /* =====================================================================
+       Needs attention — the admin's to-do list, above the grid
+
+       One line of counts: sites that are down, projects without a real
+       screenshot, missing write-ups, hidden projects. Each count is a filter:
+       click it and the grid shows exactly those projects, ready for ⋯ → Edit.
+       render.js applies the filter (state.attention) through these checks.
+       ===================================================================== */
+
+    const attnStatus = (p) => (window.projectStatus ? window.projectStatus(p.id) : null);
+    const ATTENTION = [
+        { key: 'down',    icon: 'alert',    label: 'Down',              hint: 'The live link isn’t answering',
+          check: (p) => !p.hidden && !!attnStatus(p) && attnStatus(p).up === false },
+        { key: 'noshots', icon: 'image',    label: 'No screenshot',     hint: 'Visitors see a placeholder — add screenshots',
+          check: (p) => !!(window.Widgets && window.Widgets.mediaFor) && !window.Widgets.mediaFor(p).src },
+        { key: 'copy',    icon: 'pencil',   label: 'Missing write-up',  hint: 'No tagline, summary or story yet',
+          check: (p) => needsCopy(p) || isEmpty(p.desc) || isEmpty(p.tagline) },
+        { key: 'hidden',  icon: 'eye-off',  label: 'Hidden',            hint: 'Only you can see these',
+          check: (p) => !!p.hidden }
+    ];
+    window.AdminAttention = {
+        checks: Object.fromEntries(ATTENTION.map((a) => [a.key, a.check])),
+        label: (key) => (ATTENTION.find((a) => a.key === key) || {}).label || key
+    };
+
+    const attn = document.createElement('div');
+    attn.className = 'attn u-hidden';
+    attn.setAttribute('role', 'group');
+    attn.setAttribute('aria-label', 'Needs attention');
+    const countLine = document.getElementById('resultCount');
+    if (countLine) countLine.before(attn);
+
+    function paintAttention() {
+        if (!window.isAdmin || !countLine) { attn.classList.add('u-hidden'); return; }
+        const list = projects();
+        const active = (window.PState && window.PState.attention) || '';
+        const rows = ATTENTION.map((a) => ({ ...a, n: list.filter(a.check).length }));
+        const total = rows.filter((r) => r.key !== 'hidden').reduce((s, r) => s + r.n, 0);
+        attn.classList.remove('u-hidden');
+        attn.classList.toggle('is-clear', !total);
+        attn.innerHTML = `
+            <span class="attn-title">${icon(total ? 'flag' : 'check', 14)}${total ? 'Needs attention' : 'All good — nothing needs you'}</span>
+            <div class="attn-chips">
+                ${rows.filter((r) => r.n || r.key === active).map((r) => `
+                    <button type="button" class="attn-chip ${r.key === active ? 'is-active' : ''} attn-chip--${r.key}"
+                            data-attn="${r.key}" aria-pressed="${r.key === active}" data-tip="${esc(r.hint)}">
+                        ${icon(r.icon, 13)}<b>${r.n}</b> ${esc(r.label)}
+                    </button>`).join('')}
+            </div>
+            <span class="attn-help">${icon('info', 13)} Drag cards to reorder · <kbd>⋯</kbd> on a card to edit · press <kbd>A</kbd> to add</span>`;
+    }
+
+    attn.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-attn]');
+        if (!btn || !window.setAttention) return;
+        const now = (window.PState && window.PState.attention) || '';
+        window.setAttention(now === btn.dataset.attn ? '' : btn.dataset.attn);
+        paintAttention();
+        const grid = document.getElementById('grid');
+        if (grid && grid.getBoundingClientRect().top > window.innerHeight * 0.6) {
+            attn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+    window.addEventListener('adminchange', () => {
+        if (!window.isAdmin && window.PState && window.PState.attention && window.setAttention) window.setAttention('');
+        paintAttention();
+    });
+    window.addEventListener('projectsrendered', paintAttention);
+    setInterval(() => { if (window.isAdmin) paintAttention(); }, 5000);
+
+    /* =====================================================================
        Releases & history
        ===================================================================== */
 
