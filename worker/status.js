@@ -88,25 +88,29 @@ export async function computeStatus(previous = null) {
     const prev = (previous && previous.results) || {};
     const projects = await fetchProjects();
     const all = projects.filter((p) => isHttp(p.link));
-    const ids = new Set(all.map((p) => p.id));
+    const linkOf = new Map(all.map((p) => [p.id, p.link]));
+    // A result only counts for the link it was taken from: a project moved to
+    // a new host starts again as never-checked (results without a stored link
+    // predate this and are trusted until re-probed).
+    const still = (id) => prev[id] && (!prev[id].link || prev[id].link === linkOf.get(id));
 
     // Never-checked first, then the stalest.
     const targets = [...all]
-        .sort((a, b) => ((prev[a.id] && prev[a.id].at) || 0) - ((prev[b.id] && prev[b.id].at) || 0))
+        .sort((a, b) => ((still(a.id) && prev[a.id].at) || 0) - ((still(b.id) && prev[b.id].at) || 0))
         .slice(0, MAX_CHECKS);
 
     const outcomes = await pool(targets, CONCURRENCY, started + DEADLINE_MS, (p) => probe(p.link));
 
     // Carry over what wasn't probed this time (for projects that still exist).
     const results = {};
-    Object.entries(prev).forEach(([id, r]) => { if (ids.has(id)) results[id] = r; });
+    Object.keys(prev).forEach((id) => { if (linkOf.has(id) && still(id)) results[id] = prev[id]; });
     targets.forEach((p, i) => {
-        const now = outcomes[i];
+        const now = outcomes[i] && { ...outcomes[i], link: p.link };
         if (!now) return;
-        const before = prev[p.id];
+        const before = still(p.id) ? prev[p.id] : null;
         if (now.error === 'timeout' && before && before.up && !before.blip) {
             // One slow answer after a good one: keep "up", remember the blip.
-            results[p.id] = { ...before, blip: true, at: now.at };
+            results[p.id] = { ...before, blip: true, at: now.at, link: p.link };
             return;
         }
         results[p.id] = now;
