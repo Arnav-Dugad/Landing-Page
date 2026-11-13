@@ -1277,3 +1277,21 @@ body.is-cursor .cur-dot.is-hidden { opacity: 0; }
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
 }
+
+/* Tags and the category on a card are filters: above the card's
+   whole-card link, quiet until hovered. */
+.card .tag--go, .card .card-cat {
+    position: relative; z-index: 2;
+    font: inherit;
+    cursor: pointer;
+    transition: color var(--d-2) var(--e-out), border-color var(--d-2) var(--e-out), background var(--d-2) var(--e-out);
+}
+.card .tag--go {
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    line-height: inherit;
+}
+.card .tag--go:hover { color: var(--ink); border-color: var(--line-strong); background: var(--paper-raised); }
+.card .card-cat { background: none; border: 0; padding: 0; color: inherit; text-transform: uppercase; letter-spacing: .08em; }
+.card .card-cat:hover { color: var(--ink); }
+.card .tag--go:focus-visible, .card .card-cat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }

@@ -261,13 +261,13 @@
                 <p class="card-desc u-clamp-2">${marked(esc(p.tagline || p.desc))}</p>
                 <div class="card-metrics" data-metrics-slot>${w ? w.metricsHtml(p, { compact: true }) : ''}</div>
                 ${shown.length ? `<div class="card-tags">
-                    ${shown.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}
+                    ${shown.map((t) => `<button type="button" class="tag tag--go" data-tag="${esc(t)}" aria-label="More projects built with ${esc(t)}">${marked(esc(t))}</button>`).join('')}
                     ${overflow > 0 ? `<span class="tag" title="${esc(tags.slice(3).join(', '))}">+${overflow}</span>` : ''}
                 </div>` : ''}
             </div>
 
             <div class="card-foot">
-                <span class="card-cat"><s></s>${esc(categoryLabel(p.category))}</span>
+                <button type="button" class="card-cat" data-cat="${esc(p.category || 'other')}" aria-label="More ${esc(categoryLabel(p.category))} projects"><s></s>${esc(categoryLabel(p.category))}</button>
                 <span class="card-gh">${p.year ? esc(p.year) : ''}</span>
             </div>
 
@@ -1306,6 +1306,27 @@
     grid.addEventListener('click', (e) => {
         // The admin card menu is handled elsewhere (js/admin-dock.js).
         if (e.target.closest('[data-card-menu], [data-admin-slot]')) return;
+        /* Faceted hops: a card's tech tag searches for it, its category
+           switches the Type filter — browse sideways without the toolbar. */
+        const tagBtn = e.target.closest('[data-tag]');
+        const catBtn = e.target.closest('.card-cat[data-cat]');
+        if (tagBtn || catBtn) {
+            e.stopPropagation();
+            const searchEl = document.getElementById('search');
+            if (tagBtn) {
+                state.search = tagBtn.dataset.tag;
+                state.filter = 'all';
+            } else {
+                state.filter = catBtn.dataset.cat;
+                state.search = '';
+            }
+            if (searchEl) searchEl.value = state.search;
+            render();
+            const bar = document.getElementById('workbar') || grid;
+            bar.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+            if (window.toast) window.toast(tagBtn ? `Projects built with ${tagBtn.dataset.tag}` : `${categoryLabel(catBtn.dataset.cat)} projects`);
+            return;
+        }
         const actionBtn = e.target.closest('[data-act]');
         if (actionBtn) {
             e.stopPropagation();
