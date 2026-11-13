@@ -488,6 +488,10 @@
         return [
             { icon: 'pencil', label: 'Edit', run: () => window.editProject(p.id) },
             { icon: 'image', label: 'Screenshots', hint: 'drop or paste images', run: () => window.editProject(p.id, { tab: 'media' }) },
+            ...(p.repo ? [{ icon: 'github', label: 'Screenshots from repo', hint: 'pick images already on GitHub', run: async () => {
+                await window.editProject(p.id, { tab: 'media' });
+                setTimeout(() => window.openRepoShots && window.openRepoShots(), 250);
+            } }] : []),
             sources && { icon: 'refresh', label: 'Re-import', hint: 'refresh from its sources, keep your edits', run: () => reimport(p.id) },
             isDown(p.id) && repo && { icon: 'cloud', label: 'Rehost on Cloudflare', hint: 'its live site is down', run: () => startRehost(p.id) },
             { icon: p.hidden ? 'eye' : 'eye', label: p.hidden ? 'Show to visitors' : 'Hide from visitors', run: () => toggleHidden(p.id) },

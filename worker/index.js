@@ -26,6 +26,7 @@
      /api/media/<id>    an image the admin uploaded (immutable, edge-cached)
      /api/releases      the release radar — recent releases across projects
      /api/rehost        rebuild a project on Cloudflare Pages from its repo (admin)
+     /api/repo-shots    screenshot candidates found in a project's repo (admin)
 
    All data lives in Firestore (see worker/firestore.js); the Cache API is
    used only as a cache.
@@ -38,6 +39,7 @@ import { withHeaders, fail, HttpError } from './http.js';
 import { FirestoreError } from './firestore.js';
 import { handleOgPng, handleOgSvg } from './og.js';
 import { handleStatus, refreshStatus } from './status.js';
+import { handleRepoShots } from './reposhots.js';
 import { handleReactions } from './reactions.js';
 import { handleNow } from './now.js';
 import { handleRss, handleJsonFeed } from './feeds.js';
@@ -108,6 +110,7 @@ async function route(req, env, ctx) {
     if (pathname.startsWith('/api/media/')) return handleMedia(req, env, ctx);
     if (pathname === '/api/releases') return handleReleases(req, env, ctx);
     if (pathname === '/api/rehost') return handleRehost(req, env);
+    if (pathname === '/api/repo-shots') return handleRepoShots(req, env);
 
     if (pathname.startsWith('/p/')) return share(req);
     if (pathname === '/sitemap.xml') return sitemap(req);

@@ -566,6 +566,133 @@
         syncMediaFields();
     }
 
+
+    /* ---- Screenshots straight from the repo --------------------------------
+       /api/repo-shots ranks the repo's images (README first, store and
+       screenshot folders next, icons out). Pick any; they're added by their
+       raw GitHub URL in the order ticked — nothing is downloaded or re-uploaded,
+       and imgUrl() resizes them for visitors. */
+    const repoBox = F('mediaRepo');
+    let repoPicked = [];
+
+    async function openRepoShots() {
+        if (!repoBox) return;
+        const repo = val('fRepo');
+        if (!repo) {
+            window.toast('Add the GitHub repo on the Basics tab first', 'info');
+            setTab('basics');
+            F('fRepo')?.focus();
+            return;
+        }
+        if (!window.edgeFetch || !window.adminIdToken) { window.toast('Still connecting — try again in a second', 'error'); return; }
+        repoPicked = [];
+        repoBox.hidden = false;
+        repoBox.innerHTML = `<div class="mr-head"><b>${ico('github', 15)} Looking through the repo…</b></div>
+            <div class="mr-grid is-loading">${'<i class="mr-skel"></i>'.repeat(8)}</div>`;
+        repoBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        let data;
+        try {
+            const token = await window.adminIdToken();
+            data = await window.edgeFetch(`/api/repo-shots?repo=${encodeURIComponent(repo)}`, { token });
+        } catch (e) {
+            repoBox.innerHTML = `<div class="mr-head"><b>${ico('alert', 15)} ${esc((e && e.message) || 'Couldn’t read the repo')}</b>
+                <button type="button" class="btn btn--quiet" data-mr="close">Close</button></div>`;
+            return;
+        }
+        const have = new Set(media.map((m) => m.url));
+        const items = (data.items || []).filter((it) => !have.has(it.url));
+        if (!items.length) {
+            repoBox.innerHTML = `<div class="mr-head"><b>${ico('image', 15)} No new screenshots in ${esc(data.repo || 'the repo')}</b>
+                <button type="button" class="btn btn--quiet" data-mr="close">Close</button></div>
+                <p class="mr-note">Put images in a <code>screenshots/</code> or <code>docs/</code> folder, or show them in the README, and they’ll appear here.</p>`;
+            return;
+        }
+        repoBox.innerHTML = `
+            <div class="mr-head">
+                <b>${ico('github', 15)} ${items.length} image${items.length === 1 ? '' : 's'} in ${esc(data.repo)}</b>
+                <span class="mr-acts">
+                    <button type="button" class="btn btn--quiet" data-mr="phones" disabled>Select phone screens</button>
+                    <button type="button" class="btn btn--quiet" data-mr="close">Cancel</button>
+                    <button type="button" class="btn btn--primary" data-mr="add" disabled>Add</button>
+                </span>
+            </div>
+            <div class="mr-grid">${items.map((it, i) => `
+                <button type="button" class="mr-tile" data-mr-i="${i}" aria-pressed="false" title="${esc(it.path)}">
+                    <img src="${esc(window.imgUrl ? window.imgUrl(it.url, 180) : it.url)}" data-orig="${esc(it.url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                    <span class="mr-n" aria-hidden="true"></span>
+                    <span class="mr-tags">${it.inReadme ? '<em>README</em>' : ''}<em class="mr-shape"></em></span>
+                    <small>${esc(it.path.split('/').pop())}</small>
+                </button>`).join('')}</div>
+            <p class="mr-note">Tick screenshots in the order they should appear. They’re linked from GitHub, so updating the file in the repo updates the site.</p>`;
+        repoBox._items = items;
+
+        // Tag each tile by its shape once it has loaded: phone screens are tall.
+        let measured = 0;
+        repoBox.querySelectorAll('.mr-tile img').forEach((img) => {
+            const tag = () => {
+                const tile = img.closest('.mr-tile');
+                if (!tile || !img.naturalWidth) return;
+                const r = img.naturalHeight / img.naturalWidth;
+                tile.dataset.shape = r > 1.5 ? 'phone' : r < 0.85 ? 'wide' : 'square';
+                tile.querySelector('.mr-shape').textContent = r > 1.5 ? 'Phone' : r < 0.85 ? 'Wide' : '';
+                if (++measured >= 1) repoBox.querySelector('[data-mr="phones"]')?.removeAttribute('disabled');
+            };
+            if (img.complete) tag(); else img.addEventListener('load', tag, { once: true });
+        });
+    }
+    window.openRepoShots = openRepoShots;
+
+    function paintPicked() {
+        repoBox.querySelectorAll('.mr-tile').forEach((t) => {
+            const at = repoPicked.indexOf(Number(t.dataset.mrI));
+            t.setAttribute('aria-pressed', String(at >= 0));
+            t.querySelector('.mr-n').textContent = at >= 0 ? String(at + 1) : '';
+        });
+        const add = repoBox.querySelector('[data-mr="add"]');
+        if (add) {
+            add.disabled = !repoPicked.length;
+            add.textContent = repoPicked.length ? `Add ${repoPicked.length}` : 'Add';
+        }
+    }
+
+    if (repoBox) {
+        repoBox.addEventListener('click', (e) => {
+            const tile = e.target.closest('.mr-tile');
+            if (tile) {
+                const i = Number(tile.dataset.mrI);
+                const at = repoPicked.indexOf(i);
+                if (at >= 0) repoPicked.splice(at, 1); else repoPicked.push(i);
+                paintPicked();
+                return;
+            }
+            const act = e.target.closest('[data-mr]');
+            if (!act) return;
+            if (act.dataset.mr === 'close') { repoBox.hidden = true; repoBox.innerHTML = ''; return; }
+            if (act.dataset.mr === 'phones') {
+                repoPicked = Array.from(repoBox.querySelectorAll('.mr-tile[data-shape="phone"]')).map((t) => Number(t.dataset.mrI));
+                paintPicked();
+                if (!repoPicked.length) window.toast('None of these look like phone screenshots', 'info');
+                return;
+            }
+            if (act.dataset.mr === 'add') {
+                const items = repoBox._items || [];
+                let added = 0;
+                repoPicked.forEach((i) => {
+                    const url = items[i] && window.safeUrl(items[i].url);
+                    if (!url || media.some((m) => m.url === url)) return;
+                    media.push({ key: nextKey(), url, alt: '', state: 'ready' });
+                    added++;
+                });
+                repoBox.hidden = true;
+                repoBox.innerHTML = '';
+                paintMedia();
+                syncMediaFields();
+                window.toast(added ? `Added ${added} screenshot${added === 1 ? '' : 's'} — save to publish` : 'Those are already in the gallery', added ? 'success' : 'info');
+            }
+        });
+    }
+    F('mediaFromRepo')?.addEventListener('click', openRepoShots);
+
     const tileOf = (el) => el && el.closest('.md-tile');
     const itemOf = (el) => { const t = tileOf(el); return t ? media.find((m) => m.key === t.dataset.key) : null; };
 

@@ -473,6 +473,68 @@ body.has-ctray .adock { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 .md-url { display: flex; gap: 6px; flex: 1 1 260px; }
 .md-url .input { flex: 1; min-width: 0; }
 
+/* Screenshot picker for the project's GitHub repo. */
+.md-repo {
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--paper-sunk);
+    animation: mr-in var(--d-3) var(--e-expo) both;
+}
+@keyframes mr-in { from { opacity: 0; transform: translateY(6px); } }
+.md-repo[hidden] { display: none; }
+.mr-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
+.mr-head b { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t-sm); font-weight: 600; }
+.mr-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.mr-acts .btn { height: 34px; padding-inline: 14px; font-size: var(--t-xs); }
+.mr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+    max-height: 360px;
+    overflow: auto;
+    padding: 2px;
+}
+.mr-skel { aspect-ratio: 9 / 16; border-radius: 12px; background: var(--line); animation: mr-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes mr-pulse { to { opacity: .45; } }
+.mr-tile {
+    position: relative;
+    display: grid; grid-template-rows: 1fr auto; gap: 4px;
+    padding: 6px;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    background: var(--paper-raised);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--d-2) var(--e-out), transform var(--d-2) var(--e-out), box-shadow var(--d-2) var(--e-out);
+}
+.mr-tile:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+.mr-tile[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mr-tile img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; border-radius: 9px; background: var(--paper-sunk); }
+.mr-tile[data-shape="wide"] img { object-fit: contain; }
+.mr-tile small { font-size: .68rem; color: var(--ink-50); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-n {
+    position: absolute; top: 10px; left: 10px;
+    min-width: 22px; height: 22px; padding: 0 6px;
+    display: grid; place-items: center;
+    border-radius: 11px;
+    background: var(--accent); color: var(--accent-ink, #fff);
+    font: 600 .72rem/1 var(--font-mono);
+    transform: scale(0); transition: transform var(--d-3) var(--e-spring);
+}
+.mr-tile[aria-pressed="true"] .mr-n { transform: scale(1); }
+.mr-tags { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.mr-tags em:empty { display: none; }
+.mr-tags em {
+    padding: 2px 6px; border-radius: 6px;
+    background: color-mix(in srgb, var(--ink) 78%, transparent); color: var(--paper);
+    font: 500 .6rem/1.3 var(--font-mono); font-style: normal; letter-spacing: .04em; text-transform: uppercase;
+}
+.mr-note { margin: 10px 0 0; font-size: var(--t-2xs); color: var(--ink-50); }
+.mr-note code { font-size: .95em; }
+
 /* ---------------------------------------------------------------------------
    Importer: cover picker (the rest of the importer lives in micro.css)
    --------------------------------------------------------------------------- */

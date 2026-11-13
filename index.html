@@ -766,10 +766,16 @@
                                 <input class="input" id="mediaUrl" type="url" placeholder="…or add an image by URL" aria-label="Image URL">
                                 <button class="btn btn--quiet" type="button" id="mediaUrlAdd">Add</button>
                             </form>
+                            <button class="btn btn--quiet" type="button" id="mediaFromRepo" data-tip="Pick screenshots that are already in the GitHub repo">
+                                <span data-icon="github" data-size="15"></span> From repo
+                            </button>
                             <button class="btn btn--quiet" type="button" id="aiAlt" data-tip="Write alt text for every screenshot that has none">
                                 <span data-icon="sparkles" data-size="15"></span> Describe all
                             </button>
                         </div>
+
+                        <!-- Screenshot picker for the project's repo (js/admin.js). -->
+                        <div class="md-repo" id="mediaRepo" hidden></div>
 
                         <!-- The grid above writes these; they are what gets saved. -->
                         <textarea id="fGallery" hidden></textarea>

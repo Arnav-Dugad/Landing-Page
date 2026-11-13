@@ -131,6 +131,24 @@
 .df-img.is-loaded { opacity: 1; filter: none; transform: none; }
 .df-img.is-failed { display: none; }
 
+/* Hover screen cycling on phone cards (js/widgets.js). */
+.df-img--cycle { z-index: 1; opacity: 1; filter: none; transform: none; transition: none; }
+.df-cycle-dots {
+    position: absolute; left: 50%; bottom: 14px; z-index: 3;
+    display: flex; gap: 4px;
+    padding: 4px 6px;
+    border-radius: 99px;
+    background: rgba(10, 10, 12, .38);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    translate: -50% 6px;
+    opacity: 0;
+    transition: opacity .3s var(--e-out), translate .4s var(--e-expo);
+    pointer-events: none;
+}
+.df-cycle-dots.is-on { opacity: 1; translate: -50% 0; }
+.df-cycle-dots i { width: 5px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.45); transition: width .35s var(--e-expo), background .35s; }
+.df-cycle-dots i.is-on { width: 14px; background: #fff; }
+
 .df-fallback {
     position: absolute; inset: 0;
     display: grid; place-items: center; align-content: center; gap: 10px;

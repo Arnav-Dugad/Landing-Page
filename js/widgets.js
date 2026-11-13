@@ -1088,10 +1088,32 @@
             if (slides.length < 2) { slides.forEach((s) => s.classList.add('is-current')); return; }
             let at = 0;
 
+            /* Phones arrive one after another from the side you're heading,
+               then settle into their fan — instead of the row moving as one
+               flat strip. Uses the independent translate/rotate/scale
+               properties so it composes with each phone's resting tilt. */
+            const dealIn = (slide, dir) => {
+                if (reduced()) return;
+                const phones = slide.querySelectorAll('.dgal-phones .dframe--phone, :scope > .dframe--phone');
+                phones.forEach((ph, n) => {
+                    const k = dir > 0 ? n : phones.length - 1 - n;
+                    ph.animate([
+                        { translate: `${dir * 140}px 26px`, rotate: `${dir * 9}deg`, scale: '.9', opacity: 0 },
+                        { translate: `${dir * -6}px -4px`, rotate: `${dir * -1}deg`, scale: '1.01', opacity: 1, offset: 0.72 },
+                        { translate: '0 0', rotate: '0deg', scale: '1', opacity: 1 }
+                    ], { duration: 760, delay: 90 + k * 85, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
+                });
+            };
+
             const go = (i, { instant = false } = {}) => {
+                const from = at;
                 at = (i + slides.length) % slides.length;
                 track.style.transition = instant || reduced() ? 'none' : '';
                 track.style.transform = `translateX(${-at * 100}%)`;
+                if (!instant && at !== from) {
+                    const wrapped = Math.abs(at - from) > 1 && (at === 0 || at === slides.length - 1);
+                    dealIn(slides[at], (at > from) !== wrapped ? 1 : -1);
+                }
                 gal.querySelectorAll('[data-gal-to]').forEach((d, n) => {
                     if (n === at) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current');
                 });
@@ -1139,6 +1161,95 @@
             gal.addEventListener('pointerleave', end);
         });
     }
+
+
+    /* =====================================================================
+       Screen cycling — hover a phone card and its screen flips through the
+       app's screenshots like swiping between screens, so the app can be
+       previewed without opening it. Mouse only; motion-reduced users and
+       touch get the still first screen.
+       ===================================================================== */
+
+    const CYCLE_FIRST_MS = 650;      // a glance doesn't trigger it
+    const CYCLE_EVERY_MS = 1500;
+    let cycling = null;               // { card, screen, shots, at, timer, dots }
+
+    function stopCycle({ restore = true } = {}) {
+        if (!cycling) return;
+        const c = cycling;
+        cycling = null;
+        clearTimeout(c.timer);
+        if (c.dots) { c.dots.classList.remove('is-on'); setTimeout(() => c.dots && c.dots.remove(), 300); }
+        if (!restore || c.at === 0) return;
+        // Back to the card's own screen, quietly.
+        const extra = c.screen.querySelectorAll('.df-img--cycle');
+        extra.forEach((img) => img.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: 'ease-out', fill: 'forwards' })
+            .finished.then(() => img.remove(), () => img.remove()));
+        const base = c.screen.querySelector('.df-img:not(.df-img--cycle)');
+        if (base) {
+            base.getAnimations().forEach((a) => a.cancel());
+            base.style.opacity = '';
+            base.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
+        }
+    }
+
+    async function stepCycle() {
+        const c = cycling;
+        if (!c) return;
+        const next = (c.at + 1) % c.shots.length;
+        const img = new Image();
+        img.className = 'df-img df-img--cycle';
+        img.alt = '';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.src = window.imgUrl ? window.imgUrl(c.shots[next], 240) : c.shots[next];
+        try { await img.decode(); } catch { /* still try to show it */ }
+        if (cycling !== c) return;                      // left while it loaded
+        const from = Array.from(c.screen.querySelectorAll('.df-img')).pop();
+        c.screen.insertBefore(img, c.screen.querySelector('.df-status'));
+        const ease = 'cubic-bezier(.2,.8,.2,1)';
+        // A push: the new screen slides in from the right, the old one
+        // drifts left and dims underneath, like an app navigating.
+        img.animate([{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }], { duration: 520, easing: ease });
+        if (from) {
+            from.animate([{ transform: 'translateX(0)', filter: 'brightness(1)' }, { transform: 'translateX(-28%)', filter: 'brightness(.6)' }],
+                { duration: 520, easing: ease, fill: 'forwards' }).finished.then(() => {
+                if (from.classList.contains('df-img--cycle')) from.remove();
+                else from.style.opacity = '0';
+            }, () => {});
+        }
+        c.at = next;
+        if (c.dots) c.dots.querySelectorAll('i').forEach((d, i) => d.classList.toggle('is-on', i === next));
+        c.timer = setTimeout(stepCycle, CYCLE_EVERY_MS);
+    }
+
+    function startCycle(card) {
+        if (reduced()) return;
+        const p = (window.getProjects ? window.getProjects() : []).find((x) => String(x.id) === card.dataset.id);
+        const screen = card.querySelector('.dframe--phone .df-screen');
+        if (!p || !screen) return;
+        const shots = (Array.isArray(p.gallery) ? p.gallery : []).map(window.safeUrl).filter(Boolean).slice(0, 8);
+        const base = screen.querySelector('.df-img');
+        if (shots.length < 2 || !base || !base.getAttribute('src')) return;
+        const dots = document.createElement('span');
+        dots.className = 'df-cycle-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        dots.innerHTML = shots.map((_, i) => `<i${i === 0 ? ' class="is-on"' : ''}></i>`).join('');
+        screen.appendChild(dots);
+        requestAnimationFrame(() => dots.classList.add('is-on'));
+        cycling = { card, screen, shots, at: 0, dots, timer: setTimeout(stepCycle, CYCLE_FIRST_MS) };
+    }
+
+    document.addEventListener('pointerover', (e) => {
+        if (e.pointerType && e.pointerType !== 'mouse') return;
+        const card = e.target.closest && e.target.closest('.card[data-id]');
+        if (cycling && cycling.card === card) return;
+        stopCycle();
+        if (card) startCycle(card);
+    }, { passive: true });
+    document.addEventListener('pointerleave', () => stopCycle(), { passive: true });
+    // A re-render replaces the card; let go of the old one.
+    window.addEventListener('projectsrendered', () => stopCycle({ restore: false }));
 
     window.Widgets = {
         techMark,
