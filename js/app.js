@@ -549,6 +549,34 @@
         else if (k === 'r') { e.preventDefault(); window.randomProject(); }
     });
 
+    /* Hero figures are shortcuts: the projects count goes to the grid, the
+       platforms count to the platform bar, the technologies to the stack. */
+    const STAT_TARGETS = {
+        projects: ['work', 'See all projects'],
+        platforms: ['platbar', 'Browse by platform'],
+        tech: ['stack', 'See the tech stack']
+    };
+    // A real link inside the label (stretched over the figure by CSS), so the
+    // description list keeps its meaning for screen readers.
+    document.querySelectorAll('[data-hstat]').forEach((cell) => {
+        const t = STAT_TARGETS[cell.dataset.hstat];
+        const dd = cell.querySelector('dd');
+        if (!t || !dd) return;
+        cell.classList.add('hstat--go');
+        const a = document.createElement('a');
+        a.className = 'hstat-link';
+        a.href = `#${t[0]}`;
+        a.title = t[1];
+        a.append(...dd.childNodes);
+        dd.appendChild(a);
+        a.addEventListener('click', (e) => {
+            const target = document.getElementById(t[0]);
+            if (!target) return;
+            e.preventDefault();
+            target.scrollIntoView({ behavior: window.motionReduced && window.motionReduced() ? 'auto' : 'smooth', block: 'start' });
+        });
+    });
+
     /* No intro curtain: it covered the page until every script had loaded,
        then held for another 1.5s — on a slow phone, seconds of nothing.
        The hero's own name-drawing entrance is the welcome now. */

@@ -365,6 +365,13 @@
 }
 .hstat { padding: 18px 26px 2px 0; margin-right: 26px; border-right: 1px solid var(--line-soft); }
 .hstat:last-child { border-right: 0; }
+.hstat--go { position: relative; }
+.hstat-link { color: inherit; text-decoration: none; }
+.hstat-link::after { content: ""; position: absolute; inset: 0; }
+.hstat--go:hover dt { color: var(--accent); }
+.hstat--go:hover dd { color: var(--ink-70); }
+.hstat-link:focus-visible { outline: none; }
+.hstat-link:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .hstat dt {
     font-family: var(--font-display);
     font-size: clamp(1.7rem, 2.8vw, 2.4rem);
