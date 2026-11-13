@@ -471,3 +471,7 @@
     .case-body { grid-template-columns: 1fr; }
     .case-side { position: static; }
 }
+
+.case-missing-line { max-width: 52ch; margin-inline: auto; color: var(--ink-50); }
+.case-missing-line em { font-family: var(--font-display); font-size: 1.15rem; }
+.case-missing-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }

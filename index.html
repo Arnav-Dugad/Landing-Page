@@ -21,6 +21,12 @@
     } catch (e) {
         document.documentElement.dataset.theme = 'light';
     }
+    // A skipped page-to-page transition rejects promises nobody awaits; the
+    // page's scripts are deferred, so this has to be registered here.
+    window.addEventListener('pagereveal', function (e) {
+        var vt = e.viewTransition;
+        if (vt) { [vt.ready, vt.finished, vt.updateCallbackDone].forEach(function (p) { if (p) p.catch(function () {}); }); }
+    });
 })();
 </script>
 

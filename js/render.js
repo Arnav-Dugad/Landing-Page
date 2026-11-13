@@ -1216,6 +1216,7 @@
             const vt = document.startViewTransition(swap);
             // Navigating away or a second open mid-morph skips it; harmless.
             vt.ready.catch(() => {});
+            if (vt.updateCallbackDone) vt.updateCallbackDone.catch(() => {});
             vt.finished.catch(() => {}).finally(() => {
                 document.documentElement.classList.remove('vt-sheet');
                 sheet.classList.remove('vt-instant');

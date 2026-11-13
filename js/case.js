@@ -146,16 +146,24 @@
 
     /* ---- Missing / error ------------------------------------------------ */
 
-    function missing(title, message) {
-        window.applyProjectTheme(null);
+    /* A dead end is the worst answer to a shared link: when the project
+       exists but has no write-up, offer the project itself first. */
+    function missing(title, message, project = null) {
+        window.applyProjectTheme(project ? project.color : null);
+        const slug = project ? (project.slug || window.projectSlug(project)) : '';
         root.innerHTML = `
             <div class="case-missing u-shell">
                 ${window.icon('doc', { raw: true, size: 34 })}
                 <h1>${esc(title)}</h1>
                 <p>${esc(message)}</p>
-                <a href="./#work" class="btn btn--primary" style="margin-top:10px">
-                    ${window.icon('arrow-left', { raw: true, size: 17 })} Back to all work
-                </a>
+                ${project && (project.tagline || project.desc) ? `<p class="case-missing-line"><em>${esc(project.tagline || project.desc)}</em></p>` : ''}
+                <div class="case-missing-acts">
+                    ${project ? `<a href="./#${encodeURIComponent(slug)}" class="btn btn--primary">
+                        ${window.icon('arrow-right', { raw: true, size: 17 })} See the project</a>` : ''}
+                    <a href="./#work" class="btn ${project ? 'btn--ghost' : 'btn--primary'}">
+                        ${window.icon('grid', { raw: true, size: 17 })} All projects
+                    </a>
+                </div>
             </div>`;
     }
 
@@ -593,7 +601,7 @@
             return;
         }
         if (!project.caseStudy) {
-            missing('No case study yet', `“${project.title}” doesn't have a written case study — but it is live on the work page.`);
+            missing('No case study yet', `“${project.title}” doesn't have a written case study yet — everything else about it is one click away.`, project);
             return;
         }
         if (signature(project) !== shown) render(project, { instant: shown !== null });
