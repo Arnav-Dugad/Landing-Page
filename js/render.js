@@ -1034,6 +1034,8 @@
                         <div class="detail-sub">More like this</div>
                         ${w.relatedHtml(related, { link: () => null })}
                     </div>` : ''}
+
+                ${upNextHtml(p)}
             </div>
             ${w ? w.getBarHtml(p) : ''}`;
     }
@@ -1219,6 +1221,26 @@
     window.currentProjectId = () => currentDetailId;
 
     /* Prev/next walks the currently visible, currently sorted list. */
+    /* The end of a project is the start of the next one: on a phone the
+       sheet's side arrows are hidden, so without this the only way on was
+       to close the sheet and find the next card again. */
+    function upNextHtml(p) {
+        const list = visibleProjects();
+        if (list.length < 2) return '';
+        const i = Math.max(0, list.findIndex((x) => String(x.id) === String(p.id)));
+        const next = list[(i + 1) % list.length];
+        const w = W();
+        return `
+            <button type="button" class="upnext" data-upnext style="${window.toneVars(next.color)}">
+                <span class="upnext-k">Next project <em>${i + 2 > list.length ? 1 : i + 2} of ${list.length}</em></span>
+                <span class="upnext-row">
+                    ${w ? w.appIconHtml(next, { size: 40 }) : ''}
+                    <span class="upnext-tx"><b>${esc(next.title)}</b><small>${esc(next.tagline || next.desc || '')}</small></span>
+                    <span class="upnext-go" aria-hidden="true">${window.icon('arrow-right', { raw: true, size: 18 })}</span>
+                </span>
+            </button>`;
+    }
+
     window.detailNav = (dir) => {
         const ids = visibleProjects().map((p) => String(p.id));
         if (!ids.length) return;
@@ -1408,6 +1430,12 @@
             }
             const rel = e.target.closest('.rel-card[data-open]');
             if (rel) { window.openProject(rel.dataset.open); return; }
+            if (e.target.closest('[data-upnext]')) {
+                const panel = sheet.querySelector('.sheet-panel');
+                if (panel) panel.scrollTo({ top: 0 });
+                window.detailNav(1);
+                return;
+            }
             const edit = e.target.closest('[data-act="edit"]');
             if (edit && window.editProject) { window.closeProject(); window.editProject(edit.dataset.id); }
         });

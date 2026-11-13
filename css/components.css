@@ -1297,3 +1297,37 @@ body.is-cursor .cur-dot.is-hidden { opacity: 0; }
 .card .card-cat { background: none; border: 0; padding: 0; color: inherit; text-transform: uppercase; letter-spacing: .08em; }
 .card .card-cat:hover { color: var(--ink); }
 .card .tag--go:focus-visible, .card .card-cat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* "Next project" at the foot of a project sheet. */
+.upnext {
+    display: grid; gap: 10px;
+    width: 100%;
+    margin-top: 34px;
+    padding: 18px 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background:
+        radial-gradient(80% 120% at 100% 0%, color-mix(in srgb, var(--tone-b, var(--accent)) 16%, transparent), transparent 70%),
+        var(--paper-raised);
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color var(--d-2) var(--e-out), transform var(--d-3) var(--e-expo), box-shadow var(--d-3) var(--e-expo);
+}
+.upnext:hover { border-color: var(--line-strong); transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.upnext-k {
+    font-family: var(--font-mono); font-size: var(--t-2xs);
+    letter-spacing: .1em; text-transform: uppercase; color: var(--ink-35);
+}
+.upnext-k em { font-style: normal; margin-left: 8px; color: var(--ink-35); opacity: .8; }
+.upnext-row { display: flex; align-items: center; gap: 14px; }
+.upnext-tx { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.upnext-tx b { font-family: var(--font-display); font-size: 1.25rem; font-weight: 500; }
+.upnext-tx small { font-size: var(--t-sm); color: var(--ink-50); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upnext-go {
+    flex: none; display: grid; place-items: center;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--ink); color: var(--paper);
+    transition: transform var(--d-3) var(--e-spring);
+}
+.upnext:hover .upnext-go { transform: translateX(4px); }
