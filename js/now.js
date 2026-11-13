@@ -63,7 +63,7 @@
         }
 
         if (!filled.length && !note) {
-            empty('Nothing posted yet', 'There is no update here at the moment — check back soon.');
+            fromReleases();
             return;
         }
 
@@ -83,6 +83,40 @@
                     <div class="now-prose">${prose(note)}</div>
                 </section>` : ''}`;
 
+        if (window.Motion) window.Motion.reveal(root);
+    }
+
+    /* Nothing written yet: rather than an empty page, show what has actually
+       shipped lately, from the release radar — clearly labelled as such. */
+    async function fromReleases() {
+        let items = [];
+        try {
+            const data = await window.edgeFetch('/api/releases');
+            items = ((data && data.items) || []).filter((r) => r && r.title && r.date).slice(0, 5);
+        } catch { items = []; }
+        if (!items.length) {
+            empty('Nothing posted yet', 'There is no update here at the moment — check back soon.');
+            return;
+        }
+        if (updated) updated.textContent = `From the release radar · latest ${window.relativeTime(new Date(items[0].date).toISOString())}`;
+        const when = (ms) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        root.className = 'now-grid';
+        root.innerHTML = `
+            <section class="now-card now-card--auto" data-reveal="up">
+                <header>
+                    <span class="now-ic">${window.icon('rocket', { raw: true, size: 18 })}</span>
+                    <h2>Recently shipped</h2>
+                </header>
+                <ul class="now-ships">${items.map((r) => `
+                    <li>
+                        <a href="./#${encodeURIComponent(r.slug || '')}">${esc(r.title)}</a>
+                        <b>${esc(r.tag || '')}</b>
+                        <time datetime="${new Date(r.date).toISOString()}">${when(r.date)}</time>
+                        ${Array.isArray(r.summary) && r.summary[0] ? `<p>${esc(r.summary[0])}</p>` : ''}
+                    </li>`).join('')}
+                </ul>
+                <p class="now-auto-note">Filled in automatically from GitHub releases until a written update is posted.</p>
+            </section>`;
         if (window.Motion) window.Motion.reveal(root);
     }
 

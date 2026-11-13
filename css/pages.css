@@ -332,3 +332,22 @@
 @media (prefers-reduced-motion: reduce) {
     .lost-title span, .lost-title em { animation: none !important; }
 }
+
+/* Now page, auto-filled from the release radar */
+.now-card--auto { grid-column: 1 / -1; }
+.now-ships { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+.now-ships li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: 4px 14px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line-soft);
+}
+.now-ships li:first-child { border-top: 0; }
+.now-ships a { font-family: var(--font-display); font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+.now-ships a:hover { color: var(--accent); }
+.now-ships b { font-family: var(--font-mono); font-size: var(--t-2xs); font-weight: 500; color: var(--accent); }
+.now-ships time { font-family: var(--font-mono); font-size: var(--t-2xs); color: var(--ink-35); }
+.now-ships p { grid-column: 1 / -1; margin: 2px 0 0; font-size: var(--t-sm); color: var(--ink-50); line-height: 1.55; }
+.now-auto-note { margin: 16px 0 0; font-size: var(--t-2xs); color: var(--ink-35); }
