@@ -66,6 +66,18 @@
         targets.forEach((el) => revealObserver.observe(el));
     }
 
+    /* Anything that takes keyboard focus shows itself at once. Tabbing only
+       scrolls the focused control into view — often too little to trip the
+       observer — and a focused card must never be invisible. */
+    document.addEventListener('focusin', (e) => {
+        let el = e.target && e.target.closest && e.target.closest('[data-reveal]:not(.is-in)');
+        while (el) {
+            el.classList.add('is-in');
+            if (revealObserver) revealObserver.unobserve(el);
+            el = el.parentElement && el.parentElement.closest('[data-reveal]:not(.is-in)');
+        }
+    });
+
     /* Stagger a group of children by index. Cheaper than authoring N delays. */
     function stagger(container, step = 60, startAt = 0) {
         if (!container) return;

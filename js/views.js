@@ -226,6 +226,8 @@
     function paintPill() {
         if (!pill) return;
         pill.classList.toggle('is-on', pastBar && inWork);
+        // Hidden pill: out of the tab order and the accessibility tree.
+        pill.inert = !(pastBar && inWork);
     }
 
     if (sentinel && pill && work) {

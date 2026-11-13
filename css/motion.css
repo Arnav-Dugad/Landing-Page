@@ -21,6 +21,8 @@
    permanent hint kept every reveal target (each card, its body, every header)
    on its own GPU layer for the whole visit, dragging overlapping content up. */
 [data-reveal].is-in { opacity: 1; transform: none; filter: none; }
+/* Keyboard focus never waits for an entrance: a focused card is shown at once. */
+[data-reveal]:focus-within { opacity: 1; transform: none; filter: none; transition: none; }
 
 [data-reveal="up"]     { transform: translateY(30px); }
 [data-reveal="down"]   { transform: translateY(-24px); }

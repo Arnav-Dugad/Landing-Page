@@ -561,8 +561,17 @@
         clear.setAttribute('aria-label', 'Clear the search');
         clear.innerHTML = window.icon ? window.icon('x', { raw: true, size: 13 }) : '×';
         label.appendChild(clear);
-        const paint = () => label.classList.toggle('has-value', !!input.value);
+        // Invisible while empty, so out of the tab order and hidden from
+        // screen readers too.
+        const paint = () => {
+            const on = !!input.value;
+            label.classList.toggle('has-value', on);
+            clear.tabIndex = on ? 0 : -1;
+            clear.setAttribute('aria-hidden', String(!on));
+        };
         input.addEventListener('input', paint);
+        // Code also sets the search (a tag on a card, Clear filters…).
+        window.addEventListener('projectsrendered', paint);
         clear.addEventListener('click', (e) => {
             e.preventDefault();
             input.value = '';
