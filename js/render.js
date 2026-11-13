@@ -154,6 +154,39 @@
         ...(p.tags || []), ...(p.searchTerms || []), ...(p.highlights || [])
     ].filter(Boolean).join(' ').toLowerCase();
 
+    /* Typo tolerance. A search word with no exact hit may match a word one
+       edit away (two for long words) — a swapped pair of letters counts as
+       one edit, so "kotiln" finds Kotlin and "andriod" Android. Short words
+       stay exact: at three or four letters a single edit is a different word. */
+    function editDistance(a, b, max) {
+        if (Math.abs(a.length - b.length) > max) return max + 1;
+        const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+        for (let j = 1; j <= b.length; j++) d[0][j] = j;
+        for (let i = 1; i <= a.length; i++) {
+            let rowMin = Infinity;
+            for (let j = 1; j <= b.length; j++) {
+                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+                if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+                rowMin = Math.min(rowMin, d[i][j]);
+            }
+            if (rowMin > max) return max + 1;
+        }
+        return d[a.length][b.length];
+    }
+    const tokenCache = new WeakMap();
+    const tokensOf = (p) => {
+        if (!tokenCache.has(p)) tokenCache.set(p, new Set(haystack(p).split(/[^a-z0-9+#.]+/).filter((t) => t.length > 3)));
+        return tokenCache.get(p);
+    };
+    const nearly = (p, w) => {
+        if (w.length < 5) return false;
+        const max = w.length >= 8 ? 2 : 1;
+        for (const t of tokensOf(p)) if (editDistance(w, t, max) <= max) return true;
+        return false;
+    };
+    let fuzzyHit = false;
+
     function matches(p, { filter = state.filter, search = state.search, platform = state.platform, attention = state.attention } = {}) {
         // Admin only: "needs attention" narrows the grid to one kind of problem
         // (admin-dock.js owns the checks).
@@ -167,11 +200,16 @@
         const words = String(search).toLowerCase().trim().split(/\s+/).filter(Boolean);
         if (!words.length) return true;
         const hay = haystack(p);
-        return words.every((w) => hay.includes(w));
+        return words.every((w) => {
+            if (hay.includes(w)) return true;
+            if (nearly(p, w)) { fuzzyHit = true; return true; }
+            return false;
+        });
     }
     window.projectMatches = matches;
 
     function visibleProjects() {
+        fuzzyHit = false;
         const list = projects().filter((p) => matches(p));
 
         list.sort((a, b) => {
@@ -484,7 +522,7 @@
         const bits = [];
         if (state.platform !== 'all') bits.push(window.PLATFORMS[state.platform].noun);
         if (state.filter !== 'all') bits.push(categoryLabel(state.filter));
-        if (state.search.trim()) bits.push(`“${state.search.trim()}”`);
+        if (state.search.trim()) bits.push(fuzzyHit ? `close matches for “${state.search.trim()}”` : `“${state.search.trim()}”`);
         if (state.attention && window.AdminAttention) bits.push(window.AdminAttention.label(state.attention));
         if (state.since) bits.push('New since your last visit');
         const narrowed = bits.length > 0;
