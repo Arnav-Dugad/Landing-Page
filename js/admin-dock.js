@@ -174,9 +174,35 @@
             { icon: 'pulse', label: 'Health check', hint: 'dead repos, links that are down', run: () => call('openHealth') },
             { icon: 'pen', label: 'Edit the Now page', run: () => call('openNowEditor') },
             '-',
+            { icon: 'eye', label: 'Preview as a visitor', hint: 'paging, hidden projects, no tools', run: () => previewAsVisitor(true) },
             { icon: 'unlock', label: 'Sign out', run: () => call('toggleAdmin') }
         ];
     }
+
+    /* Preview as a visitor: the page drops every admin affordance (dock,
+       attention strip, card menus, hidden projects, unpaged grid) while the
+       session stays signed in; a pill brings it all back. Nothing is written,
+       so there's nothing to undo. */
+    let previewPill = null;
+    function previewAsVisitor(on) {
+        if (on && !window.isAdmin) return;
+        window.previewingVisitor = on;
+        window.isAdmin = !on;
+        if (window.applyAdminState) window.applyAdminState();
+        if (on) {
+            previewPill = document.createElement('div');
+            previewPill.className = 'preview-pill';
+            previewPill.setAttribute('role', 'status');
+            previewPill.innerHTML = `${icon('eye', 14)}<span>Previewing as a visitor</span>
+                <button type="button" class="btn btn--primary">Back to admin</button>`;
+            previewPill.querySelector('button').addEventListener('click', () => previewAsVisitor(false));
+            document.body.appendChild(previewPill);
+        } else if (previewPill) {
+            previewPill.remove();
+            previewPill = null;
+        }
+    }
+    window.previewAsVisitor = previewAsVisitor;
 
     dock.querySelector('#dockAdd').addEventListener('click', () => openAdd());
     dock.querySelector('#dockMore').addEventListener('click', (e) => {

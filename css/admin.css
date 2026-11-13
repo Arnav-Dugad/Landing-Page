@@ -732,3 +732,18 @@ body.has-ctray .dock-nudge { bottom: calc(158px + env(safe-area-inset-bottom, 0p
     .dock-nudge { left: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 24px); }
 }
 @media (prefers-reduced-motion: reduce) { .dock-nudge, .dock-nudge:disabled svg { animation: none; } }
+
+/* "Previewing as a visitor" — admin, floating at the bottom of the screen. */
+.preview-pill {
+    position: fixed; left: 50%; bottom: 22px; z-index: var(--z-toast, 90);
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 8px 8px 16px;
+    border-radius: var(--r-full);
+    background: var(--ink); color: var(--paper);
+    box-shadow: var(--shadow-3);
+    font-size: var(--t-sm);
+    translate: -50% 0;
+    animation: preview-in var(--d-4) var(--e-spring) both;
+}
+.preview-pill .btn { height: 34px; padding: 0 14px; background: var(--paper); color: var(--ink); border-color: transparent; }
+@keyframes preview-in { from { opacity: 0; translate: -50% 16px; } }

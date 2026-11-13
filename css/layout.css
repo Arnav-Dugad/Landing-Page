@@ -304,6 +304,8 @@
     color: var(--ink-50);
     margin-bottom: clamp(22px, 4vh, 40px);
 }
+.hero-badge { font-family: inherit; cursor: pointer; transition: border-color var(--d-2) var(--e-out), box-shadow var(--d-3) var(--e-expo), transform var(--d-3) var(--e-expo); }
+.hero-badge:hover { border-color: color-mix(in srgb, var(--pine) 45%, var(--line)); box-shadow: var(--shadow-2); transform: translateY(-1px); }
 .hero-badge b { color: var(--ink); font-weight: 500; }
 .hero-badge .dot {
     position: relative;
